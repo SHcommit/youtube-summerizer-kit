@@ -392,21 +392,6 @@ sessions and quota. Reports are written atomically to `benchmark-results/run-*/r
 `report.md`. The project does not yet publish a multilingual, multi-duration benchmark corpus or
 claim that it always outperforms Gemini.
 
-## Roadmap & Future Vision
-
-`chew` is expanding beyond a CLI tool into an interactive visual dashboard and personal knowledge graph platform:
-
-1. **Real-Time Visual Pipeline Progress Tracker**:
-   - Visualizing live DAG task execution states (`Acquire` → `Segment` → `Hierarchical Parallel LLM Synthesis` → `Assembly`) with active worker lease statuses and step-by-step progress cards.
-   - Clear visual indicators showing exactly where execution paused during a network or authentication interruption.
-
-2. **Knowledge Graph & Mindmap Dashboard**:
-   - **Obsidian-Style Interactive Knowledge Graph**: An interactive force-directed graph view (`D3.js` / `Cytoscape.js`) that interlinks shared concepts, frameworks, and topics across multiple analyzed videos.
-   - **Interactive Mindmap View**: A clean mindmap viewer (`Markmap.js` / `Mermaid.js`) displaying a single video's hierarchy: chapters → subtopics → claims → evidence timestamps.
-
-3. **Multimodal Frame & Vision Integration**:
-   - OCR and Vision LLM sampling to capture diagrams, code snippets, and slide graphics shown on screen, enriching transcript analysis with visual context.
-
 ## Development and verification
 
 ```bash

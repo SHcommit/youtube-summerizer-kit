@@ -384,21 +384,6 @@ timestamp accuracy, 장시간 구간 coverage, unsupported claim을 계산합니
 저장됩니다. 아직 실제 다국어·다양한 길이의 공개 코퍼스 결과를 제공하거나 Gemini보다 항상
 우수하다고 주장하지 않습니다.
 
-## Roadmap & Future Vision
-
-`chew`는 단순한 CLI 도구를 넘어 시각적 대시보드와 개인 지식 그래프를 제공하는 대화형 플랫폼으로 확장 중입니다:
-
-1. **실시간 파이프라인 시각화 진행률 (Real-time Pipeline Progress Tracker)**:
-   - DAG 작업 스케줄러와 연동하여 자막 수집 → 소주제 분할 → 계층별 병렬 LLM 합성 → 문서 조립 상태를 실시간 시각 그래프로 표시.
-   - 네트워크 및 인증 중단 시 정확히 어느 단계에서 멈추었는지 직관적인 상태 카드 제공.
-
-2. **지식 그래프 & 마인드맵 대시보드 (Knowledge Graph & Mindmap Dashboard)**:
-   - **Obsidian 스타일 지식 그래프**: 여러 영상을 요약할수록 공통 키워드와 기술 개념이 얽히는 드래그형 인터랙티브 그래프 뷰 (`D3.js` / `Cytoscape.js`).
-   - **대화형 마인드맵**: 단일 영상의 챕터 → 소주제 → 핵심 주장 → 근거 타임스탬프를 트리 형태로 탐색하는 마인드맵 뷰어 (`Markmap.js` / `Mermaid.js`).
-
-3. **프레임 기반 멀티모달 자막 강화 (Multimodal Vision Analysis)**:
-   - 영상 화면 속 도표, 슬라이드 텍스트, 코드 블록을 OCR 및 Vision LLM으로 함께 인퓨징하여 자막 이상의 종합 기술 지식 보관소 구축.
-
 ## 개발과 검증
 
 ```bash
