@@ -6,7 +6,7 @@ A local-first, resumable CLI (`chew`) that turns YouTube videos and local audio 
 knowledge. It validates transcripts, analyzes chapters and topics in parallel, and compiles the
 result into multiple formats instead of producing a one-off summary.
 
-- Run with `chew <URL>` (or aliases `yts`, `ytsummarizer`, `ytsum`).
+- Run with `chew <URL>`.
 - Handles long videos with chapter-aware, topic-level parallel processing.
 - Resumes from completed work after a network or AI CLI interruption.
 - Reuses an existing Knowledge Pack for the same URL and analysis settings—no run ID required.
@@ -36,7 +36,7 @@ when no already-verified runtime is available.
 
 If a runtime with a preflight authentication check is signed out, automatic selection moves to
 another ready runtime. If you explicitly select a signed-out runtime, the run is saved as
-`blocked_auth` and the CLI prints the login command. Sign in, then run `ytsum resume`; completed
+`blocked_auth` and the CLI prints the login command. Sign in, then run `chew resume`; completed
 segments are preserved.
 
 The kit never reads or copies account files or API keys. It launches installed AI CLIs as child
@@ -92,8 +92,8 @@ pip install -e '.[youtube,whisper]'
 Check the environment after installation:
 
 ```bash
-ytsum doctor
-ytsum doctor --json
+chew doctor
+chew doctor --json
 ```
 
 ## Videos without captions
@@ -130,16 +130,16 @@ file is read directly by `faster-whisper`; it is not copied, modified, or delete
 are not accepted as local inputs.
 
 ```bash
-ytsum summarize ./recordings/meeting.mp3
-ytsum study ./lectures/week-01.mp4
+chew summarize ./recordings/meeting.mp3
+chew study ./lectures/week-01.mp4
 
 # A URL or supported local path may also be given without `summarize`
-ytsum ./recordings/interview.m4a
+chew ./recordings/interview.m4a
 ```
 
 Supported extensions are AAC, FLAC, M4A, MKV, MOV, MP3, MP4, MPEG/MPG, OGA/OGG, OPUS, WAV, and
 WebM. The file content is identified by SHA-256, so the same bytes reuse a compatible Knowledge Pack
-after a move or rename. An interrupted run stores the absolute source path for `ytsum resume`; keep
+after a move or rename. An interrupted run stores the absolute source path for `chew resume`; keep
 the file available at that path until analysis completes. The first transcription can download the
 configured Whisper model and uses local CPU/GPU time, but does not consume hosted AI transcription
 quota.
@@ -148,18 +148,18 @@ quota.
 
 ```bash
 # Detailed digest
-ytsum summarize 'https://youtu.be/VIDEO_ID'
+chew summarize 'https://youtu.be/VIDEO_ID'
 
 # Local recording (requires the `whisper` extra)
-ytsum summarize ./recordings/meeting.mp3
+chew summarize ./recordings/meeting.mp3
 
 # Purpose-specific reassembly
-ytsum blog 'https://youtu.be/VIDEO_ID'
-ytsum study 'https://youtu.be/VIDEO_ID'
-ytsum obsidian 'https://youtu.be/VIDEO_ID'
+chew blog 'https://youtu.be/VIDEO_ID'
+chew study 'https://youtu.be/VIDEO_ID'
+chew obsidian 'https://youtu.be/VIDEO_ID'
 
 # Custom output directory
-ytsum blog 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
+chew blog 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
 ```
 
 If the source is omitted, the CLI prompts for a YouTube URL or local media path. Add `--json` in
@@ -182,7 +182,7 @@ automation to receive a stable `{"ok": true, "data": ...}` response.
 Initialize editable configuration once per project:
 
 ```bash
-ytsum config --init
+chew config --init
 ```
 
 The command creates these files without overwriting existing ones:
@@ -330,10 +330,10 @@ Each job has a unique claim token, preventing a stale worker from overwriting a 
 Heartbeats extend active leases; expired work returns to the queue after a process or network failure.
 
 ```bash
-ytsum status
-ytsum status RUN_ID
-ytsum resume
-ytsum resume RUN_ID
+chew status
+chew status RUN_ID
+chew resume
+chew resume RUN_ID
 ```
 
 Resume uses the analysis recipe saved with the original run rather than the current configuration.
@@ -353,11 +353,11 @@ are never cleaned automatically.
 - `archive`: Preserve analysis revisions and intermediate artifacts.
 
 ```bash
-ytsum storage
-ytsum cleanup --policy compact          # Preview only
-ytsum cleanup --policy compact --apply
-ytsum delete RUN_ID                     # Confirmation required
-ytsum purge                             # Requires the confirmation phrase: 완전삭제
+chew storage
+chew cleanup --policy compact          # Preview only
+chew cleanup --policy compact --apply
+chew delete RUN_ID                     # Confirmation required
+chew purge                             # Requires the confirmation phrase: 완전삭제
 ```
 
 `cleanup` is preview-only by default. Internal data is not deleted without an explicit `--apply` or
@@ -366,8 +366,8 @@ interactive confirmation.
 ## Benchmarking
 
 ```bash
-ytsum benchmark list
-ytsum benchmark run 'https://youtu.be/VIDEO_ID' --live \
+chew benchmark list
+chew benchmark run 'https://youtu.be/VIDEO_ID' --live \
   --reference benchmark-reference.json --repeats 3 --runtime codex
 ```
 

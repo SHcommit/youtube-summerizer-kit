@@ -5,7 +5,7 @@
 YouTube 영상과 로컬 오디오·영상 파일을 재사용 가능한 지식으로 변환하는 로컬 중심 CLI(`chew`)입니다.
 일회성 요약을 출력하는 대신 자막을 검증하고, 장·소주제를 병렬 분석하여 다양한 포맷 문서로 조립합니다.
 
-- `chew <URL>` 명령으로 실행합니다 (`yts`, `ytsummarizer`, `ytsum` 별칭 지원).
+- `chew <URL>` 명령으로 실행합니다.
 - 챕터를 인식하고 소주제 단위로 병렬 처리하여 긴 영상도 안정적으로 분석합니다.
 - 중간에 네트워크나 AI CLI가 끊겨도 완료된 작업부터 이어합니다.
 - 같은 URL과 분석 설정은 run-id 없이도 기존 Knowledge Pack을 재사용합니다.
@@ -33,7 +33,7 @@ Claude → Ollama → Antigravity 순서의 후보군에서 선택합니다. 로
 
 Codex나 Claude처럼 인증 상태를 확인할 수 있는 실행기가 로그아웃 상태라면 다른 준비된
 실행기로 넘어갑니다. 특정 실행기를 설정으로 고정했는데 로그인되어 있지 않다면 로그인
-명령을 안내하고 실행을 `blocked_auth` 상태로 보존합니다. 로그인 후 `ytsum 이어하기`를
+명령을 안내하고 실행을 `blocked_auth` 상태로 보존합니다. 로그인 후 `chew 이어하기`를
 실행하면 완료된 구간을 다시 처리하지 않고 계속합니다.
 
 이 프로젝트는 사용자의 인증 파일이나 API 키를 직접 읽거나 복사하지 않습니다. 설치된 CLI를
@@ -89,8 +89,8 @@ pip install -e '.[youtube,whisper]'
 설치 후 먼저 환경을 확인합니다.
 
 ```bash
-ytsum 진단
-ytsum 진단 --json
+chew 진단
+chew 진단 --json
 ```
 
 ## 자막이 없는 영상
@@ -126,16 +126,16 @@ YouTube URL을 받는 자리에 기존 로컬 미디어 경로를 넣을 수 있
 않습니다. HTTP 미디어 URL은 로컬 입력으로 받지 않습니다.
 
 ```bash
-ytsum 요약 ./recordings/meeting.mp3
-ytsum 학습 ./lectures/week-01.mp4
+chew 요약 ./recordings/meeting.mp3
+chew 학습 ./lectures/week-01.mp4
 
 # URL이나 지원하는 로컬 경로는 `요약` 없이 바로 줄 수도 있음
-ytsum ./recordings/interview.m4a
+chew ./recordings/interview.m4a
 ```
 
 지원 확장자는 AAC, FLAC, M4A, MKV, MOV, MP3, MP4, MPEG/MPG, OGA/OGG, OPUS, WAV, WebM입니다.
 파일 내용의 SHA-256으로 입력을 식별하므로 같은 파일을 옮기거나 이름을 바꿔도 호환되는
-Knowledge Pack을 재사용합니다. 중단된 실행은 `ytsum 이어하기`를 위해 절대 경로를 저장하므로
+Knowledge Pack을 재사용합니다. 중단된 실행은 `chew 이어하기`를 위해 절대 경로를 저장하므로
 분석이 끝날 때까지는 해당 경로에 파일을 유지해야 합니다. 첫 음성 인식 때 설정한 Whisper
 모델을 내려받을 수 있고 로컬 CPU/GPU 시간을 사용하지만, hosted 음성 인식 quota는 쓰지
 않습니다.
@@ -144,21 +144,21 @@ Knowledge Pack을 재사용합니다. 중단된 실행은 `ytsum 이어하기`�
 
 ```bash
 # 기본 긴 내용 정리본
-ytsum 요약 'https://youtu.be/VIDEO_ID'
+chew 요약 'https://youtu.be/VIDEO_ID'
 
 # 로컬 녹음 파일 (`whisper` extra 필요)
-ytsum 요약 ./recordings/meeting.mp3
+chew 요약 ./recordings/meeting.mp3
 
 # URL을 첫 인자로 주면 `요약`을 생략할 수도 있음
-ytsum 'https://youtu.be/VIDEO_ID'
+chew 'https://youtu.be/VIDEO_ID'
 
 # 목적별 재조립
-ytsum 블로그 'https://youtu.be/VIDEO_ID'
-ytsum 학습 'https://youtu.be/VIDEO_ID'
-ytsum 옵시디언 'https://youtu.be/VIDEO_ID'
+chew 블로그 'https://youtu.be/VIDEO_ID'
+chew 학습 'https://youtu.be/VIDEO_ID'
+chew 옵시디언 'https://youtu.be/VIDEO_ID'
 
 # 출력 위치 지정
-ytsum 블로그 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
+chew 블로그 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
 ```
 
 입력을 생략하면 YouTube URL 또는 로컬 미디어 경로를 대화형으로 묻습니다. 자동화에서는
@@ -181,7 +181,7 @@ ytsum 블로그 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
 프로젝트에서 한 번만 초기화합니다.
 
 ```bash
-ytsum 설정 --초기화
+chew 설정 --초기화
 ```
 
 다음 파일이 생성되며 기존 파일은 덮어쓰지 않습니다.
@@ -323,10 +323,10 @@ heartbeat로 lease를 연장하고, 프로세스 종료나 네트워크 단절�
 넣습니다.
 
 ```bash
-ytsum 상태
-ytsum 상태 RUN_ID
-ytsum 이어하기
-ytsum 이어하기 RUN_ID
+chew 상태
+chew 상태 RUN_ID
+chew 이어하기
+chew 이어하기 RUN_ID
 ```
 
 재개할 때는 현재 설정이 아니라 최초 run에 저장된 분석 recipe를 사용합니다. URL만 다시
@@ -345,11 +345,11 @@ ytsum 이어하기 RUN_ID
 - `archive`: 분석 리비전과 중간 자료를 계속 보존합니다.
 
 ```bash
-ytsum 저장소
-ytsum 정리 --policy compact        # 미리보기
-ytsum 정리 --policy compact --apply
-ytsum 삭제 RUN_ID                  # 확인 후 특정 실행 삭제
-ytsum 완전삭제                      # 별도 확인 문구 필요
+chew 저장소
+chew 정리 --policy compact        # 미리보기
+chew 정리 --policy compact --apply
+chew 삭제 RUN_ID                  # 확인 후 특정 실행 삭제
+chew 완전삭제                      # 별도 확인 문구 필요
 ```
 
 `정리`는 기본적으로 미리보기만 수행합니다. 명시적 `--apply` 또는 사용자 확인 없이는 내부
@@ -358,8 +358,8 @@ ytsum 완전삭제                      # 별도 확인 문구 필요
 ## 벤치마크
 
 ```bash
-ytsum 벤치마크 목록
-ytsum 벤치마크 실행 'https://youtu.be/VIDEO_ID' --live \
+chew 벤치마크 목록
+chew 벤치마크 실행 'https://youtu.be/VIDEO_ID' --live \
   --reference benchmark-reference.json --repeats 3 --runtime codex
 ```
 

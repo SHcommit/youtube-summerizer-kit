@@ -43,7 +43,7 @@ class Application(Protocol):
 
 
 app = typer.Typer(
-    name="ytsum",
+    name="chew",
     help=(
         "Turn YouTube videos and local audio and video files into reusable knowledge packs "
         "and documents."
@@ -575,7 +575,7 @@ def normalize_cli_args(arguments: list[str]) -> list[str]:
 
 
 def main() -> None:
-    app(args=normalize_cli_args(sys.argv[1:]), prog_name="ytsum")
+    app(args=normalize_cli_args(sys.argv[1:]), prog_name="chew")
 
 
 if __name__ == "__main__":
