@@ -1,0 +1,44 @@
+name: CI & AI Harness Monitor
+
+on:
+  push:
+    branches: [ master, main, develop, "feature/*" ]
+  pull_request:
+    branches: [ master, main, develop ]
+  schedule:
+    - cron: '*/10 3 * * *'  # Runs incrementally every 10 minutes from 03:00 to 03:50 UTC
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install '.[youtube,dev]'
+      - run: ruff check .
+      - run: mypy src
+      
+      - name: Run Pytest with Automatic Retry
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 10
+          command: pytest -q
+
+      - run: python -m build
+
+      - name: Report Issue on Scheduled Failure
+        if: failure() && github.event_name == 'schedule'
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/ISSUE_TEMPLATE/ci-failure-alert.md

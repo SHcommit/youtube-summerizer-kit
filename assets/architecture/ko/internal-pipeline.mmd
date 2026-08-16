@@ -1,0 +1,39 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, Apple SD Gothic Neo, Noto Sans KR, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b","clusterBkg":"#ffffff","clusterBorder":"#cbd5e1"},"flowchart":{"curve":"basis","nodeSpacing":38,"rankSpacing":52,"htmlLabels":false}}}%%
+flowchart TB
+    INPUT["INPUT<br/>YouTube URL 또는 로컬 미디어 · 목적 · 사용자 설정"]
+    IDENTITY["1 · 식별과 재사용 판단<br/>URL/콘텐츠 해시 정규화 · 호환 분석 확인"]
+    INPUT --> IDENTITY
+    IDENTITY --> CACHE{"Knowledge Pack이<br/>이미 있는가?"}
+
+    CACHE -->|아니요| ACQUIRE["2 · 콘텐츠 획득과 검증<br/>메타데이터 · 자막 · 품질 검사"]
+    ACQUIRE --> SEGMENT["3 · 구조화<br/>영상 챕터 또는 적응형 소주제 분할"]
+    SEGMENT --> SYNTHESIS["4 · 병렬 계층형 분석<br/>소주제 요약 → 챕터 요약 → 전체 합성"]
+    SYNTHESIS --> PACK["Knowledge Pack<br/>개요 · 소주제 · 챕터 · 주장 · 근거 시간"]
+    CACHE --> PACK
+
+    PACK --> REUSE["재분석 없이 활용<br/>목적과 문체별 재조립"]
+    REUSE --> ASSEMBLY["5 · 출력 검증"]
+    ASSEMBLY --> OUTPUT["OUTPUT<br/>정리본 · 블로그 · 학습 노트 · Obsidian"]
+
+    RUNTIMES["AI Runtime Adapters<br/>Codex · Gemini · Claude · Ollama · Antigravity (agy)"] -.-> SYNTHESIS
+    RUNTIMES -.-> ASSEMBLY
+
+    LOCAL["Local State & Cache<br/>중간 결과 저장 · 중단 복구 · URL 및 해시 기반 재사용"] -.-> IDENTITY
+    LOCAL -.-> SYNTHESIS
+    LOCAL -.-> PACK
+    LOCAL -.-> ASSEMBLY
+
+    RECOVERY["로그인 또는 연결 문제<br/>완료 결과 유지 → 문제 해결 → 이어하기 (chew resume)"] -.-> SYNTHESIS
+
+    classDef input fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#172554;
+    classDef process fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065;
+    classDef knowledge fill:#fef3c7,stroke:#d97706,stroke-width:2.5px,color:#78350f;
+    classDef output fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+    classDef support fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,stroke-dasharray:5 3,color:#0f172a;
+    classDef recovery fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d;
+    class INPUT input;
+    class IDENTITY,CACHE,ACQUIRE,SEGMENT,SYNTHESIS,REUSE,ASSEMBLY process;
+    class PACK knowledge;
+    class OUTPUT output;
+    class RUNTIMES,LOCAL support;
+    class RECOVERY recovery;

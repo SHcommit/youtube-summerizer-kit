@@ -1,0 +1,287 @@
+from pathlib import Path
+
+import pytest
+
+from ytsum.config import Settings
+from ytsum.domain import (
+    Chapter,
+    GenerationRequest,
+    GenerationResult,
+    Provenance,
+    SourceIdentity,
+    SourceKind,
+    Transcript,
+    TranscriptSegment,
+)
+from ytsum.identity import normalize_source
+from ytsum.pipeline import AnalysisPipeline, build_analysis_job_graph
+from ytsum.segmentation import SegmentationPolicy, segment_transcript
+from ytsum.storage.artifacts import ArtifactStore
+from ytsum.storage.database import Database
+from ytsum.transcripts.service import TranscriptResolution, TranscriptService
+
+
+def test_analysis_graph_has_topic_chapter_and_final_dependencies() -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="ko",
+        duration_ms=12 * 60_000,
+        provenance=Provenance.MANUAL_SUBTITLE,
+        segments=tuple(
+            TranscriptSegment(
+                start_ms=index * 60_000,
+                end_ms=(index + 1) * 60_000,
+                text=f"segment {index}",
+            )
+            for index in range(12)
+        ),
+    )
+    chapters = (
+        Chapter(chapter_id="intro", title="소개", start_ms=0, end_ms=6 * 60_000),
+        Chapter(
+            chapter_id="core",
+            title="핵심",
+            start_ms=6 * 60_000,
+            end_ms=12 * 60_000,
+        ),
+    )
+    manifest = segment_transcript(transcript, chapters, SegmentationPolicy())
+
+    graph = build_analysis_job_graph("run-1", manifest, "fake")
+
+    topics = [job for job in graph if job.kind == "topic"]
+    reducers = [job for job in graph if job.kind == "chapter"]
+    final = next(job for job in graph if job.kind == "compose")
+    assert len(topics) == 2
+    assert {job.job_id for job in reducers} == {"run-1:chapter:intro", "run-1:chapter:core"}
+    assert set(final.dependencies) == {job.job_id for job in reducers}
+
+
+class StaticTranscriptProvider:
+    name = "fixture"
+
+    def __init__(self, transcript: Transcript) -> None:
+        self.transcript = transcript
+        self.calls = 0
+
+    async def fetch(self, source: SourceIdentity, language: str) -> Transcript:
+        self.calls += 1
+        return self.transcript.model_copy(update={"source": source, "language": language})
+
+
+class StructuredFakeHarness:
+    runtime_id = "fake"
+
+    def __init__(self, break_first_topic: bool = False) -> None:
+        self.calls: list[str] = []
+        self.requests: list[GenerationRequest] = []
+        self.break_first_topic = break_first_topic
+        self.broken = False
+
+    async def generate(self, request: GenerationRequest) -> GenerationResult:
+        self.calls.append(request.task)
+        self.requests.append(request)
+        if request.task == "topic_summary":
+            if self.break_first_topic and not self.broken:
+                self.broken = True
+                output = {"invalid": True}
+            else:
+                output = self.topic_output(request.input)
+        elif request.task == "repair":
+            output = self.topic_output(request.input["original_input"])
+        elif request.task == "chapter_summary":
+            output = {
+                "chapter_id": request.input["chapter_id"],
+                "title": request.input["title"],
+                "summary": "챕터 요약",
+                "topic_ids": request.input["topic_ids"],
+            }
+        else:
+            output = {"overview": "전체 요약", "further_study": ["추가 개념"]}
+        return GenerationResult(
+            request_id=request.request_id,
+            output=output,
+            runtime_id=self.runtime_id,
+            model="fake-model",
+        )
+
+    @staticmethod
+    def topic_output(input_value: dict[str, object]) -> dict[str, object]:
+        return {
+            "topic_id": input_value["topic_id"],
+            "title": input_value["title"],
+            "summary": "소주제 요약",
+            "claims": [],
+            "concepts": ["개념"],
+            "examples": [],
+        }
+
+
+class RecordingTranscriptService:
+    def __init__(self, transcript: Transcript) -> None:
+        self.transcript = transcript
+        self.include_optional: bool | None = None
+        self.calls = 0
+
+    async def resolve(
+        self, source: SourceIdentity, language: str, *, include_optional: bool = False
+    ) -> TranscriptResolution:
+        self.calls += 1
+        self.include_optional = include_optional
+        transcript = self.transcript.model_copy(update={"source": source, "language": language})
+        return TranscriptResolution(transcript, "fixture", ())
+
+
+@pytest.mark.asyncio
+async def test_pipeline_reuses_completed_pack_for_same_url(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="ko",
+        duration_ms=10 * 60_000,
+        provenance=Provenance.MANUAL_SUBTITLE,
+        segments=tuple(
+            TranscriptSegment(
+                start_ms=index * 60_000,
+                end_ms=(index + 1) * 60_000,
+                text=f"segment {index}",
+            )
+            for index in range(10)
+        ),
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    harness = StructuredFakeHarness(break_first_topic=True)
+    provider = StaticTranscriptProvider(transcript)
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=ArtifactStore(tmp_path),
+        transcripts=TranscriptService([provider]),
+        harness=harness,
+        concurrency=2,
+    )
+
+    first = await pipeline.analyze(source.canonical_url, Settings(), title="테스트 영상")
+    call_count = len(harness.calls)
+    second = await pipeline.analyze(source.canonical_url, Settings(), title="테스트 영상")
+
+    assert first.pack.overview == "전체 요약"
+    assert first.run_id == second.run_id
+    assert second.reused
+    assert len(harness.calls) == call_count
+    assert harness.calls.count("repair") == 1
+    assert provider.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_pipeline_enables_optional_transcript_provider_from_settings(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="ko",
+        duration_ms=60_000,
+        provenance=Provenance.WHISPER,
+        segments=(TranscriptSegment(start_ms=0, end_ms=60_000, text="음성 인식 결과"),),
+    )
+    transcripts = RecordingTranscriptService(transcript)
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=ArtifactStore(tmp_path),
+        transcripts=transcripts,  # type: ignore[arg-type]
+        harness=StructuredFakeHarness(),
+    )
+
+    await pipeline.analyze(source.canonical_url, Settings(whisper_fallback=True))
+
+    assert transcripts.include_optional is True
+
+
+@pytest.mark.asyncio
+async def test_analysis_requests_receive_language_and_common_instructions(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="en",
+        duration_ms=60_000,
+        provenance=Provenance.MANUAL_SUBTITLE,
+        segments=(TranscriptSegment(start_ms=0, end_ms=60_000, text="Transcript"),),
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    harness = StructuredFakeHarness()
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=ArtifactStore(tmp_path),
+        transcripts=TranscriptService([StaticTranscriptProvider(transcript)]),
+        harness=harness,
+    )
+
+    await pipeline.analyze(
+        source.canonical_url,
+        Settings(language="en", instructions="Use plain English."),
+    )
+
+    analysis_requests = [request for request in harness.requests if request.task != "repair"]
+    assert analysis_requests
+    assert all(request.input["language"] == "en" for request in analysis_requests)
+    assert all(
+        request.input["user_instructions"] == "Use plain English." for request in analysis_requests
+    )
+
+
+@pytest.mark.asyncio
+async def test_pipeline_analyzes_local_media_and_reuses_same_content_after_move(
+    tmp_path: Path,
+) -> None:
+    first = tmp_path / "meeting.mp3"
+    moved = tmp_path / "archive" / "meeting.mp3"
+    first.write_bytes(b"local media content")
+    moved.parent.mkdir()
+    moved.write_bytes(b"local media content")
+    source = normalize_source(str(first))
+    transcript = Transcript(
+        source=source,
+        language="en",
+        duration_ms=60_000,
+        provenance=Provenance.WHISPER,
+        segments=(TranscriptSegment(start_ms=0, end_ms=60_000, text="Local recording"),),
+        title="meeting",
+    )
+    transcripts = RecordingTranscriptService(transcript)
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=ArtifactStore(tmp_path / "data"),
+        transcripts=transcripts,  # type: ignore[arg-type]
+        harness=StructuredFakeHarness(),
+    )
+
+    first_result = await pipeline.analyze(str(first), Settings(language="en"))
+    moved_result = await pipeline.analyze(str(moved), Settings(language="en"))
+
+    assert first_result.pack.source.kind == SourceKind.LOCAL_MEDIA
+    assert first_result.pack.title == "meeting"
+    assert moved_result.reused
+    assert first_result.run_id == moved_result.run_id
+    assert transcripts.calls == 1
+    assert database.get_run_source_locator(first_result.run_id) == str(first.resolve())
