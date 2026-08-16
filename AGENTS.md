@@ -72,7 +72,7 @@ src/ytsum/
 5. **Gitflow Branching & Tag Release Strategy**:
    - Feature development MUST occur on topic branches (`feature/*`).
    - External contributors fork the repository and submit Pull Requests targeting the **`develop`** branch.
-   - Completed features are merged into the `develop` integration testing branch.
+   - Completed features MUST be merged into the **`develop`** integration testing branch first. `master` is reserved strictly for tagged production releases.
    - Verified releases are merged from `develop` into `master` / `main` and tagged using Semantic Versioning (`v*.*.*`).
    - Pushing release tags (`git push origin master --tags`) triggers automated PyPI publishing and GitHub Release creation via `.github/workflows/cd.yml`.
 
