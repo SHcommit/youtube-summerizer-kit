@@ -195,6 +195,10 @@ def _run_generation(
     local_media = looks_like_local_media_input(selected_source)
     try:
         result = asyncio.run(_application_factory().generate(selected_source, profile, output))
+    except KeyboardInterrupt:
+        label = "작업이 사용자에 의해 중단되었습니다." if korean else "Operation cancelled by user."
+        typer.echo(f"\n{label}")
+        raise typer.Exit(130) from None
     except AuthenticationRequired as error:
         _emit_authentication_error(error, korean=korean)
         raise typer.Exit(2) from error

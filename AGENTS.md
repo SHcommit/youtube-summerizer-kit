@@ -83,3 +83,7 @@ src/ytsum/
      uv run --extra dev ruff check .
      uv run --extra dev mypy src/ytsum
      ```
+
+7. **Background Process & Task Lifecycle Management**:
+   - AI Agents working on this codebase MUST clean up and terminate all spawned background tasks (`uv run chew`, async CLI processes, schedule timers) using `manage_task kill` immediately upon task completion, cancellation, or before responding to the user. Never leave orphan processes running in the background.
+
