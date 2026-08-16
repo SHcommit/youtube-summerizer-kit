@@ -2,10 +2,11 @@
 
 **English** | [한국어](README.ko.md)
 
-A local-first, resumable CLI that turns YouTube videos and local audio or video files into reusable
+A local-first, resumable CLI (`chew`) that turns YouTube videos and local audio or video files into reusable
 knowledge. It validates transcripts, analyzes chapters and topics in parallel, and compiles the
 result into multiple formats instead of producing a one-off summary.
 
+- Run with `chew <URL>` (or aliases `yts`, `ytsummarizer`, `ytsum`).
 - Handles long videos with chapter-aware, topic-level parallel processing.
 - Resumes from completed work after a network or AI CLI interruption.
 - Reuses an existing Knowledge Pack for the same URL and analysis settings—no run ID required.

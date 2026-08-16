@@ -44,6 +44,9 @@ dev = [
 ]
 
 [project.scripts]
+chew = "ytsum.cli:main"
+yts = "ytsum.cli:main"
+ytsummarizer = "ytsum.cli:main"
 ytsum = "ytsum.cli:main"
 
 [tool.hatch.build.targets.wheel]
