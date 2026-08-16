@@ -1,5 +1,9 @@
 # YouTube Summarizer Kit
 
+[![CI](https://github.com/SHcommit/youtube-summerizer-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/SHcommit/youtube-summerizer-kit/actions/workflows/ci.yml)
+[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 [English](README.md) | **한국어**
 
 YouTube 영상과 로컬 오디오·영상 파일을 재사용 가능한 지식으로 변환하는 로컬 중심 CLI(`chew`)입니다.

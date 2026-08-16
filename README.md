@@ -1,5 +1,9 @@
 # YouTube Summarizer Kit
 
+[![CI](https://github.com/SHcommit/youtube-summerizer-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/SHcommit/youtube-summerizer-kit/actions/workflows/ci.yml)
+[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **English** | [한국어](README.ko.md)
 
 A local-first, resumable CLI (`chew`) that turns YouTube videos and local audio or video files into reusable
