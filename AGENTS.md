@@ -66,7 +66,10 @@ src/ytsum/
    - `AGENTS.md` is the single source of truth for architectural guidelines.
    - `CLAUDE.md` and `GEMINI.md` are symbolic links (`ln -s AGENTS.md`) pointing to `AGENTS.md`. Editing `AGENTS.md` updates all agent files instantly.
 
-4. **Verification Before Finishing**:
+4. **Changelog & Documentation Synchronization**:
+   - Every meaningful feature addition, CLI command change, or architectural refactoring MUST update `CHANGELOG.md` under `## [Unreleased]` and synchronize related documentation (`README.md`, `README.ko.md`).
+
+5. **Verification Before Finishing**:
    - Always run the verification suite before declaring success:
      ```bash
      uv run --extra dev pytest
