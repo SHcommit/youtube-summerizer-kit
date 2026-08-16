@@ -1,0 +1,28 @@
+core:
+  - 'src/ytsum/core/**/*'
+
+pipeline:
+  - 'src/ytsum/pipeline/**/*'
+
+harness:
+  - 'src/ytsum/harness/**/*'
+
+transcripts:
+  - 'src/ytsum/transcripts/**/*'
+
+storage:
+  - 'src/ytsum/storage/**/*'
+
+cli:
+  - 'src/ytsum/cli/**/*'
+
+documentation:
+  - 'README.md'
+  - 'README.ko.md'
+  - 'CHANGELOG.md'
+  - 'AGENTS.md'
+  - 'CONTRIBUTING.md'
+  - 'assets/**/*'
+
+ci-cd:
+  - '.github/**/*'
