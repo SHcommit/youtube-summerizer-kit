@@ -15,7 +15,7 @@ flowchart TB
     REUSE --> ASSEMBLY["5 · 출력 검증"]
     ASSEMBLY --> OUTPUT["OUTPUT<br/>정리본 · 블로그 · 학습 노트 · Obsidian"]
 
-    RUNTIMES["AI Runtime Adapters<br/>Codex · Gemini · Claude · Ollama"] -.-> SYNTHESIS
+    RUNTIMES["AI Runtime Adapters<br/>Codex · Gemini · Claude · Ollama · Antigravity (agy)"] -.-> SYNTHESIS
     RUNTIMES -.-> ASSEMBLY
 
     LOCAL["Local State & Cache<br/>중간 결과 저장 · 중단 복구 · URL 및 해시 기반 재사용"] -.-> IDENTITY
@@ -23,7 +23,7 @@ flowchart TB
     LOCAL -.-> PACK
     LOCAL -.-> ASSEMBLY
 
-    RECOVERY["로그인 또는 연결 문제<br/>완료 결과 유지 → 문제 해결 → 이어하기"] -.-> SYNTHESIS
+    RECOVERY["로그인 또는 연결 문제<br/>완료 결과 유지 → 문제 해결 → 이어하기 (chew resume)"] -.-> SYNTHESIS
 
     classDef input fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#172554;
     classDef process fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065;
