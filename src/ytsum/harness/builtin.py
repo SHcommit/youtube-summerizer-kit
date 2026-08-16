@@ -9,7 +9,7 @@ from typing import Protocol
 
 from ytsum.domain import GenerationRequest, GenerationResult
 from ytsum.harness.base import HarnessCapabilities, HarnessProbe, RateLimitSignal
-from ytsum.harness.process import ProcessExecutor, ProcessResult
+from ytsum.harness.process import ProcessExecutor, ProcessResult, ProcessTimeout
 
 
 class Executor(Protocol):
@@ -107,7 +107,17 @@ class CliHarnessBase:
                 capabilities=capabilities,
                 detail=f"{self.executable_name} 실행 파일을 찾지 못했습니다",
             )
-        result = await self.executor.run((self.executable, "--version"), "", 10)
+        try:
+            result = await self.executor.run((self.executable, "--version"), "", 10)
+        except ProcessTimeout:
+            return HarnessProbe(
+                runtime_id=self.runtime_id,
+                available=False,
+                auth_ready=False,
+                version=None,
+                capabilities=capabilities,
+                detail=f"{self.executable_name} 실행 파일 응답 시간 초과 (10초)",
+            )
         auth_ready = result.exit_code == 0
         detail = None if result.exit_code == 0 else (result.stderr or result.stdout).strip()
         auth_command = self.authentication_command()

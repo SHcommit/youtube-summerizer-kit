@@ -81,16 +81,28 @@ def _read_track(track: Mapping[str, Any]) -> str:
         return cast(bytes, response.read()).decode("utf-8")
 
 
-def _select_language(captions: Mapping[str, Any], language: str) -> list[Mapping[str, Any]]:
-    keys = (language, language.split("-", 1)[0])
+def _select_language(
+    captions: Mapping[str, Any], language: str
+) -> tuple[str, list[Mapping[str, Any]]]:
+    base_lang = language.split("-", 1)[0]
+    keys = (language, base_lang)
     for key in keys:
         tracks = captions.get(key)
         if isinstance(tracks, list):
-            return [track for track in tracks if isinstance(track, Mapping)]
+            return key, [track for track in tracks if isinstance(track, Mapping)]
     for key, tracks in captions.items():
-        if str(key).split("-", 1)[0] == keys[-1] and isinstance(tracks, list):
-            return [track for track in tracks if isinstance(track, Mapping)]
-    return []
+        if str(key).split("-", 1)[0] == base_lang and isinstance(tracks, list):
+            return str(key), [track for track in tracks if isinstance(track, Mapping)]
+    for fallback in ("ko", "en", "ja", "en-orig", "en-US", "en-GB"):
+        tracks = captions.get(fallback)
+        if isinstance(tracks, list):
+            return fallback, [track for track in tracks if isinstance(track, Mapping)]
+    if captions:
+        first_key = str(next(iter(captions)))
+        tracks = captions[first_key]
+        if isinstance(tracks, list):
+            return first_key, [track for track in tracks if isinstance(track, Mapping)]
+    return language, []
 
 
 def _chapters(info: Mapping[str, Any]) -> tuple[Chapter, ...]:
@@ -157,7 +169,7 @@ class YtDlpSubtitleProvider:
                 captions = info.get(key)
                 if not isinstance(captions, Mapping):
                     continue
-                tracks = _select_language(captions, language)
+                matched_lang, tracks = _select_language(captions, language)
                 if not tracks:
                     continue
                 preferred = next(
@@ -174,7 +186,7 @@ class YtDlpSubtitleProvider:
                 )
                 return Transcript(
                     source=source,
-                    language=language,
+                    language=matched_lang,
                     duration_ms=duration_ms,
                     provenance=provenance,
                     segments=tuple(segments),

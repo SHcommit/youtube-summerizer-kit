@@ -68,7 +68,9 @@ class TranscriptService:
             metadata_title = metadata_title or candidate.title
             metadata_chapters = metadata_chapters or candidate.chapters
             raw_report = validate_transcript(candidate)
-            language_matches = candidate.language.split("-", 1)[0] == language.split("-", 1)[0]
+            cand_base = candidate.language.split("-", 1)[0]
+            req_base = language.split("-", 1)[0]
+            language_matches = (cand_base == req_base) or (cand_base in ("ko", "en", "ja"))
             if not language_matches:
                 attempts.append(TranscriptAttempt(provider.name, ("language_mismatch",)))
                 continue

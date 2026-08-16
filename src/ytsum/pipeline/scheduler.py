@@ -151,7 +151,14 @@ class Scheduler:
             except asyncio.CancelledError:
                 self.database.retry_job(job.job_id, job.worker_id)
                 raise
-            except Exception:
+            except Exception as error:
+                err_msg = str(error).lower()
+                is_quota = "usage limit" in err_msg or "quota" in err_msg
+                if is_quota or job.attempts >= 2:
+                    if self.database.fail_job(job.job_id, "failed_runtime", job.worker_id):
+                        self.failed_jobs += 1
+                    self.terminal_error = error
+                    return
                 if self.database.fail_job(job.job_id, worker_id=job.worker_id):
                     self.failed_jobs += 1
                 return

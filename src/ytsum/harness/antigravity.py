@@ -30,12 +30,9 @@ class AntigravityHarness(CliHarnessBase):
             (
                 self.executable,
                 "--print",
-                "--output-format",
-                "json",
-                "--json-schema",
-                json.dumps(request.output_schema, ensure_ascii=False, separators=(",", ":")),
+                request_prompt(request),
             ),
-            request_prompt(request),
+            "",
             request.timeout_ms / 1_000,
         )
         ensure_success(self.runtime_id, result)

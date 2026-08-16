@@ -43,9 +43,15 @@ class YouTubeApiTranscriptProvider:
         self._attempt_failure.set(())
         try:
             api = self.api_factory()
-            fetched: Iterable[object] = await asyncio.to_thread(
-                api.fetch, source.video_id, languages=[language]
-            )
+            try:
+                fetched: Iterable[object] = await asyncio.to_thread(
+                    api.fetch, source.video_id, languages=[language]
+                )
+            except Exception:
+                langs = [lang for lang in ("en", "ko", "ja") if lang != language]
+                fetched = await asyncio.to_thread(
+                    api.fetch, source.video_id, languages=langs
+                )
             segments = tuple(
                 TranscriptSegment(
                     start_ms=round(float(_value(item, "start")) * 1_000),

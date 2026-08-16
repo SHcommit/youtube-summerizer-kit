@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **3-Language Priority Transcript Acquisition & Fallback**:
+  - Priority acquisition for Korean (`ko`), English (`en`), and Japanese (`ja`) captions with automatic fallback to any available caption track when exact requested language track is not directly uploaded.
+  - Single-pass cross-lingual synthesis: LLM analyzes source transcript (e.g. English or Japanese) and directly synthesizes final Knowledge Pack and Digest outputs into the target language (`ko`, `en`, `ja`).
+- **Fast-Fail Error Diagnostics & Max Retry Bounds**:
+  - Maximum DAG job retry limit (max 2 attempts) with fast-fail error diagnostics.
+  - Quota limit errors (`You've hit your usage limit`) and runtime authentication errors abort immediately with user-friendly error messages instead of infinite retry loops.
 - **Core CLI Rebranding (`chew`)**:
   - Rebranded the primary CLI command to `chew` (`chew summarize`, `chew blog`, `chew study`, `chew obsidian`, `chew doctor`, etc.).
 - **Local Audio and Video File Input**:
