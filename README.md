@@ -15,6 +15,16 @@ result into multiple formats instead of producing a one-off summary.
 - Connects Codex CLI, Gemini CLI, Claude Code / Claude CLI, Ollama, and Antigravity CLI (`agy`) through one harness interface.
 - Stores writing tone and study preferences in Markdown instead of long CLI option lists.
 
+## Why `chew`?
+
+Modern technical talks, podcasts, and video lectures are 1–2 hours long, yet traditional AI summarizers only produce superficial 5-bullet-point summaries that strip away key code context, evidence timestamps, and technical depth.
+
+`chew` was built to solve this exact problem:
+
+- **Don't watch. Let AI chew it for you**: Breaks long videos into topic-level segments so AI can digest and extract deep, timestamp-verified knowledge.
+- **Analyze Once, Reassemble Anywhere**: Analyzes a video **once** into a content-addressed **Knowledge Pack**. Reassemble it instantly into Tech Blogs, Study Notes, or Obsidian Vaults without re-running expensive LLM calls.
+- **Local-First & Multi-LLM Harness**: Leverages your existing Codex, Gemini, Claude, Ollama, or Antigravity CLI logins directly from your local terminal—no API keys required.
+
 > The current pipeline is transcript-first. Videos whose essential information appears only in
 > diagrams, code shown on screen, or visual scenes may lose context. Frame-based multimodal
 > analysis is not yet part of the default pipeline.
