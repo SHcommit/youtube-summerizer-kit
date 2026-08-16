@@ -1,7 +1,26 @@
+# Worktrees and OS files
 .worktrees/
 .DS_Store
+Thumbs.db
 
-# Python build and test artifacts
+# IDE and Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+.gemini/
+.codex/
+.cursor/
+
+# Environment files & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Python build, cache, and test artifacts
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -13,8 +32,17 @@ dist/
 build/
 *.egg-info/
 .venv/
+venv/
+ENV/
 
-# Generated exports and local benchmark reports
+# Local databases and runtime state
+*.db
+*.sqlite
+*.sqlite3
+*.zst
+*.log
+
+# Generated export directories and local benchmark reports
 chew-output/
 chew-blog/
 chew-study/
@@ -24,3 +52,7 @@ ytsum-blog/
 ytsum-study/
 ytsum-obsidian/
 benchmark-results/
+
+# Local runtime config directories
+.chew/
+.ytsum/
