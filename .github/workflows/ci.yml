@@ -2,9 +2,9 @@ name: CI & AI Harness Monitor
 
 on:
   push:
-    branches: [ main, feature/* ]
+    branches: [ master, main, develop, "feature/*" ]
   pull_request:
-    branches: [ main ]
+    branches: [ master, main, develop ]
   schedule:
     - cron: '*/10 3 * * *'  # Runs incrementally every 10 minutes from 03:00 to 03:50 UTC
 

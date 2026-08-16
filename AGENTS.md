@@ -69,9 +69,10 @@ src/ytsum/
 4. **Changelog & Documentation Synchronization**:
    - Every meaningful feature addition, CLI command change, or architectural refactoring MUST update `CHANGELOG.md` under `## [Unreleased]` and synchronize related documentation (`README.md`, `README.ko.md`).
 
-5. **Git Branching & Tag Release Strategy**:
+5. **Gitflow Branching & Tag Release Strategy**:
    - Feature development MUST occur on topic branches (`feature/*`).
-   - Releases are tagged on the production branch (`master` / `main`) using Semantic Versioning tags (`v*.*.*`).
+   - Completed features are merged into the `develop` integration testing branch.
+   - Verified releases are merged from `develop` into `master` / `main` and tagged using Semantic Versioning (`v*.*.*`).
    - Pushing release tags (`git push origin master --tags`) triggers automated PyPI publishing and GitHub Release creation via `.github/workflows/cd.yml`.
 
 6. **Verification Before Finishing**:
