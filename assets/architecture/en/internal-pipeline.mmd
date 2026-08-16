@@ -1,0 +1,38 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b","clusterBkg":"#ffffff","clusterBorder":"#cbd5e1"},"flowchart":{"curve":"basis","nodeSpacing":38,"rankSpacing":52}}}%%
+flowchart TB
+    INPUT["INPUT<br/>YouTube URL or Local Media · Purpose · User preferences"]
+    INPUT --> IDENTITY["1 · Identify and check reuse<br/>Normalize URL or content hash · Find compatible analysis"]
+    IDENTITY --> CACHE{"Knowledge Pack<br/>already available?"}
+
+    CACHE -->|No| ACQUIRE["2 · Acquire and validate content<br/>Metadata · Transcript · Quality checks"]
+    ACQUIRE --> SEGMENT["3 · Structure content<br/>YouTube chapters or adaptive topic segments"]
+    SEGMENT --> SYNTHESIS["4 · Parallel hierarchical analysis<br/>Topics → Chapters → Full synthesis"]
+    SYNTHESIS --> PACK["Knowledge Pack<br/>Overview · Topics · Chapters · Claims · Evidence timestamps"]
+    CACHE --> PACK
+
+    PACK --> REUSE["Reuse without reanalysis<br/>Reassemble by purpose and voice"]
+    REUSE --> ASSEMBLY["5 · Validate output"]
+    ASSEMBLY --> OUTPUT["OUTPUT<br/>Digest · Blog · Study notes · Obsidian"]
+
+    RUNTIMES["AI Runtime Adapters<br/>Codex · Gemini · Claude · Ollama"] -.-> SYNTHESIS
+    RUNTIMES -.-> ASSEMBLY
+
+    LOCAL["Local State & Cache<br/>Intermediate results · Recovery · URL and content hash reuse"] -.-> IDENTITY
+    LOCAL -.-> SYNTHESIS
+    LOCAL -.-> PACK
+    LOCAL -.-> ASSEMBLY
+
+    RECOVERY["Authentication or connection failure<br/>Keep completed work → Resolve → Resume"] -.-> SYNTHESIS
+
+    classDef input fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#172554;
+    classDef process fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065;
+    classDef knowledge fill:#fef3c7,stroke:#d97706,stroke-width:2.5px,color:#78350f;
+    classDef output fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+    classDef support fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,stroke-dasharray:5 3,color:#0f172a;
+    classDef recovery fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d;
+    class INPUT input;
+    class IDENTITY,CACHE,ACQUIRE,SEGMENT,SYNTHESIS,REUSE,ASSEMBLY process;
+    class PACK knowledge;
+    class OUTPUT output;
+    class RUNTIMES,LOCAL support;
+    class RECOVERY recovery;

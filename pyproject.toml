@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "youtube-summarizer-kit"
+version = "0.1.0"
+description = "Local-first, resumable knowledge compiler for YouTube and local media"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "youtube-summarizer-kit contributors" }]
+keywords = ["youtube", "audio", "transcript", "summarization", "knowledge-pack", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Text Processing :: Markup :: Markdown",
+]
+dependencies = [
+  "platformdirs",
+  "pydantic>=2",
+  "PyYAML",
+  "rich",
+  "typer",
+  "zstandard",
+]
+
+[project.optional-dependencies]
+youtube = ["yt-dlp", "youtube-transcript-api"]
+whisper = ["faster-whisper"]
+dev = [
+  "build",
+  "coverage[toml]",
+  "mypy",
+  "pytest",
+  "pytest-asyncio",
+  "ruff",
+  "types-PyYAML",
+]
+
+[project.scripts]
+ytsum = "ytsum.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ytsum"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/ytsum",
+  "tests",
+  "assets/architecture",
+  "README.md",
+  "README.ko.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "LICENSE",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["ytsum"]
+
+[tool.coverage.run]
+branch = true
+source = ["ytsum"]

@@ -1,0 +1,20 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, Apple SD Gothic Neo, Noto Sans KR, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b"},"flowchart":{"curve":"basis","nodeSpacing":44,"rankSpacing":54}}}%%
+flowchart TB
+    USER([사용자])
+    INPUT["INPUT<br/>YouTube URL 또는 로컬 미디어<br/>정리 목적 · 사용자 설정"]
+    KIT["YouTube Summarizer Kit<br/>영상·오디오 분석 → 재사용 가능한 지식 구조화"]
+    PACK["Knowledge Pack<br/>전체 개요 · 챕터 · 소주제 · 핵심 주장 · 근거 시간"]
+    OUTPUT["OUTPUT<br/>전체 정리본 · 블로그<br/>학습 노트 · Obsidian"]
+
+    USER --> INPUT --> KIT --> PACK --> OUTPUT
+
+    classDef actor fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef input fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#172554;
+    classDef core fill:#ede9fe,stroke:#7c3aed,stroke-width:2.5px,color:#2e1065;
+    classDef knowledge fill:#fef3c7,stroke:#d97706,stroke-width:2.5px,color:#78350f;
+    classDef output fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+    class USER actor;
+    class INPUT input;
+    class KIT core;
+    class PACK knowledge;
+    class OUTPUT output;
