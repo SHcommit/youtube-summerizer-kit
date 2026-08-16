@@ -15,6 +15,10 @@ build/
 .venv/
 
 # Generated exports and local benchmark reports
+chew-output/
+chew-blog/
+chew-study/
+chew-obsidian/
 ytsum-output/
 ytsum-blog/
 ytsum-study/
