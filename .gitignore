@@ -55,6 +55,8 @@ ytsum-vault/
 benchmark-results/
 .bin/
 
-# Local runtime config directories
+# Local runtime config files & directories
+CHEW.md
+YTSUM.md
 .chew/
 .ytsum/
