@@ -47,12 +47,13 @@ ENV/
 chew-output/
 chew-blog/
 chew-study/
-chew-obsidian/
+chew-vault/
 ytsum-output/
 ytsum-blog/
 ytsum-study/
-ytsum-obsidian/
+ytsum-vault/
 benchmark-results/
+.bin/
 
 # Local runtime config directories
 .chew/
