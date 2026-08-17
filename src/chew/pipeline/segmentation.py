@@ -87,15 +87,22 @@ def _boundaries(
     return result
 
 
-def coalesce_chapters(chapters: tuple[Chapter, ...], duration_ms: int) -> tuple[Chapter, ...]:
+def coalesce_chapters(
+    chapters: tuple[Chapter, ...], duration_ms: int, depth: str = "detailed"
+) -> tuple[Chapter, ...]:
     if not chapters:
         return ()
-    if duration_ms <= 30 * 60_000:
-        max_chapters = 5
-    elif duration_ms <= 60 * 60_000:
-        max_chapters = 8
-    else:
-        max_chapters = 12
+    if depth in ("concise", "초간단", "핵심"):
+        max_chapters = 3
+    elif depth in ("deep", "심층", "꽉찬"):
+        max_chapters = 15
+    else:  # detailed
+        if duration_ms <= 30 * 60_000:
+            max_chapters = 5
+        elif duration_ms <= 60 * 60_000:
+            max_chapters = 8
+        else:
+            max_chapters = 12
 
     if len(chapters) <= max_chapters:
         return chapters
@@ -121,11 +128,14 @@ def segment_transcript(
     chapters: tuple[Chapter, ...],
     policy: SegmentationPolicy,
     detector: BoundaryDetector | None = None,
+    depth: str = "detailed",
 ) -> SegmentManifest:
     selected_detector = detector or PausePunctuationBoundaryDetector()
-    raw_chapters = chapters or transcript.chapters
-    coalesced = coalesce_chapters(raw_chapters, transcript.duration_ms) if raw_chapters else ()
-    selected_chapters = coalesced or (_default_chapter(transcript),)
+    selected_chapters = (
+        coalesce_chapters(chapters, transcript.duration_ms, depth=depth)
+        if chapters
+        else (_default_chapter(transcript),)
+    )
     topics: list[Topic] = []
     for chapter in selected_chapters:
         ranges = _boundaries(transcript, chapter, policy, selected_detector)

@@ -53,9 +53,15 @@ class ApplicationService:
         self.working_directory = working_directory or Path.cwd()
         self.registry = registry
 
-    async def generate(self, url: str, profile: str, destination: Path) -> CommandResult:
+    async def generate(
+        self, url: str, profile: str, destination: Path, depth: str | None = None
+    ) -> CommandResult:
         analysis_settings = load_settings(self.working_directory, None)
+        if depth:
+            analysis_settings = analysis_settings.model_copy(update={"depth": depth})
         output_settings = load_settings(self.working_directory, profile)
+        if depth:
+            output_settings = output_settings.model_copy(update={"depth": depth})
         return await self._generate(url, profile, destination, analysis_settings, output_settings)
 
     async def _generate(

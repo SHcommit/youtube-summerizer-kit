@@ -34,7 +34,9 @@ from chew.transcripts.whisper import WhisperDependencyMissing
 
 
 class Application(Protocol):
-    async def generate(self, url: str, profile: str, destination: Path) -> CommandResult: ...
+    async def generate(
+        self, url: str, profile: str, destination: Path, depth: str | None = None
+    ) -> CommandResult: ...
 
     def status(self, run_id: str | None = None) -> tuple[RunStatus, ...]: ...
 
@@ -186,6 +188,7 @@ def _run_generation(
     profile: str,
     output: Path,
     json_output: bool,
+    depth: str | None = None,
 ) -> None:
     korean = _is_korean(context)
     selected_source = source or typer.prompt(
@@ -195,7 +198,7 @@ def _run_generation(
     )
     local_media = looks_like_local_media_input(selected_source)
     try:
-        result = asyncio.run(_application_factory().generate(selected_source, profile, output))
+        result = asyncio.run(_application_factory().generate(selected_source, profile, output, depth=depth))
     except KeyboardInterrupt:
         label = "작업이 사용자에 의해 중단되었습니다." if korean else "Operation cancelled by user."
         typer.echo(f"\n{label}")
@@ -225,14 +228,14 @@ def _run_generation(
         elif korean:
             typer.echo(
                 "사용 가능한 자막이 없습니다. 영상 오디오를 로컬에서 음성 인식하려면 "
-                "`pip install -e '.[youtube,whisper]'`를 실행하고 YTSUM.md에 "
+                "`pip install -e '.[youtube,whisper]'`를 실행하고 CHEW.md에 "
                 "`whisper_fallback: true`를 설정하세요."
             )
         else:
             typer.echo(
                 "No usable captions were found. To transcribe the video audio locally, run "
                 "`pip install -e '.[youtube,whisper]'` and set `whisper_fallback: true` "
-                "in YTSUM.md."
+                "in CHEW.md."
             )
         raise typer.Exit(2) from error
     except WhisperDependencyMissing as error:
@@ -273,9 +276,13 @@ def summarize(
     ] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-output"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
+    depth: Annotated[
+        str | None,
+        typer.Option("--depth", "--요약강도", "-d", help="Summary depth intensity: concise, detailed, deep"),
+    ] = None,
 ) -> None:
     """Create a detailed digest from a video."""
-    _run_generation(context, source, "digest", output, json_output)
+    _run_generation(context, source, "digest", output, json_output, depth=depth)
 
 
 def blog(
@@ -285,9 +292,13 @@ def blog(
     ] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-blog"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
+    depth: Annotated[
+        str | None,
+        typer.Option("--depth", "--요약강도", "-d", help="Summary depth intensity: concise, detailed, deep"),
+    ] = None,
 ) -> None:
     """설정한 문체로 블로그 글을 만듭니다."""
-    _run_generation(context, source, "blog", output, json_output)
+    _run_generation(context, source, "blog", output, json_output, depth=depth)
 
 
 def study(
@@ -297,9 +308,13 @@ def study(
     ] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-study"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
+    depth: Annotated[
+        str | None,
+        typer.Option("--depth", "--요약강도", "-d", help="Summary depth intensity: concise, detailed, deep"),
+    ] = None,
 ) -> None:
     """학습 노트와 추가 학습 항목을 만듭니다."""
-    _run_generation(context, source, "study", output, json_output)
+    _run_generation(context, source, "study", output, json_output, depth=depth)
 
 
 def obsidian(
@@ -309,9 +324,13 @@ def obsidian(
     ] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-vault"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
+    depth: Annotated[
+        str | None,
+        typer.Option("--depth", "--요약강도", "-d", help="Summary depth intensity: concise, detailed, deep"),
+    ] = None,
 ) -> None:
     """위키링크가 포함된 Obsidian 노트를 만듭니다."""
-    _run_generation(context, source, "obsidian", output, json_output)
+    _run_generation(context, source, "obsidian", output, json_output, depth=depth)
 
 
 for english, korean, help_text, command in (

@@ -23,7 +23,9 @@ class StubApplication:
     error: Exception | None = None
     resume_error: Exception | None = None
 
-    async def generate(self, url: str, profile: str, destination: Path) -> CommandResult:
+    async def generate(
+        self, url: str, profile: str, destination: Path, depth: str | None = None
+    ) -> CommandResult:
         self.calls.append((url, profile))
         if self.error is not None:
             raise self.error

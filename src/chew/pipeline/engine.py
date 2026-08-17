@@ -162,9 +162,11 @@ class AnalysisPipeline:
         selected_chapters = chapters or transcript.chapters
         with telemetry.span(
             "chew.segmentation",
-            {"raw_chapters": len(transcript.chapters), "selected_chapters": len(selected_chapters)},
+            {"raw_chapters": len(transcript.chapters), "selected_chapters": len(selected_chapters), "depth": settings.depth},
         ):
-            manifest = segment_transcript(transcript, selected_chapters, SegmentationPolicy())
+            manifest = segment_transcript(
+                transcript, selected_chapters, SegmentationPolicy(), depth=settings.depth
+            )
         analysis_key = fingerprint(
             {
                 "transcript": transcript_hash,

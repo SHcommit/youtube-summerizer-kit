@@ -233,6 +233,22 @@ Separate claims from the video from additional AI explanations.
 Define technical terms on first use and connect every important claim to video evidence.
 ```
 
+### Summary Depth Intensity (`depth`)
+
+Customize the summary detail level via CLI flag (`--depth` / `-d`) or inside `CHEW.md`:
+
+- **`concise`**: High-level key milestone summary for fast scanning
+- **`detailed`** (default): Balanced detailed summary with chapter subtopics and timestamp evidence
+- **`deep`**: Comprehensive deep-dive analysis capturing every chapter, technical detail, and argument
+
+```bash
+# Concise high-level summary
+chew 'VIDEO_URL' --depth concise
+
+# Comprehensive deep-dive summary
+chew 'VIDEO_URL' --depth deep
+```
+
 The Markdown body becomes an LLM instruction. Purpose-specific files such as
 `.chew/profiles/blog.md` can define voice, audience level, and document structure. Configuration
 discovery walks up through parent directories; packaged defaults are used when no file exists.
