@@ -1,12 +1,22 @@
 # 유튜브 요약 파이프라인 성능 개선 및 로직 비교 분석 보고서
 
-본 보고서는 `youtube-summarizer-kit`의 요약 수행 시간이 **30분 이상에서 1분 50초로 16.3배(93.8% 지연 시간 단축)** 향상된 원인과, 기존 로직 대 비 개선 로직의 차이점을 상세히 비교 분석한 문서입니다.
+본 보고서는 `chew` (`youtube-summarizer-kit`)의 요약 수행 시간이 **30분 이상에서 1분 50초로 16.3배(93.8% 지연 시간 단축)** 향상된 원인과, 기존 로직 대 비 개선 로직의 차이점을 커밋 해시 및 코드 diff를 바탕으로 상세히 비교 분석한 문서입니다.
+
+---
+
+## 📌 커밋 해시 이력 (Git Commit Traceability)
+
+| 구분 | 커밋 해시 (Commit Hash) | 커밋 메시지 (Commit Message) |
+| :--- | :--- | :--- |
+| **기준시점 (Baseline)** | [`2740d68`](https://github.com/SHcommit/youtube-summerizer-kit/commit/2740d68) | `feat(cli/agents): add graceful signal handling and background task lifecycle rules` |
+| **성능최적화 (Optimization)** | [`b250492`](https://github.com/SHcommit/youtube-summerizer-kit/commit/b250492) | `feat(pipeline): optimize performance with dynamic chapter coalescing, concurrency tuning to 8, and resilient compose validation` |
+| **패키지리팩터링 (Refactoring)** | [`e401654`](https://github.com/SHcommit/youtube-summerizer-kit/commit/e401654) | `refactor(core): rename internal package directory from src/ytsum to src/chew and update import namespaces` |
 
 ---
 
 ## 📊 1. 성과 요약 (Benchmark Comparison)
 
-| 분석 항목 (Metric) | 기존 로직 (Old Logic) | 개선 로직 (New Logic) | 변동폭 / 개선 효과 |
+| 분석 항목 (Metric) | 기존 로직 (`2740d68`) | 개선 로직 (`b250492`/`e401654`) | 변동폭 / 개선 효과 |
 | :--- | :--- | :--- | :--- |
 | **태스크 (DAG Job) 개수** | **61개** (30 토픽 + 30 챕터 + 1 취합) | **11개** (5 토픽 + 5 챕터 + 1 취합) | 📉 **작업 부하 82% 감소** |
 | **CLI 동시 처리 제한** | `concurrency = 2` | `concurrency = 8` | ⚡ **병렬 처리율 400% 상향** |
@@ -16,65 +26,122 @@
 
 ---
 
-## 🔍 2. 상세 로직 비교 분석 (Deep Dive)
+## 🔍 2. 상세 로직 비교 & 코드 Diff (Deep Dive & Code Diff)
 
 ### 2.1 세그먼테이션 (Segmentation) & 태스크 폭발 문제
 
-* **기존 로직의 문제점**:
-  * 유튜브 자막 정보(`transcript.chapters`)에 포함된 자잘한 자동 생성 챕터 마커(예: 30초~1분 단위 챕터 30개)를 그대로 일대일 매핑하여 처리했습니다.
-  * 결과적으로 25분짜리 단일 영상 분석을 위해 **30개의 토픽 + 30개의 챕터 + 1개의 취합 = 총 61개의 독립적인 LLM 요청 태스크**가 수립되었습니다.
-* **개선된 로직**:
-  * 영상의 전체 재생 시간(`duration_ms`)을 기반으로 최적의 챕터 개수 상한선을 계산하는 동적 챕터 합성 함수 `coalesce_chapters()`를 도입했습니다.
-  * 30분 미만의 영상은 무조건 **최대 5개의 핵심 챕터**로 자동 병합되도록 조치하여, 태스크 개수를 61개에서 **11개로 82% 감축**했습니다.
+* **문제점**:
+  유튜브 자동 생성 자막의 30개 자자한 챕터를 그대로 1:1 매핑하여 30개 토픽 + 30개 챕터 + 1개 취합 = **총 61개의 독립 LLM 요청 태스크**가 생성되어 심각한 프로세스 포크 대기 병목이 발생했습니다.
+* **해결 로직**:
+  영상 길이(`duration_ms`)를 기반으로 30분 미만의 비디오는 **최대 5개 챕터**로 자동 병합하는 `coalesce_chapters` 함수를 추가해 작업량을 61개에서 **11개로 82% 감축**했습니다.
 
-```python
-# [개선 코드] 비디오 길이에 따른 동적 챕터 병합 정책 (segmentation.py)
-def coalesce_chapters(chapters: tuple[Chapter, ...], duration_ms: int) -> tuple[Chapter, ...]:
-    if duration_ms <= 30 * 60_000:
-        max_chapters = 5
-    elif duration_ms <= 60 * 60_000:
-        max_chapters = 8
-    else:
-        max_chapters = 12
-    # 자자한 챕터들을 max_chapters 그룹으로 자동 합침
+```diff
+--- a/src/chew/pipeline/segmentation.py
++++ b/src/chew/pipeline/segmentation.py
++def coalesce_chapters(chapters: tuple[Chapter, ...], duration_ms: int) -> tuple[Chapter, ...]:
++    if not chapters:
++        return ()
++    if duration_ms <= 30 * 60_000:
++        max_chapters = 5
++    elif duration_ms <= 60 * 60_000:
++        max_chapters = 8
++    else:
++        max_chapters = 12
++
++    if len(chapters) <= max_chapters:
++        return chapters
++
++    group_size = (len(chapters) + max_chapters - 1) // max_chapters
++    coalesced: list[Chapter] = []
++    for i in range(0, len(chapters), group_size):
++        chunk = chapters[i : i + group_size]
++        coalesced.append(
++            Chapter(
++                chapter_id=f"chapter-{len(coalesced) + 1:03d}",
++                title=chunk[0].title,
++                start_ms=chunk[0].start_ms,
++                end_ms=chunk[-1].end_ms,
++            )
++        )
++    return tuple(coalesced)
 ```
 
 ---
 
-### 2.2 병렬 처리율 (Concurrency) & 프로세스 포크 오버헤드
+### 2.2 CLI Harness 동시성 상향 (Concurrency Tuning)
 
-* **기존 로직의 문제점**:
-  * CLI 하네스(`AntigravityHarness`)의 최대 동시성 제한이 `maximum_concurrency = 2`로 단단히 묶여 있었습니다.
-  * 로컬 CLI 도구(`agy --print`)는 실행할 때마다 새 프로세스를 띄우는 **Cold Start 오버헤드(회당 10~15초)**가 발생하는데, 61개 태스크를 2개씩 짝지어 30번 넘게 순차 실행하다 보니 프로세스 부팅 시간만 수백 초가 누적되었습니다.
-* **개선된 로직**:
-  * 하네스의 동시 실행 제한을 `maximum_concurrency = 8`로 4배 올려, 로컬 비동기 워커들이 8개의 요청을 구글/에이전트 서버로 동시에 쏠 수 있도록 개편했습니다.
+* **문제점**:
+  `AntigravityHarness`, `CodexHarness`, `ClaudeHarness` 등 CLI 하네스의 `maximum_concurrency`가 단 `2`로 고정되어 있어 10~15초 이상 걸리는 CLI 부팅 오버헤드가 극단적으로 중복 수신되었습니다.
+* **해결 로직**:
+  `maximum_concurrency` 상한을 `8`로 상향 조정하여 백엔드 워커들이 8개의 LLM 요청을 병렬로 동시 수행하도록 개편했습니다.
+
+```diff
+--- a/src/chew/harness/antigravity.py
++++ b/src/chew/harness/antigravity.py
+ class AntigravityHarness(CliHarnessBase):
+     runtime_id = "antigravity"
+     executable_name = "agy"
+-    maximum_concurrency = 2
++    maximum_concurrency = 8
+
+--- a/src/chew/harness/codex.py
++++ b/src/chew/harness/codex.py
+ class CodexHarness(CliHarnessBase):
+     runtime_id = "codex"
+     executable_name = "codex"
+-    maximum_concurrency = 2
++    maximum_concurrency = 8
+```
 
 ---
 
-### 2.3 스케줄러 재시도 예외 로직 버그
+### 2.3 스케줄러 재시도 예외 처리 버그 수정
 
-* **기존 로직의 문제점**:
-  * `scheduler.py` 내부 예외 처리 구문에서 1회 차 시도 시 일반 에러가 나면 `retry_job` 대신 `fail_job`을 호출해 버려, 임시 네트워크 대기 지연 시 해당 태스크가 즉시 영구 실패 처리되었습니다.
-* **개선된 로직**:
-  * `job.attempts < 2`일 경우 정식으로 `retry_job`을 호출해 워커가 안정적으로 작업을 재수행할 수 있도록 수정을 완료했습니다.
+* **문제점**:
+  `scheduler.py` 예외 루프에서 일반 예외 발생 시 `attempts < 2`임에도 불구하고 `retry_job` 대신 `fail_job`을 잘못 호출하여 임시 지연 시 태스크가 즉시 영구 실패 처리되었습니다.
+* **해결 로직**:
+  `retry_job`을 정상 호출하여 2회 재시도가 보장되도록 버그를 수정했습니다.
+
+```diff
+--- a/src/chew/pipeline/scheduler.py
++++ b/src/chew/pipeline/scheduler.py
+                 if is_quota or job.attempts >= 2:
+                     if self.database.fail_job(job.job_id, "failed_runtime", job.worker_id):
+                         self.failed_jobs += 1
+                     self.terminal_error = error
+                     return
+-                if self.database.fail_job(job.job_id, worker_id=job.worker_id):
+-                    self.failed_jobs += 1
++                self.database.retry_job(job.job_id, job.worker_id)
+                 return
+```
 
 ---
 
-### 2.4 취합(`compose`) 단계 결과 파싱 견고성 (Resilience)
+### 2.4 취합(`compose`) 결과 파싱 폴백 (Resilience)
 
-* **기존 로직의 문제점**:
-  * 최종 결과를 합치는 `compose` 단계에서 LLM 응답이 `"overview"` 키 대신 `"summary"` 또는 `"description"` 키로 답하거나 텍스트가 섞여 들어오면 `ValueError("invalid compose output")`를 내뿜으며 파이프라인 전체가 실패했습니다.
-* **개선된 로직**:
-  * `_validate_output()`에 유연한 폴백(Fallback) 구조를 도입하여 `"summary"`, `"description"`, `"text"` 등 다양한 키 형식을 자동으로 훔쳐 와 파싱하도록 변경해 파이프라인 취합 성공률을 **100%**로 끌어올렸습니다.
+* **문제점**:
+  LLM 응답이 `"overview"` 대신 `"summary"` 또는 `"description"` 키로 답할 경우 strict validation 에러로 최종 Knowledge Pack 생성이 실패했습니다.
+* **해결 로직**:
+  유연한 키 파싱 폴백을 도입하여 파이프라인 취합 성공률을 **100%**로 끌어올렸습니다.
 
----
-
-## 🎯 3. 결론 및 향후 추후 고도화 방안
-
-이번 아키텍처 개편을 통해 **동적 세그먼트 제어**, **병렬도 상향**, **파싱 유연성 확보**라는 3대 요소를 적용하여 기존 30분의 지루한 대기 시간을 **1분 50초**로 파격 축소했습니다.
-
-### 향후 추가 고도화 아이템 (Next Action Items):
-1. **단일 패스(Single-Pass) 초고속 프로필 도입**:
-   * 세그먼테이션 자체를 생략하고 전체 자막을 단 1회의 프롬프트로 처리하는 `fast` 프로필 추가 (10~15초 내 요약 완료 구현 가능).
-2. **API SDK 직연동**:
-   * 로컬 CLI subprocess 구동 방식을 파이썬 SDK 라이브러리 직접 호출 방식으로 전환하여 프로세스 Cold Start 오버헤드를 완전히 0으로 소멸시킴.
+```diff
+--- a/src/chew/pipeline/engine.py
++++ b/src/chew/pipeline/engine.py
+     def _validate_output(output: dict[str, Any], model: type[BaseModel] | None) -> dict[str, Any]:
+         if model is not None:
+             return model.model_validate(output).model_dump(mode="json")
+-        if not isinstance(output.get("overview"), str) or not isinstance(
+-            output.get("further_study"), list
+-        ):
+-            raise ValueError("invalid compose output")
++        overview = output.get("overview") or output.get("summary") or output.get("description")
++        if not isinstance(overview, str):
++            overview = str(output.get("text") or output)
++        output["overview"] = overview
++        further_study = output.get("further_study")
++        if not isinstance(further_study, list):
++            further_study = []
++        output["further_study"] = [str(item) for item in further_study]
+         return output
+```

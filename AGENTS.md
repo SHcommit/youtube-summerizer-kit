@@ -90,4 +90,9 @@ src/chew/
 8. **No Blind Full-Disk File Scanning**:
    - AI Agents MUST NOT run recursive home-directory searches (`Path.home().glob()`, `find ~`) when locating application state or database files. Always inspect `bootstrap.py`, settings, or query the user directly.
 
+9. **Performance Benchmarking & Release Score Tracking**:
+   - Whenever modifying pipeline segmentation, harness concurrency, or DAG execution logic, AI Agents MUST run the live benchmark (`time uv run --extra youtube chew 'https://www.youtube.com/watch?v=NAumQObJEwM'`) to verify no performance regressions occurred compared to the baseline (1m 50s).
+   - Before tagging a new production release, AI Agents MUST record and update the best benchmark scores table in `BENCHMARK.md` (`reports/BENCHMARK.md`).
+
+
 
