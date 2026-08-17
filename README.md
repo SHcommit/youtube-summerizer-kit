@@ -377,7 +377,19 @@ chew purge                             # Requires the confirmation phrase: ì™„ì 
 `cleanup` is preview-only by default. Internal data is not deleted without an explicit `--apply` or
 interactive confirmation.
 
-## Benchmarking
+## Benchmarking & OpenTelemetry Dashboard
+
+Optional features for performance profiling and observability. General users can skip this step; developers who want performance tracing can install and run:
+
+```bash
+# Optional benchmarking and telemetry dependencies
+pip install -e '.[telemetry]'
+
+# Run OpenTelemetry visual performance UI dashboard
+chew benchmark-dashboard
+# or
+chew benchmark-ui
+```
 
 ```bash
 chew benchmark list

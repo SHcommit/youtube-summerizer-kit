@@ -257,11 +257,10 @@ def _run_generation(
                 "Run `pip install -e '.[youtube,whisper]'`."
             )
         raise typer.Exit(2) from error
-    dashboard_file = output / "trace_dashboard.html" if output.is_dir() else output.parent / "trace_dashboard.html"
     try:
-        exported = telemetry.export_html_dashboard(dashboard_file)
+        exported_report = telemetry.export_markdown_report("reports/trace_report.md")
         if not json_output:
-            typer.echo(f"OpenTelemetry Dashboard UI: file://{exported.resolve()}")
+            typer.echo(f"OpenTelemetry Trace Report: file://{exported_report.resolve()}")
     except Exception:
         pass
     _emit(_result_data(result), json_output, korean=korean)
@@ -343,13 +342,13 @@ def trace_ui(
     open_browser: Annotated[bool, typer.Option("--open/--no-open", "-b")] = True,
 ) -> None:
     """OpenTelemetry visual performance & tracing web UI dashboard."""
-    output_path = Path("chew-output/trace_dashboard.html")
-    exported = telemetry.export_html_dashboard(output_path)
-    abs_path = exported.resolve()
-    typer.echo(f"OpenTelemetry Dashboard UI: file://{abs_path}")
+    report_path = telemetry.export_markdown_report("reports/trace_report.md")
+    abs_path = report_path.resolve()
+    typer.echo(f"OpenTelemetry Trace Report: file://{abs_path}")
+    typer.echo("Jaeger OpenTelemetry UI: http://localhost:16686")
     if open_browser:
         import webbrowser
-        webbrowser.open(abs_path.as_uri())
+        webbrowser.open("http://localhost:16686")
 
 
 app.command("dashboard", help="Open OpenTelemetry visual performance UI dashboard.")(trace_ui)
