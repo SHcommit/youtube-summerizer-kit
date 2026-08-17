@@ -17,10 +17,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout main repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkout Wiki repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository }}.wiki
           path: wiki
