@@ -94,10 +94,12 @@ class OutputCompiler:
         cached = self._restore_cached(cache_key, destination)
         if cached is not None:
             return OutputManifest(profile, cache_key, cached)
+        default_filename = f"{_safe_name(pack.title)}.md" if pack.title else "summary.md"
         if profile == "obsidian":
             files = self._render_obsidian(pack, destination)
         elif profile == "json":
-            path = destination / "knowledge-pack.json"
+            is_json = destination.suffix.lower() == ".json"
+            path = destination if is_json else destination / "knowledge-pack.json"
             _atomic_write(
                 path,
                 json.dumps(pack.model_dump(mode="json"), ensure_ascii=False, indent=2),
@@ -107,11 +109,19 @@ class OutputCompiler:
             preference = getattr(self.harness, "set_preference", None)
             if callable(preference):
                 preference(settings.runtime)
-            path = destination / "index.md"
+            path = (
+                destination
+                if destination.suffix.lower() == ".md"
+                else destination / default_filename
+            )
             _atomic_write(path, await self._compose(pack, profile, settings, cache_key))
             files = (path,)
         else:
-            path = destination / "index.md"
+            path = (
+                destination
+                if destination.suffix.lower() == ".md"
+                else destination / default_filename
+            )
             _atomic_write(path, self._render_digest(pack))
             files = (path,)
         self._store_cached(cache_key, pack.source.source_id, destination, files)

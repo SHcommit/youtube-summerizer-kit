@@ -16,7 +16,7 @@ from ytsum.domain import (
 )
 from ytsum.harness.base import HarnessCapabilities, HarnessProbe
 from ytsum.knowledge import build_knowledge_pack
-from ytsum.outputs import OutputCompiler
+from ytsum.pipeline.outputs import OutputCompiler, _safe_name
 
 
 def pack() -> KnowledgePack:
@@ -154,6 +154,7 @@ async def test_same_output_cache_key_restores_without_model_calls(tmp_path: Path
     await compiler.compile(pack(), "blog", settings, tmp_path / "first")
     await compiler.compile(pack(), "blog", settings, tmp_path / "second")
     assert harness.tasks == ["output_outline", "output_compose", "output_verify"]
-    assert (tmp_path / "second" / "index.md").read_text() == (
-        tmp_path / "first" / "index.md"
+    filename = f"{_safe_name(pack().title)}.md"
+    assert (tmp_path / "second" / filename).read_text() == (
+        tmp_path / "first" / filename
     ).read_text()

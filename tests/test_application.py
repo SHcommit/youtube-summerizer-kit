@@ -280,4 +280,5 @@ async def test_profile_changes_reassemble_without_reanalyzing_and_output_cache_i
     assert calls_before_cache_restore.count("compose") == 1
     assert calls_before_cache_restore.count("output_compose") == 2
     assert restored.reused
-    assert restored.files[0].read_text() == (tmp_path / "blog-two" / "index.md").read_text()
+    target_file = tmp_path / "blog-two" / restored.files[0].name
+    assert restored.files[0].read_text() == target_file.read_text()

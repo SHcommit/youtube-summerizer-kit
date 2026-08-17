@@ -75,7 +75,7 @@ def ensure_success(runtime_id: str, result: ProcessResult) -> None:
             runtime_id, runtime_id
         )
         raise HarnessAuthenticationError(runtime_id, login)
-    if "429" in normalized or "rate limit" in normalized:
+    if "429" in normalized or "rate limit" in normalized or "usage limit" in normalized:
         raise HarnessRateLimitError(f"{runtime_id} 요청 한도에 도달했습니다")
     raise HarnessExecutionError(f"{runtime_id} 실행 실패({result.exit_code}): {detail}")
 

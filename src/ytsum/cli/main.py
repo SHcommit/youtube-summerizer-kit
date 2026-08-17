@@ -264,7 +264,7 @@ def summarize(
     source: Annotated[
         str | None, typer.Argument(help="YouTube URL or local audio/video path")
     ] = None,
-    output: Annotated[Path, typer.Option("--output", "-o")] = Path("ytsum-output"),
+    output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-output"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Create a detailed digest from a video."""
@@ -276,7 +276,7 @@ def blog(
     source: Annotated[
         str | None, typer.Argument(help="YouTube URL or local audio/video path")
     ] = None,
-    output: Annotated[Path, typer.Option("--output", "-o")] = Path("ytsum-blog"),
+    output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-blog"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """설정한 문체로 블로그 글을 만듭니다."""
@@ -288,7 +288,7 @@ def study(
     source: Annotated[
         str | None, typer.Argument(help="YouTube URL or local audio/video path")
     ] = None,
-    output: Annotated[Path, typer.Option("--output", "-o")] = Path("ytsum-study"),
+    output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-study"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """학습 노트와 추가 학습 항목을 만듭니다."""
@@ -300,7 +300,7 @@ def obsidian(
     source: Annotated[
         str | None, typer.Argument(help="YouTube URL or local audio/video path")
     ] = None,
-    output: Annotated[Path, typer.Option("--output", "-o")] = Path("ytsum-obsidian"),
+    output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-vault"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """위키링크가 포함된 Obsidian 노트를 만듭니다."""

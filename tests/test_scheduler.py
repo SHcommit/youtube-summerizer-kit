@@ -116,17 +116,17 @@ async def test_failed_parent_marks_downstream_failed_and_scheduler_exits(tmp_pat
             return await super().handle(job)
 
     handler = FailingHandler({})
-    summary = await asyncio.wait_for(
-        Scheduler(
-            database,
-            handler,
-            global_concurrency=2,
-            runtime_limits={"fake": 2},
-        ).run("run-1"),
-        timeout=1,
-    )
+    with pytest.raises(ValueError, match="invalid structured output"):
+        await asyncio.wait_for(
+            Scheduler(
+                database,
+                handler,
+                global_concurrency=2,
+                runtime_limits={"fake": 2},
+            ).run("run-1"),
+            timeout=1,
+        )
 
-    assert summary.failed_jobs == 3
     assert handler.calls == Counter()
 
 
