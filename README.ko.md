@@ -6,6 +6,8 @@
 
 [English](README.md) | **한국어**
 
+![YouTube Summarizer Kit Banner](assets/architecture/social-preview.png)
+
 YouTube 영상과 로컬 오디오·영상 파일을 재사용 가능한 지식으로 변환하는 로컬 중심 CLI(`chew`)입니다.
 일회성 요약을 출력하는 대신 자막을 검증하고, 장·소주제를 병렬 분석하여 다양한 포맷 문서로 조립합니다.
 
