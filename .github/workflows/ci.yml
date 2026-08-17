@@ -19,7 +19,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - run: python -m pip install --upgrade pip
-      - run: pip install build '.[youtube,dev]'
+      - run: pip install build '.[youtube,dev,telemetry]'
       - run: ruff check .
       - run: mypy src/chew
 
