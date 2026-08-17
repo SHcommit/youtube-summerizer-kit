@@ -13,6 +13,8 @@ on:
 jobs:
   sync-wiki:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout main repository
         uses: actions/checkout@v4
@@ -32,10 +34,11 @@ jobs:
           cp ../reports/BENCHMARK.md ./Benchmark-Guide.md
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git"
           git add .
           if ! git diff --staged --quiet; then
             git commit -m "docs(wiki): auto-sync performance analysis and trace reports from main repo"
-            git push
+            git push origin HEAD:master || git push origin HEAD:main || true
           else
             echo "No changes to sync to Wiki."
           fi
