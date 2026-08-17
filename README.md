@@ -6,6 +6,8 @@
 
 **English** | [한국어](README.ko.md)
 
+![YouTube Summarizer Kit Banner](assets/architecture/social-preview.png)
+
 A local-first, resumable CLI (`chew`) that turns YouTube videos and local audio or video files into reusable knowledge. It validates transcripts, analyzes chapters and topics in parallel, and compiles the result into multiple formats instead of producing a one-off summary.
 
 - Run with `chew <URL>`.
