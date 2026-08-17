@@ -87,3 +87,7 @@ src/ytsum/
 7. **Background Process & Task Lifecycle Management**:
    - AI Agents working on this codebase MUST clean up and terminate all spawned background tasks (`uv run chew`, async CLI processes, schedule timers) using `manage_task kill` immediately upon task completion, cancellation, or before responding to the user. Never leave orphan processes running in the background.
 
+8. **No Blind Full-Disk File Scanning**:
+   - AI Agents MUST NOT run recursive home-directory searches (`Path.home().glob()`, `find ~`) when locating application state or database files. Always inspect `bootstrap.py`, settings, or query the user directly.
+
+

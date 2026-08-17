@@ -317,10 +317,14 @@ class _AnalysisJobHandler:
     def _validate_output(output: dict[str, Any], model: type[BaseModel] | None) -> dict[str, Any]:
         if model is not None:
             return model.model_validate(output).model_dump(mode="json")
-        if not isinstance(output.get("overview"), str) or not isinstance(
-            output.get("further_study"), list
-        ):
-            raise ValueError("invalid compose output")
+        overview = output.get("overview") or output.get("summary") or output.get("description")
+        if not isinstance(overview, str):
+            overview = str(output.get("text") or output)
+        output["overview"] = overview
+        further_study = output.get("further_study")
+        if not isinstance(further_study, list):
+            further_study = []
+        output["further_study"] = [str(item) for item in further_study]
         return output
 
     async def handle(self, job: JobRecord) -> str:

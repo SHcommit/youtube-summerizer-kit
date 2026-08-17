@@ -159,8 +159,7 @@ class Scheduler:
                         self.failed_jobs += 1
                     self.terminal_error = error
                     return
-                if self.database.fail_job(job.job_id, worker_id=job.worker_id):
-                    self.failed_jobs += 1
+                self.database.retry_job(job.job_id, job.worker_id)
                 return
             finally:
                 heartbeat.cancel()

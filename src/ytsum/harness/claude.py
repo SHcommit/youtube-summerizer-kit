@@ -16,7 +16,7 @@ from ytsum.harness.builtin import (
 class ClaudeHarness(CliHarnessBase):
     runtime_id = "claude"
     executable_name = "claude"
-    maximum_concurrency = 1
+    maximum_concurrency = 8
 
     def authentication_command(self) -> tuple[str, ...] | None:
         return None if self.executable is None else (self.executable, "auth", "status")

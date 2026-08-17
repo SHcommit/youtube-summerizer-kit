@@ -19,7 +19,7 @@ from ytsum.harness.builtin import (
 class CodexHarness(CliHarnessBase):
     runtime_id = "codex"
     executable_name = "codex"
-    maximum_concurrency = 2
+    maximum_concurrency = 8
 
     def authentication_command(self) -> tuple[str, ...] | None:
         return None if self.executable is None else (self.executable, "login", "status")

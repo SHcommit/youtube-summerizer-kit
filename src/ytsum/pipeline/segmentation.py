@@ -87,6 +87,35 @@ def _boundaries(
     return result
 
 
+def coalesce_chapters(chapters: tuple[Chapter, ...], duration_ms: int) -> tuple[Chapter, ...]:
+    if not chapters:
+        return ()
+    if duration_ms <= 30 * 60_000:
+        max_chapters = 5
+    elif duration_ms <= 60 * 60_000:
+        max_chapters = 8
+    else:
+        max_chapters = 12
+
+    if len(chapters) <= max_chapters:
+        return chapters
+
+    group_size = (len(chapters) + max_chapters - 1) // max_chapters
+    coalesced: list[Chapter] = []
+    for i in range(0, len(chapters), group_size):
+        chunk = chapters[i : i + group_size]
+        title = chunk[0].title
+        coalesced.append(
+            Chapter(
+                chapter_id=f"chapter-{len(coalesced) + 1:03d}",
+                title=title,
+                start_ms=chunk[0].start_ms,
+                end_ms=chunk[-1].end_ms,
+            )
+        )
+    return tuple(coalesced)
+
+
 def segment_transcript(
     transcript: Transcript,
     chapters: tuple[Chapter, ...],
@@ -94,7 +123,9 @@ def segment_transcript(
     detector: BoundaryDetector | None = None,
 ) -> SegmentManifest:
     selected_detector = detector or PausePunctuationBoundaryDetector()
-    selected_chapters = chapters or (_default_chapter(transcript),)
+    raw_chapters = chapters or transcript.chapters
+    coalesced = coalesce_chapters(raw_chapters, transcript.duration_ms) if raw_chapters else ()
+    selected_chapters = coalesced or (_default_chapter(transcript),)
     topics: list[Topic] = []
     for chapter in selected_chapters:
         ranges = _boundaries(transcript, chapter, policy, selected_detector)

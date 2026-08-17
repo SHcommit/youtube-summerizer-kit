@@ -18,7 +18,7 @@ from ytsum.harness.builtin import (
 class AntigravityHarness(CliHarnessBase):
     runtime_id = "antigravity"
     executable_name = "agy"
-    maximum_concurrency = 2
+    maximum_concurrency = 8
 
     def authentication_command(self) -> tuple[str, ...] | None:
         return None

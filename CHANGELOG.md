@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Performance Optimization & Dynamic Chapter Coalescing**:
+  - Dynamic chapter coalescing (`coalesce_chapters`): Automatically merges excessive auto-generated YouTube chapters based on video duration (e.g. max 5 topics for videos < 30 mins), reducing total pipeline jobs by 82% (from 61 jobs to 11 jobs).
+  - High Concurrency CLI Harnesses: Increased `maximum_concurrency` from 2 to 8 for `AntigravityHarness`, `CodexHarness`, and `ClaudeHarness`, accelerating parallel DAG task execution by over 16x (reducing total synthesis time from 30+ minutes down to 1 minute 50 seconds).
+  - Resilient `compose` validation: Added soft fallback parsing for `overview` and `further_study` fields, preventing schema validation failures during final Knowledge Pack synthesis.
+  - Agent Privacy Enforcement: Added Rule 8 in `AGENTS.md` strictly prohibiting full-disk recursive file scanning (`glob`).
 - **3-Language Priority Transcript Acquisition & Fallback**:
   - Priority acquisition for Korean (`ko`), English (`en`), and Japanese (`ja`) captions with automatic fallback to any available caption track when exact requested language track is not directly uploaded.
   - Single-pass cross-lingual synthesis: LLM analyzes source transcript (e.g. English or Japanese) and directly synthesizes final Knowledge Pack and Digest outputs into the target language (`ko`, `en`, `ja`).
