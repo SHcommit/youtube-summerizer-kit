@@ -37,7 +37,7 @@ src/chew/
 ├── app/               # Layer 6: Application Service & Container Bootstrap
 │   ├── service.py     (Application use-case orchestrator)
 │   ├── bootstrap.py   (Dependency injection container & AutoHarness)
-│   └── config.py      (Markdown-based settings loader: YTSUM.md)
+│   └── config.py      (Markdown-based settings loader: CHEW.md)
 │
 ├── retention/         # Layer 7: Storage Retention & Cleanup Policies
 │   └── planner.py     (Retention policy planner & cleaner)
@@ -47,6 +47,11 @@ src/chew/
 │
 └── cli/               # Layer 9: Presentation Layer (Typer CLI Commands)
     └── main.py        (Bilingual Korean/English Typer commands)
+
+reports/               # Central Benchmarking & Performance Observability Reports
+├── BENCHMARK.md       (Release performance history & OpenTelemetry Jaeger setup)
+├── performance_analysis.md (Baseline vs optimized commit diff comparisons)
+└── trace_report.md    (Generated OpenTelemetry span execution report)
 ```
 
 ---
@@ -90,9 +95,10 @@ src/chew/
 8. **No Blind Full-Disk File Scanning**:
    - AI Agents MUST NOT run recursive home-directory searches (`Path.home().glob()`, `find ~`) when locating application state or database files. Always inspect `bootstrap.py`, settings, or query the user directly.
 
-9. **Performance Benchmarking & Release Score Tracking**:
-   - Whenever modifying pipeline segmentation, harness concurrency, or DAG execution logic, AI Agents MUST run the live benchmark (`time uv run --extra youtube chew 'https://www.youtube.com/watch?v=NAumQObJEwM'`) to verify no performance regressions occurred compared to the baseline (1m 50s).
-   - Before tagging a new production release, AI Agents MUST record and update the best benchmark scores table in `BENCHMARK.md` (`reports/BENCHMARK.md`).
+9. **Performance Benchmarking & OpenTelemetry Trace Score Tracking**:
+   - Whenever modifying pipeline segmentation, harness concurrency, or DAG execution logic, AI Agents MUST run the benchmark (`time uv run --extra youtube chew 'https://www.youtube.com/watch?v=NAumQObJEwM'`) to verify no performance regressions occurred compared to the baseline (1m 50s).
+   - Use `chew benchmark-dashboard` or `chew benchmark-ui` to generate `reports/trace_report.md` and inspect real-time OpenTelemetry trace graphs in Jaeger UI at `http://localhost:16686`.
+   - Before tagging a new production release, AI Agents MUST record and update the best benchmark scores table in `reports/BENCHMARK.md` (symlinked at `BENCHMARK.md`).
 
 
 
