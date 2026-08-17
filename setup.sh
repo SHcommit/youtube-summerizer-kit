@@ -27,4 +27,11 @@ if [ -n "$SHELL_RC" ]; then
     fi
 fi
 
+# 3. Automatically initialize default CHEW.md and .chew/profiles/
+if command -v uv >/dev/null 2>&1; then
+    uv run chew config --init >/dev/null 2>&1 || true
+else
+    python3 -m chew.cli config --init >/dev/null 2>&1 || true
+fi
+
 echo "=== Setup Complete! You can now run 'chew' directly in your terminal. ==="
