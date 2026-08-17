@@ -12,7 +12,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`v0.1.0-alpha`** | [`2740d68`](https://github.com/SHcommit/youtube-summerizer-kit/commit/2740d68) | `NAumQObJEwM` (25분) | **30분 00초+** | 61개 | `concurrency=2` | Baseline (비최적화 초기 버전) |
 | **`v0.1.0-beta`** | [`b250492`](https://github.com/SHcommit/youtube-summerizer-kit/commit/b250492) | `NAumQObJEwM` (25분) | **1분 50초** | 11개 | `concurrency=8` | 동적 챕터 병합 + 동시성 8 향상 |
-| **`v0.1.0` (최신)** | [`e401654`](https://github.com/SHcommit/youtube-summerizer-kit/commit/e401654) | `NAumQObJEwM` (25분) | **1분 50초** | 11개 | `concurrency=8` | core 패키지 `chew` 리팩터링 완료 |
+| **`v0.1.0` (최신)** | [`bad0e62`](https://github.com/SHcommit/youtube-summerizer-kit/commit/bad0e62) | `NAumQObJEwM` (25분) | **1분 50초** | 11개 | `concurrency=8` | `chew` 패키지 리팩터링 및 요약 강도(`--depth`) 지원 |
 
 ---
 
