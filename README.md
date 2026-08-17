@@ -34,9 +34,27 @@ Modern technical talks, podcasts, and video lectures are 1–2 hours long, yet t
 
 ## Download & Installation (Prerequisites Required First)
 
-Before running the `chew` CLI command in your terminal, you **must complete the download and environment setup below first**.
+Before running the `chew` CLI command in your terminal, you **must complete the download and environment setup below first**. Python 3.12 or newer is required. Choose your preferred package manager or installation method below:
 
-Python 3.12 or newer is required. Run the **1-Click Auto Setup** below to download dependencies, register the global `chew` command, and initialize configuration files (`CHEW.md` and `.chew/profiles/`) automatically in 1 second:
+### Package Manager 1-Line Installation (Recommended)
+
+```bash
+# Homebrew installation (macOS / Linux recommended)
+brew install SHcommit/tap/chew
+
+# pipx isolated global installation
+pipx install youtube-summarizer-kit
+
+# uv high-speed global CLI installation
+uv tool install youtube-summarizer-kit
+
+# Standard pip installation
+pip install youtube-summarizer-kit
+```
+
+### Source Repository Clone & 1-Click Auto Setup
+
+Run the **1-Click Auto Setup** below to clone the repository, install dependencies, register the global `chew` command, and initialize configuration files (`CHEW.md` and `.chew/profiles/`) automatically in 1 second:
 
 ```bash
 # 1. Clone the repository (Download)

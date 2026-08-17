@@ -35,9 +35,27 @@ YouTube 영상과 로컬 오디오·영상 파일을 재사용 가능한 지식�
 
 ## 필수 다운로드 및 설치 (Download & Getting Started)
 
-`chew` 명령어를 터미널에서 구동하기 전 **반드시 다운로드 및 환경 설치 과정을 최우선으로 완료**해야 합니다.
+`chew` 명령어를 터미널에서 구동하기 전 **반드시 다운로드 및 환경 설치 과정을 최우선으로 완료**해야 합니다. Python 3.12 이상이 필요하며, 사용하시는 선호 패키지 관리자에 맞춰 아래 1줄 명령어로 설치할 수 있습니다:
 
-Python 3.12 이상이 필요합니다. 아래 **1-Click 자동 설치 스크립트**를 실행하면 1초 만에 의존성 설치, 전역 `chew` 명령어 등록, 그리고 기본 설정 파일(`CHEW.md` 및 `.chew/profiles/`) 자동 초기화가 완료됩니다:
+### 패키지 관리자 1줄 설치 (권장)
+
+```bash
+# Homebrew 설치 (macOS / Linux 권장)
+brew install SHcommit/tap/chew
+
+# pipx 전역 독립 환경 설치
+pipx install youtube-summarizer-kit
+
+# uv 초고속 전역 CLI 설치
+uv tool install youtube-summarizer-kit
+
+# pip 설치
+pip install youtube-summarizer-kit
+```
+
+### 소스코드 클론 & 1-Click 자동 설치
+
+아래 **1-Click 자동 설치 스크립트**를 실행하면 1초 만에 저장소 클론, 의존성 설치, 전역 `chew` 명령어 등록, 그리고 기본 설정 파일(`CHEW.md` 및 `.chew/profiles/`) 자동 초기화가 완료됩니다:
 
 ```bash
 # 1. 저장소 클론 (다운로드)

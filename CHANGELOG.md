@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-17
+
+### Added
+- **Multi-Channel Package Manager Support (`Homebrew`, `pipx`, `uv tool`, `pip`)**:
+  - Added 1-line installation instructions for Homebrew (`brew install SHcommit/tap/chew`), `pipx`, `uv tool`, and `pip` in `README.md` and `README.ko.md`.
+  - Added automated Homebrew Tap formula sync step to CD release workflow.
+
 ## [0.1.1] - 2026-08-17
 
 ### Fixed
