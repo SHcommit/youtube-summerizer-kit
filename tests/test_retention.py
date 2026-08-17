@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.retention import RetentionPlanner
-from ytsum.storage.artifacts import ArtifactStore
-from ytsum.storage.database import Database
+from chew.retention import RetentionPlanner
+from chew.storage.artifacts import ArtifactStore
+from chew.storage.database import Database
 
 NOW = datetime(2026, 8, 16, tzinfo=UTC)
 

@@ -44,14 +44,14 @@ dev = [
 ]
 
 [project.scripts]
-chew = "ytsum.cli:main"
+chew = "chew.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ytsum"]
+packages = ["src/chew"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "src/ytsum",
+  "src/chew",
   "tests",
   "assets/architecture",
   "README.md",

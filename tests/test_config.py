@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.config import ConfigurationError, discover_config, load_settings
+from chew.config import ConfigurationError, discover_config, load_settings
 
 
 def test_discover_config_walks_up_to_project_root(tmp_path: Path) -> None:
@@ -19,7 +19,7 @@ def test_profile_overrides_project_default(tmp_path: Path) -> None:
         "---\nlanguage: ko\ndepth: detailed\n---\n공통 톤",
         encoding="utf-8",
     )
-    profiles = tmp_path / ".ytsum" / "profiles"
+    profiles = tmp_path / ".chew" / "profiles"
     profiles.mkdir(parents=True)
     (profiles / "blog.md").write_text(
         "---\ndepth: concise\n---\n블로그 톤",

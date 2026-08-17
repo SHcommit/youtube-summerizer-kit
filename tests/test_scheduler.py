@@ -5,9 +5,9 @@ from time import monotonic
 
 import pytest
 
-from ytsum.harness.builtin import HarnessAuthenticationError
-from ytsum.scheduler import RateLimited, Scheduler
-from ytsum.storage.database import Database, JobRecord, JobSpec
+from chew.harness.builtin import HarnessAuthenticationError
+from chew.scheduler import RateLimited, Scheduler
+from chew.storage.database import Database, JobRecord, JobSpec
 
 
 class RecordingHandler:

@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 import pytest
 from typer.testing import CliRunner
 
-from ytsum.cli import app
-from ytsum.retention import CleanupPlan, CleanupResult
+from chew.cli import app
+from chew.retention import CleanupPlan, CleanupResult
 
 
 @dataclass
@@ -35,7 +35,7 @@ class Planner:
 @pytest.fixture
 def planner(monkeypatch: pytest.MonkeyPatch) -> Planner:
     value = Planner()
-    monkeypatch.setattr("ytsum.cli._retention_factory", lambda: value)
+    monkeypatch.setattr("chew.cli._retention_factory", lambda: value)
     return value
 
 

@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.domain import Provenance
-from ytsum.identity import normalize_source, normalize_youtube_url
-from ytsum.transcripts.whisper import WhisperDependencyMissing, WhisperProvider
+from chew.domain import Provenance
+from chew.identity import normalize_source, normalize_youtube_url
+from chew.transcripts.whisper import WhisperDependencyMissing, WhisperProvider
 
 pytestmark = pytest.mark.asyncio
 

@@ -4,8 +4,8 @@ import os
 
 import pytest
 
-from ytsum.domain import GenerationRequest
-from ytsum.harness.registry import default_registry
+from chew.domain import GenerationRequest
+from chew.harness.registry import default_registry
 
 
 @pytest.mark.asyncio

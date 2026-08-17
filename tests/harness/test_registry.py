@@ -1,9 +1,9 @@
 import pytest
 
-from ytsum.domain import GenerationRequest, GenerationResult
-from ytsum.harness.base import HarnessCapabilities, HarnessProbe
-from ytsum.harness.builtin import HarnessAuthenticationError
-from ytsum.harness.registry import HarnessRegistry
+from chew.domain import GenerationRequest, GenerationResult
+from chew.harness.base import HarnessCapabilities, HarnessProbe
+from chew.harness.builtin import HarnessAuthenticationError
+from chew.harness.registry import HarnessRegistry
 
 
 class StubHarness:

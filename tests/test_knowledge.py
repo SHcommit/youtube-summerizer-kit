@@ -1,4 +1,4 @@
-from ytsum.domain import (
+from chew.domain import (
     ChapterSummary,
     Claim,
     Evidence,
@@ -6,7 +6,7 @@ from ytsum.domain import (
     SourceIdentity,
     TopicSummary,
 )
-from ytsum.knowledge import build_knowledge_pack
+from chew.knowledge import build_knowledge_pack
 
 
 def test_knowledge_pack_preserves_evidence_and_has_stable_fingerprint() -> None:

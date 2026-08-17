@@ -1,5 +1,1 @@
----
-runtime: antigravity
-language: ko
-depth: detailed
----
+CHEW.md

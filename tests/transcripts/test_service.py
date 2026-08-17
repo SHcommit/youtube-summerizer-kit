@@ -1,9 +1,9 @@
 import pytest
 
-from ytsum.domain import Provenance, SourceIdentity, Transcript, TranscriptSegment
-from ytsum.identity import normalize_source
-from ytsum.transcripts.base import TranscriptProvider
-from ytsum.transcripts.service import TranscriptService, TranscriptUnavailable
+from chew.domain import Provenance, SourceIdentity, Transcript, TranscriptSegment
+from chew.identity import normalize_source
+from chew.transcripts.base import TranscriptProvider
+from chew.transcripts.service import TranscriptService, TranscriptUnavailable
 
 SOURCE = SourceIdentity(
     source_id="youtube:abcDEF_1234",

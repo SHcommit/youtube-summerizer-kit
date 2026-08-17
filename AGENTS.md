@@ -9,7 +9,7 @@ This document provides essential context, architectural layout, and development 
 The codebase follows the **Ports & Adapters (Hexagonal)** architecture pattern to guarantee strict separation between core synthesis logic and external AI/data adapters.
 
 ```
-src/ytsum/
+src/chew/
 ├── core/              # Layer 1: Core Domain Entities, Value Objects, Identity (SHA-256), & Prompts
 │   ├── models.py      (Frozen pydantic models: SourceIdentity, Transcript, KnowledgePack, etc.)
 │   ├── identity.py    (YouTube URL & local media normalization, SHA-256 fingerprinting)
@@ -60,7 +60,7 @@ src/ytsum/
    - `transcripts` providers implement `TranscriptProvider` in `transcripts/base.py`.
 
 2. **Backward Compatibility**:
-   - Re-export modules at the package root (`src/ytsum/domain.py`, `src/ytsum/pipeline.py`, `src/ytsum/config.py`, `src/ytsum/cli.py`) MUST be maintained so tests and external entrypoints remain compatible.
+   - Re-export modules at the package root (`src/chew/domain.py`, `src/chew/pipeline.py`, `src/chew/config.py`, `src/chew/cli.py`) MUST be maintained so tests and external entrypoints remain compatible.
 
 3. **Single Source of Truth & Symlink Propagation**:
    - `AGENTS.md` is the single source of truth for architectural guidelines.
@@ -81,7 +81,7 @@ src/ytsum/
      ```bash
      uv run --extra dev pytest
      uv run --extra dev ruff check .
-     uv run --extra dev mypy src/ytsum
+     uv run --extra dev mypy src/chew
      ```
 
 7. **Background Process & Task Lifecycle Management**:

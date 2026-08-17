@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.storage.database import Database, JobSpec
+from chew.storage.database import Database, JobSpec
 
 
 def test_database_uses_wal_and_finds_compatible_run(tmp_path: Path) -> None:

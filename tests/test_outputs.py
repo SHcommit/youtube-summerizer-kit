@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.config import Settings
-from ytsum.domain import (
+from chew.config import Settings
+from chew.domain import (
     ChapterSummary,
     Claim,
     Evidence,
@@ -14,9 +14,9 @@ from ytsum.domain import (
     SourceIdentity,
     TopicSummary,
 )
-from ytsum.harness.base import HarnessCapabilities, HarnessProbe
-from ytsum.knowledge import build_knowledge_pack
-from ytsum.pipeline.outputs import OutputCompiler, _safe_name
+from chew.harness.base import HarnessCapabilities, HarnessProbe
+from chew.knowledge import build_knowledge_pack
+from chew.pipeline.outputs import OutputCompiler, _safe_name
 
 
 def pack() -> KnowledgePack:
@@ -141,8 +141,8 @@ async def test_uncached_ai_output_honors_profile_runtime(tmp_path: Path) -> None
 
 @pytest.mark.asyncio
 async def test_same_output_cache_key_restores_without_model_calls(tmp_path: Path) -> None:
-    from ytsum.storage.artifacts import ArtifactStore
-    from ytsum.storage.database import Database
+    from chew.storage.artifacts import ArtifactStore
+    from chew.storage.database import Database
 
     harness = OutputHarness()
     database = Database(tmp_path / "state.db")

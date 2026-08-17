@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.domain import GenerationRequest
-from ytsum.harness.builtin import HarnessAuthenticationError
-from ytsum.harness.claude import ClaudeHarness
-from ytsum.harness.codex import CodexHarness
-from ytsum.harness.gemini import GeminiHarness
-from ytsum.harness.ollama import OllamaHarness
-from ytsum.harness.process import ProcessResult
+from chew.domain import GenerationRequest
+from chew.harness.builtin import HarnessAuthenticationError
+from chew.harness.claude import ClaudeHarness
+from chew.harness.codex import CodexHarness
+from chew.harness.gemini import GeminiHarness
+from chew.harness.ollama import OllamaHarness
+from chew.harness.process import ProcessResult
 
 REQUEST = GenerationRequest(
     request_id="req-1",

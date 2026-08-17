@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Core Refactoring (`ytsum` -> `chew`)**:
+  - Renamed internal Python package directory from `src/ytsum` to `src/chew` and updated all module import namespaces (`chew.*`).
+  - Standardized CLI output directories to `chew-output`, `chew-blog`, `chew-study`, and `chew-vault`.
+  - Added support for `CHEW.md` project configuration files.
 - **Performance Optimization & Dynamic Chapter Coalescing**:
   - Dynamic chapter coalescing (`coalesce_chapters`): Automatically merges excessive auto-generated YouTube chapters based on video duration (e.g. max 5 topics for videos < 30 mins), reducing total pipeline jobs by 82% (from 61 jobs to 11 jobs).
   - High Concurrency CLI Harnesses: Increased `maximum_concurrency` from 2 to 8 for `AntigravityHarness`, `CodexHarness`, and `ClaudeHarness`, accelerating parallel DAG task execution by over 16x (reducing total synthesis time from 30+ minutes down to 1 minute 50 seconds).
