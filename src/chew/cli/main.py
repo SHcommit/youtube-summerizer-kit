@@ -28,6 +28,7 @@ from chew.core.identity import (
     looks_like_local_media_input,
     normalize_youtube_url,
 )
+from chew.telemetry import telemetry
 from chew.transcripts.service import TranscriptUnavailable
 from chew.transcripts.whisper import WhisperDependencyMissing
 
@@ -256,6 +257,13 @@ def _run_generation(
                 "Run `pip install -e '.[youtube,whisper]'`."
             )
         raise typer.Exit(2) from error
+    dashboard_file = output / "trace_dashboard.html" if output.is_dir() else output.parent / "trace_dashboard.html"
+    try:
+        exported = telemetry.export_html_dashboard(dashboard_file)
+        if not json_output:
+            typer.echo(f"OpenTelemetry Dashboard UI: file://{exported.resolve()}")
+    except Exception:
+        pass
     _emit(_result_data(result), json_output, korean=korean)
 
 
@@ -328,6 +336,25 @@ def status(
 
 app.command("status", help="Show analysis and job progress.")(status)
 app.command("상태", hidden=True)(status)
+
+
+def trace_ui(
+    context: typer.Context,
+    open_browser: Annotated[bool, typer.Option("--open/--no-open", "-b")] = True,
+) -> None:
+    """OpenTelemetry visual performance & tracing web UI dashboard."""
+    output_path = Path("chew-output/trace_dashboard.html")
+    exported = telemetry.export_html_dashboard(output_path)
+    abs_path = exported.resolve()
+    typer.echo(f"OpenTelemetry Dashboard UI: file://{abs_path}")
+    if open_browser:
+        import webbrowser
+        webbrowser.open(abs_path.as_uri())
+
+
+app.command("dashboard", help="Open OpenTelemetry visual performance UI dashboard.")(trace_ui)
+app.command("ui", help="Open OpenTelemetry visual performance UI dashboard.")(trace_ui)
+app.command("대시보드", hidden=True)(trace_ui)
 
 
 def resume(

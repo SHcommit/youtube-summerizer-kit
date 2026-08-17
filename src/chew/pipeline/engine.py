@@ -34,6 +34,7 @@ from chew.pipeline.scheduler import Scheduler
 from chew.pipeline.segmentation import SegmentationPolicy, SegmentManifest, segment_transcript
 from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 from chew.storage.database import Database, JobRecord, JobSpec
+from chew.telemetry import telemetry
 from chew.transcripts.service import TranscriptService
 
 
@@ -143,22 +144,27 @@ class AnalysisPipeline:
             except (ArtifactCorruptError, ValidationError):
                 cached_hash = None
         if cached_hash is None:
-            resolution = await self.transcripts.resolve(
-                source,
-                settings.language,
-                include_optional=settings.whisper_fallback,
-            )
-            transcript = resolution.transcript
-            transcript_ref = self.artifacts.put_json(transcript)
-            self.database.cache_transcript(
-                source.source_id,
-                settings.language,
-                transcript_ref.digest,
-                fingerprint(transcript),
-            )
+            with telemetry.span("chew.transcript_acquisition", {"source": source.canonical_url or source.source_id}):
+                resolution = await self.transcripts.resolve(
+                    source,
+                    settings.language,
+                    include_optional=settings.whisper_fallback,
+                )
+                transcript = resolution.transcript
+                transcript_ref = self.artifacts.put_json(transcript)
+                self.database.cache_transcript(
+                    source.source_id,
+                    settings.language,
+                    transcript_ref.digest,
+                    fingerprint(transcript),
+                )
         transcript_hash = fingerprint(transcript)
         selected_chapters = chapters or transcript.chapters
-        manifest = segment_transcript(transcript, selected_chapters, SegmentationPolicy())
+        with telemetry.span(
+            "chew.segmentation",
+            {"raw_chapters": len(transcript.chapters), "selected_chapters": len(selected_chapters)},
+        ):
+            manifest = segment_transcript(transcript, selected_chapters, SegmentationPolicy())
         analysis_key = fingerprint(
             {
                 "transcript": transcript_hash,
@@ -236,7 +242,11 @@ class AnalysisPipeline:
             global_concurrency=self.concurrency,
             runtime_limits={self.harness.runtime_id: self.concurrency},
         )
-        summary = await scheduler.run(run_id)
+        with telemetry.span(
+            "chew.dag_scheduler",
+            {"total_jobs": len(graph), "concurrency": self.concurrency, "runtime": self.harness.runtime_id},
+        ):
+            summary = await scheduler.run(run_id)
         pack_hash = self.database.get_run_pack(run_id)
         if pack_hash is None:
             raise PipelineExecutionError(
