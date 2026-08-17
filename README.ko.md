@@ -58,7 +58,7 @@ Codex나 Claude처럼 인증 상태를 확인할 수 있는 실행기가 로그�
 이 프로젝트는 **포트와 어댑터(Ports & Adapters / 육각형 아키텍처)** 모듈 구조를 따릅니다. 상세 지침은 [`AGENTS.md`](AGENTS.md)를 참고하세요.
 
 ```
-src/ytsum/
+src/chew/
 ├── core/         # Layer 1: 도메인 엔티티, SHA-256 식별자, 프롬프트
 ├── pipeline/     # Layer 2: 계층적 분석 파이프라인, DAG 스케줄러, 출력 생성기
 ├── storage/      # Layer 3: SQLite WAL 상태 머신 및 zstd 아티팩트 저장소
@@ -70,19 +70,26 @@ src/ytsum/
 └── cli/          # Layer 9: 이중 언어(한/영) Typer CLI 커맨드
 ```
 
-## 설치
+## 빠른 시작 및 설치 (Quick Start)
 
-Python 3.12 이상이 필요합니다.
+Python 3.12 이상이 필요합니다. 아래 **1-Click 자동 설치 스크립트**를 실행하면 1초 만에 의존성 설치와 `chew` 터미널 명령어가 전역 등록됩니다:
 
 ```bash
 git clone <repository-url> youtube-summarizer-kit
 cd youtube-summarizer-kit
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[youtube]'
+
+# 1초 자동 설치 및 chew 명령어 전역 등록 (python/uv 명령 불필요)
+./setup.sh
 ```
 
-개발 도구까지 설치하려면 다음 명령을 사용합니다.
+설치 후에는 터미널에서 **`chew 'URL'`**만 입력하여 즉시 실행할 수 있습니다:
+
+```bash
+# 기본 요약 실행 (완료 시 파이썬 프로세스 자동 종료 및 마크다운 파일 저장)
+chew 'https://www.youtube.com/watch?v=VIDEO_ID'
+```
+
+개발 도구까지 포함한 수동 설치 방법:
 
 ```bash
 pip install -e '.[youtube,dev]'
@@ -90,7 +97,7 @@ pip install -e '.[youtube,dev]'
 
 선택적 `faster-whisper` fallback은 모델과 영상 오디오를 자동으로 내려받지 않도록 기본값이
 비활성화되어 있습니다. 사용하려면 `pip install -e '.[youtube,whisper]'`로 설치하고
-`YTSUM.md`에 `whisper_fallback: true`를 지정합니다. 처음 실제로 음성 인식을 실행할 때는
+`CHEW.md`에 `whisper_fallback: true`를 지정합니다. 처음 실제로 음성 인식을 실행할 때는
 `faster-whisper`가 모델을 내려받을 수 있습니다.
 
 로컬 오디오·영상 파일 입력에도 `whisper` extra가 필요하지만, YouTube fallback 설정을 켤

@@ -61,7 +61,7 @@ processes and uses their existing Codex, Gemini, or Claude login sessions.
 The project follows a **Ports & Adapters (Hexagonal)** modular layout. See [`AGENTS.md`](AGENTS.md) for full developer and AI agent guidelines.
 
 ```
-src/ytsum/
+src/chew/
 ├── core/         # Layer 1: Core Domain Entities, Value Objects, Identity (SHA-256) & Prompts
 ├── pipeline/     # Layer 2: Analysis Engine, DAG Scheduler, & Output Compilation
 ├── storage/      # Layer 3: SQLite WAL State Machine & zstd Artifact Storage
@@ -73,19 +73,26 @@ src/ytsum/
 └── cli/          # Layer 9: Bilingual Typer Command Line Interface
 ```
 
-## Installation
+## Quick Start & Installation
 
-Python 3.12 or newer is required.
+Python 3.12 or newer is required. Run the **1-Click Auto Setup** below to install dependencies and register the `chew` CLI command globally:
 
 ```bash
 git clone <repository-url> youtube-summarizer-kit
 cd youtube-summarizer-kit
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[youtube]'
+
+# 1-Click Auto Installer (registers global 'chew' command, no python/uv prefix needed)
+./setup.sh
 ```
 
-Install development tools as well:
+After installation, simply run **`chew 'URL'`** directly from your terminal:
+
+```bash
+# Run analysis (automatically terminates Python process and saves Markdown upon completion)
+chew 'https://www.youtube.com/watch?v=VIDEO_ID'
+```
+
+Manual installation with developer dependencies:
 
 ```bash
 pip install -e '.[youtube,dev]'
@@ -93,7 +100,7 @@ pip install -e '.[youtube,dev]'
 
 The optional `faster-whisper` fallback is disabled by default so installation does not download a
 speech model or video audio. To enable it, install `pip install -e '.[youtube,whisper]'` and set
-`whisper_fallback: true` in `YTSUM.md`. The first enabled transcription may download a model through
+`whisper_fallback: true` in `CHEW.md`. The first enabled transcription may download a model through
 `faster-whisper`.
 
 Local audio and video file input also requires the `whisper` extra, but does not require enabling
