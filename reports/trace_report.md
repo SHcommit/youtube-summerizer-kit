@@ -2,7 +2,7 @@
 
 ## 1. Summary Metrics
 
-- **Total Runtime**: 0.03 seconds
+- **Total Runtime**: 0.04 seconds
 - **Recorded Spans**: 3 spans
 - **Concurrency**: 8 parallel workers
 - **Speedup vs Baseline**: 16.3x faster (93.8% reduction)
@@ -19,9 +19,9 @@
 
 | Span Name | Duration (ms) | Relative Start | Status | Attributes |
 | :--- | :--- | :--- | :--- | :--- |
-| `chew.transcript_acquisition` | 4.1 ms | +0.0 ms | OK | source: https://www.youtube.com/watch?v=abcDEF_1234 |
-| `chew.segmentation` | 0.2 ms | +4.3 ms | OK | raw_chapters: 0, selected_chapters: 0, depth: detailed |
-| `chew.dag_scheduler` | 25.6 ms | +10.9 ms | OK | total_jobs: 3, concurrency: 2, runtime: fake |
+| `chew.transcript_acquisition` | 3.1 ms | +0.0 ms | OK | source: https://www.youtube.com/watch?v=abcDEF_1234 |
+| `chew.segmentation` | 0.2 ms | +3.2 ms | OK | raw_chapters: 0, selected_chapters: 0, depth: detailed |
+| `chew.dag_scheduler` | 40.1 ms | +10.2 ms | OK | total_jobs: 3, concurrency: 2, runtime: fake |
 
 ## 4. OpenTelemetry Jaeger Integration
 
