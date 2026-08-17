@@ -83,40 +83,48 @@ class Scheduler:
     async def run(self, run_id: str) -> RunSummary:
         worker_id = f"worker-{uuid4()}"
         running: set[asyncio.Task[None]] = set()
-        while (self.terminal_error is None and self.database.active_job_count(run_id)) or running:
-            finished = {task for task in running if task.done()}
-            if finished:
-                await asyncio.gather(*finished)
-                running.difference_update(finished)
-                self.failed_jobs += self.database.fail_blocked_jobs(run_id)
-                if self.terminal_error is not None:
-                    for task in running:
-                        task.cancel()
-                    if running:
-                        await asyncio.gather(*running, return_exceptions=True)
-                    running.clear()
-                    break
+        try:
+            while (self.terminal_error is None and self.database.active_job_count(run_id)) or running:
+                finished = {task for task in running if task.done()}
+                if finished:
+                    await asyncio.gather(*finished)
+                    running.difference_update(finished)
+                    self.failed_jobs += self.database.fail_blocked_jobs(run_id)
+                    if self.terminal_error is not None:
+                        for task in running:
+                            task.cancel()
+                        if running:
+                            await asyncio.gather(*running, return_exceptions=True)
+                        running.clear()
+                        break
 
-            capacity = self.global_concurrency - len(running)
-            if capacity > 0 and self.terminal_error is None:
-                self.database.release_expired_leases(datetime.now(UTC))
-                claimed = self.database.claim_ready_jobs(
-                    run_id,
-                    worker_id,
-                    datetime.now(UTC),
-                    self.lease_seconds,
-                    capacity,
-                )
-                running.update(asyncio.create_task(self._execute(job)) for job in claimed)
+                capacity = self.global_concurrency - len(running)
+                if capacity > 0 and self.terminal_error is None:
+                    self.database.release_expired_leases(datetime.now(UTC))
+                    claimed = self.database.claim_ready_jobs(
+                        run_id,
+                        worker_id,
+                        datetime.now(UTC),
+                        self.lease_seconds,
+                        capacity,
+                    )
+                    running.update(asyncio.create_task(self._execute(job)) for job in claimed)
 
+                if running:
+                    await asyncio.wait(
+                        running,
+                        timeout=self.poll_interval,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                elif self.database.active_job_count(run_id):
+                    await asyncio.sleep(self.poll_interval)
+        finally:
+            for task in running:
+                if not task.done():
+                    task.cancel()
             if running:
-                await asyncio.wait(
-                    running,
-                    timeout=self.poll_interval,
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-            elif self.database.active_job_count(run_id):
-                await asyncio.sleep(self.poll_interval)
+                await asyncio.gather(*running, return_exceptions=True)
+            running.clear()
 
         if self.terminal_error is not None:
             raise self.terminal_error
