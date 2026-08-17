@@ -7,7 +7,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[youtube,dev]'
 ruff check .
-mypy src/ytsum
+mypy src/chew
 pytest -q
 ```
 
@@ -17,7 +17,7 @@ We follow the Gitflow workflow. If you wish to contribute:
 
 1. **Fork & Branch**: Fork this repository and create a topic branch (`feature/your-feature-name` or `fix/your-bugfix-name`).
 2. **Pull Request Target**: Submit your Pull Request targeting the **`develop`** branch, not `master`.
-3. **Verification**: Ensure all tests pass (`uv run --extra dev pytest`, `ruff check .`, `mypy src/ytsum`).
+3. **Verification**: Ensure all tests pass (`uv run --extra dev pytest`, `ruff check .`, `mypy src/chew`).
 4. **Changelog**: Add a summary of your changes to `CHANGELOG.md` under `## [Unreleased]`.
 
 ## Testing and Verification Guidelines
