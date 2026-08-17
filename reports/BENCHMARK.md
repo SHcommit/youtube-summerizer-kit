@@ -1,6 +1,6 @@
 # YouTube Summarizer Kit (`chew`) Performance Benchmark & Tracing Guide
 
-본 문서는 `chew` (`youtube-summarizer-kit`) 파이프라인의 성능 측정(Benchmarking), 프로파일링 및 릴리스 배포 시 버전별 최신 벤치마크 성능을 기록하고 추적하기 위한 공식 가이드 문서입니다.
+본 문서는 `chew` (`youtube-summarizer-kit`) 파이프라인의 OpenTelemetry 관측성(Observability), Jaeger 벤치마킹 대시보드 시각화, 프로파일링 및 릴리스 배포 시 버전별 최신 벤치마크 성능을 기록하고 추적하기 위한 공식 가이드 문서입니다.
 
 ---
 
@@ -16,27 +16,65 @@
 
 ---
 
-## 2. 성능 측정 및 벤치마크 실행법 (How to Run Benchmarks)
+## 2. 오픈소스 트레이싱 & 벤치마크 시각화 (OpenTelemetry & Jaeger UI)
 
-### 2.1 실시간 요약 벤치마크 실행
-실제 유튜브 비디오 또는 로컬 미디어를 대상으로 전체 요약 파이프라인을 실행하고 소요 시간을 측정합니다.
+`chew`는 CNCF 표준 **OpenTelemetry (OTel)** 트레이싱을 내장하고 있어 오픈소스 **Jaeger** 대시보드 UI를 통해 파이프라인의 실시간 구간별 실행 지연시간 Waterfall 그래프를 시각적으로 직접 볼 수 있습니다.
+
+### 2.1 Jaeger 트레이싱 대시보드 구동 (OpenTelemetry + Jaeger)
 
 ```bash
-# 1. 이전 실행 캐시 초기화 (정확한 측정을 위해 상태 DB 비움)
-uv run python -c "import sqlite3; from pathlib import Path; from platformdirs import user_data_path; db = sqlite3.connect(Path(user_data_path('youtube-summarizer-kit', appauthor=False)) / 'state.sqlite3'); db.execute('DELETE FROM jobs'); db.execute('DELETE FROM runs'); db.commit()"
+# 1. Jaeger All-in-One 오픈소스 서버 구동 (Docker 1줄 실행)
+docker run -d --name jaeger \
+  -e COLLECTOR_OTLP_ENABLED=true \
+  -p 16686:16686 \
+  -p 4318:4318 \
+  jaegertracing/all-in-one:latest
 
-# 2. time 명령어를 조합하여 chew 요약 실행
-time uv run --extra youtube chew 'https://www.youtube.com/watch?v=NAumQObJEwM'
+# 2. chew 요약 실행 (OpenTelemetry 트레이스가 Jaeger로 자동 전송됨)
+chew 'https://www.youtube.com/watch?v=NAumQObJEwM'
+
+# 3. 브라우저에서 Jaeger 웹 UI 접속하여 시각화 그래프 확인
+open http://localhost:16686
 ```
 
 ---
 
-### 2.2 벤치마크 카탈로그 및 정량적 비교 실행
-내장 벤치마크 러너를 이용해 제공업체 및 런타임 간 처리 속도를 정량 분석합니다.
+### 2.2 로컬 대시보드 UI 명령어 (`chew dashboard`)
+별도의 서버 없이 local HTML 대시보드 UI를 띄워 실시간 트레이스 waterfall 그래프를 확인할 수 있습니다:
 
 ```bash
-# 내장 벤치마크 가상 환경 실행
-uv run --extra dev pytest tests/test_benchmark.py
+# 웹 브라우저로 대시보드 UI 구동
+chew dashboard
+# 또는
+chew ui
+```
+
+---
+
+### 2.3 파이프라인 실행 워터폴 시각화 (Pipeline Trace Gantt Diagram)
+
+```mermaid
+gantt
+    title YouTube Summarizer Pipeline Execution Trace Waterfall (1m 50s)
+    dateFormat  ss.SSS
+    axisFormat  %S초
+    
+    section 자막 취득 (Transcript)
+    Transcript Acquisition (ko/en) :active, t1, 00.000, 03.200
+    
+    section 세그먼테이션 (Segmentation)
+    Dynamic Chapter Coalescing (30 -> 5) :crit, s1, 03.200, 03.250
+    
+    section DAG 스케줄러 실행 (Concurrency: 8)
+    Topic Job 1 (chapter-001) :done, j1, 03.250, 18.100
+    Topic Job 2 (chapter-002) :done, j2, 03.250, 19.300
+    Topic Job 3 (chapter-003) :done, j3, 03.250, 17.800
+    Chapter Job 1 (chapter-001) :done, j4, 18.100, 31.400
+    Chapter Job 2 (chapter-002) :done, j5, 19.300, 33.200
+    Compose Job (Knowledge Pack) :active, j6, 95.100, 108.500
+    
+    section 최종 마크다운 생성 (Output)
+    Output File Generation (chew-output) :a1, 108.500, 108.550
 ```
 
 ---

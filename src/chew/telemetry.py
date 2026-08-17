@@ -14,8 +14,10 @@ from typing import Any
 
 try:
     from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
     from opentelemetry.trace import Status, StatusCode
 
     HAS_OPENTELEMETRY = True
@@ -47,7 +49,15 @@ class TelemetryManager:
         self.tracer = None
 
         if HAS_OPENTELEMETRY:
-            provider = TracerProvider()
+            resource = Resource.create({"service.name": "chew-pipeline"})
+            provider = TracerProvider(resource=resource)
+            endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+            if endpoint:
+                try:
+                    otlp_exporter = OTLPSpanExporter(endpoint=endpoint)
+                    provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+                except Exception:
+                    pass
             trace.set_tracer_provider(provider)
             self.tracer = trace.get_tracer("chew.telemetry")
 

@@ -33,7 +33,12 @@ dependencies = [
 [project.optional-dependencies]
 youtube = ["yt-dlp", "youtube-transcript-api"]
 whisper = ["faster-whisper"]
-telemetry = ["opentelemetry-api", "opentelemetry-sdk", "viztracer"]
+telemetry = [
+  "opentelemetry-api",
+  "opentelemetry-sdk",
+  "opentelemetry-exporter-otlp-proto-http",
+  "viztracer",
+]
 dev = [
   "build",
   "coverage[toml]",
