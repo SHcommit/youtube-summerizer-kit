@@ -371,16 +371,16 @@ chew 완전삭제                      # 별도 확인 문구 필요
 
 ## 벤치마크 & OpenTelemetry 시각화 대시보드
 
-성능 프로파일링 및 관측성을 위한 선택적 기능입니다. 일반 사용자에게는 불필요하며, 벤치마킹을 원하는 개발자만 설치합니다:
+성능 프로파일링 및 관측성을 위한 선택적 기능입니다. 일반 사용자에게는 불필요하며, 벤치마킹을 원하는 개발자만 선택하여 실행합니다:
 
 ```bash
 # 선택적 벤치마킹 및 대시보드 패키지 설치
 pip install -e '.[telemetry]'
 
 # OpenTelemetry 기반 실시간 대시보드 UI 구동
-chew dashboard
-# 또는 (uv 환경 사용 시)
-uv run chew dashboard
+chew benchmark-dashboard
+# 또는
+chew benchmark-ui
 ```
 
 ```bash

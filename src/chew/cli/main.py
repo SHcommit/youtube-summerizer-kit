@@ -354,6 +354,8 @@ def trace_ui(
 
 app.command("dashboard", help="Open OpenTelemetry visual performance UI dashboard.")(trace_ui)
 app.command("ui", help="Open OpenTelemetry visual performance UI dashboard.")(trace_ui)
+app.command("benchmark-dashboard", help="Open OpenTelemetry visual performance UI dashboard.")(trace_ui)
+app.command("benchmark-ui", help="Open OpenTelemetry visual performance UI dashboard.")(trace_ui)
 app.command("대시보드", hidden=True)(trace_ui)
 
 

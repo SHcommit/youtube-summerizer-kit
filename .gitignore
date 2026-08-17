@@ -1,5 +1,6 @@
 # Worktrees and OS files
 .worktrees/
+.bin/
 .DS_Store
 Thumbs.db
 
