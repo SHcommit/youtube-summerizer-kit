@@ -369,7 +369,19 @@ chew 완전삭제                      # 별도 확인 문구 필요
 `정리`는 기본적으로 미리보기만 수행합니다. 명시적 `--apply` 또는 사용자 확인 없이는 내부
 자료를 삭제하지 않습니다.
 
-## 벤치마크
+## 벤치마크 & OpenTelemetry 시각화 대시보드
+
+성능 프로파일링 및 관측성을 위한 선택적 기능입니다. 일반 사용자에게는 불필요하며, 벤치마킹을 원하는 개발자만 설치합니다:
+
+```bash
+# 선택적 벤치마킹 및 대시보드 패키지 설치
+pip install -e '.[telemetry]'
+
+# OpenTelemetry 기반 실시간 대시보드 UI 구동
+chew dashboard
+# 또는 (uv 환경 사용 시)
+uv run chew dashboard
+```
 
 ```bash
 chew 벤치마크 목록
