@@ -19,9 +19,9 @@
 
 | Span Name | Duration (ms) | Relative Start | Status | Attributes |
 | :--- | :--- | :--- | :--- | :--- |
-| `chew.transcript_acquisition` | 2.9 ms | +0.0 ms | OK | source: https://www.youtube.com/watch?v=abcDEF_1234 |
-| `chew.segmentation` | 0.1 ms | +3.0 ms | OK | raw_chapters: 0, selected_chapters: 0, depth: detailed |
-| `chew.dag_scheduler` | 19.9 ms | +7.7 ms | OK | total_jobs: 3, concurrency: 2, runtime: fake |
+| `chew.transcript_acquisition` | 2.8 ms | +0.0 ms | OK | source: https://www.youtube.com/watch?v=abcDEF_1234 |
+| `chew.segmentation` | 0.2 ms | +2.9 ms | OK | raw_chapters: 0, selected_chapters: 0, depth: detailed |
+| `chew.dag_scheduler` | 21.2 ms | +8.4 ms | OK | total_jobs: 3, concurrency: 2, runtime: fake |
 
 ## 4. OpenTelemetry Jaeger Integration
 
