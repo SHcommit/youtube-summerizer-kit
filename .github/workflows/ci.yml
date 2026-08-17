@@ -24,7 +24,7 @@ jobs:
       - run: mypy src/chew
 
       - name: Run Pytest with Automatic Retry
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
