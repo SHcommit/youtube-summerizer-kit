@@ -403,9 +403,13 @@ timestamp accuracy, 장시간 구간 coverage, unsupported claim을 계산합니
 ## 개발과 검증
 
 ```bash
+# 1초 자동 설치 및 chew 터미널 명령어 등록
+./setup.sh
+
+# 개별 검증
 pip install -e '.[youtube,dev]'
 ruff check .
-mypy src
+mypy src/chew
 pytest -q
 coverage run -m pytest
 coverage report
