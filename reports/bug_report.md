@@ -13,7 +13,7 @@
 1. **과도하게 잘게 쪼개진 세그먼트**:
    * 영상 내용 분석 시 트랜스크립트가 총 30개의 세그먼트(토픽/챕터)로 쪼개져 30개 이상의 독립적인 LLM 요청 태스크가 빌드됨.
 2. **`AntigravityHarness`의 낮은 병렬성 제한**:
-   * [`src/ytsum/harness/antigravity.py`](file:///Users/yangseunghyeon/Development/youtube-summarizer-kit/src/ytsum/harness/antigravity.py) 내 `maximum_concurrency`가 단 `2`로 고정되어 있음.
+   * [`src/chew/harness/antigravity.py`](file:///Users/yangseunghyeon/Development/youtube-summarizer-kit/src/chew/harness/antigravity.py) 내 `maximum_concurrency`가 단 `2`로 고정되어 있음.
    * 이로 인해 30개 세그먼트를 2개씩 순차 배치 처리하므로 15단계 이상의 배치 루프를 돌아야 함.
 3. **CLI 실행 파일 구동 오버헤드 (Cold Start)**:
    * 로컬 CLI 도구인 `agy --print`를 실행할 때마다 프로세스가 새로 포크(Fork) 및 인스턴스화됩니다.
@@ -42,7 +42,7 @@
 
 ### 원인 분석
 1. **타입 검증 실패 및 복구(Repair) 루프의 한계**:
-   * [`src/ytsum/pipeline/engine.py`](file:///Users/yangseunghyeon/Development/youtube-summarizer-kit/src/ytsum/pipeline/engine.py)의 `_validate_output`에서 `compose` 결과가 `overview` (String) 및 `further_study` (List) 형식을 엄격히 만족하는지 확인하도록 되어 있음.
+   * [`src/chew/pipeline/engine.py`](file:///Users/yangseunghyeon/Development/youtube-summarizer-kit/src/chew/pipeline/engine.py)의 `_validate_output`에서 `compose` 결과가 `overview` (String) 및 `further_study` (List) 형식을 엄격히 만족하는지 확인하도록 되어 있음.
    * `agy` 로컬 CLI 출력이 불규칙하거나 텍스트 래핑이 섞이면 파싱 에러로 인해 복구(`repair`) 요청이 실행되며, 복구 단계마저 실패하면 최종 Job이 영구 에러 상태가 됨.
 2. **실패 캐시의 재사용 오동작**:
    * 특정 Job이 실패로 마킹된 후 에이전트가 재시도를 수행할 때, 데이터베이스에 이전에 성공/실패했던 부분 데이터들이 올바르게 롤백되지 않고 캐시된 채 남아 있어 `0개 작업 실패`인데도 `pack_hash`가 `None`으로 반환되는 비일관성 에러가 발생함.
