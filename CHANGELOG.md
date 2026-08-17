@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-17
+
+### Fixed
+- **CI/CD Workflow & Telemetry Import Fix**:
+  - Added `telemetry` extra dependencies (`pip install '.[youtube,dev,telemetry]'`) to GitHub Actions CI and CD workflows.
+  - Added write permissions (`permissions: contents: write`) and token authentication URL to GitHub Wiki auto-sync workflow (`wiki-sync.yml`).
+  - Removed obsolete `.github/workflows/codeql.yml` to prevent 403 Forbidden failure email notifications on private repositories.
+
 ### Added
 - **Core Refactoring (`ytsum` -> `chew`)**:
   - Renamed internal Python package directory from `src/ytsum` to `src/chew` and updated all module import namespaces (`chew.*`).
