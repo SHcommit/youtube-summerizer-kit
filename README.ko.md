@@ -208,15 +208,15 @@ chew 설정 --초기화
 다음 파일이 생성되며 기존 파일은 덮어쓰지 않습니다.
 
 ```text
-YTSUM.md
-.ytsum/
+CHEW.md
+.chew/
 └── profiles/
     ├── blog.md
     ├── study.md
     └── obsidian.md
 ```
 
-`YTSUM.md` 예시:
+`CHEW.md` 예시:
 
 ```markdown
 ---
@@ -232,7 +232,7 @@ storage_policy: compact
 기술 용어는 첫 등장에 짧게 정의하고, 모든 핵심 주장에 영상 근거를 연결한다.
 ```
 
-본문은 LLM 지침으로 사용됩니다. `.ytsum/profiles/blog.md` 같은 목적별 파일에서는 문체,
+본문은 LLM 지침으로 사용됩니다. `.chew/profiles/blog.md` 같은 목적별 파일에서는 문체,
 독자 수준, 글의 구성 방식을 추가로 지정할 수 있습니다. 프로젝트 설정은 상위 디렉터리까지
 탐색하며, 파일이 없으면 패키지에 포함된 안전한 기본 설정을 사용합니다.
 

@@ -124,7 +124,7 @@ subtitles, automatically generated subtitles, then `youtube-transcript-api`. If 
 produce a usable transcript, the CLI explains how to opt in to local audio transcription instead
 of silently downloading a model or video audio.
 
-Install the optional dependencies and enable the fallback in `YTSUM.md`:
+Install the optional dependencies and enable the fallback in `CHEW.md`:
 
 ```bash
 pip install -e '.[youtube,whisper]'
@@ -209,15 +209,15 @@ chew config --init
 The command creates these files without overwriting existing ones:
 
 ```text
-YTSUM.md
-.ytsum/
+CHEW.md
+.chew/
 └── profiles/
     ├── blog.md
     ├── study.md
     └── obsidian.md
 ```
 
-Example `YTSUM.md`:
+Example `CHEW.md`:
 
 ```markdown
 ---
@@ -234,7 +234,7 @@ Define technical terms on first use and connect every important claim to video e
 ```
 
 The Markdown body becomes an LLM instruction. Purpose-specific files such as
-`.ytsum/profiles/blog.md` can define voice, audience level, and document structure. Configuration
+`.chew/profiles/blog.md` can define voice, audience level, and document structure. Configuration
 discovery walks up through parent directories; packaged defaults are used when no file exists.
 
 Analysis settings and output settings are fingerprinted separately. Changing only the blog voice
