@@ -21,7 +21,7 @@ class Settings(BaseModel):
 
     language: str = "ko"
     default_profile: str = "digest"
-    depth: Literal["concise", "detailed", "deep"] = "detailed"
+    depth: Literal["brief", "short", "quick", "concise", "detailed", "deep"] = "detailed"
     runtime: str = "auto"
     whisper_fallback: bool = False
     storage_policy: Literal["compact", "private", "archive"] = "compact"

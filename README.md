@@ -237,13 +237,13 @@ Define technical terms on first use and connect every important claim to video e
 
 Customize the summary detail level via CLI flag (`--depth` / `-d`) or inside `CHEW.md`:
 
-- **`concise`**: High-level key milestone summary for fast scanning
+- **`quick`** (`short` / `brief`): High-level key milestone summary for fast scanning
 - **`detailed`** (default): Balanced detailed summary with chapter subtopics and timestamp evidence
 - **`deep`**: Comprehensive deep-dive analysis capturing every chapter, technical detail, and argument
 
 ```bash
-# Concise high-level summary
-chew 'VIDEO_URL' --depth concise
+# Quick high-level summary (quick / short / brief)
+chew 'VIDEO_URL' --depth quick
 
 # Comprehensive deep-dive summary
 chew 'VIDEO_URL' --depth deep

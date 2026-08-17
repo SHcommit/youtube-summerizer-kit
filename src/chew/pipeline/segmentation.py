@@ -92,7 +92,7 @@ def coalesce_chapters(
 ) -> tuple[Chapter, ...]:
     if not chapters:
         return ()
-    if depth in ("concise", "초간단", "핵심"):
+    if depth in ("brief", "short", "quick", "simple", "concise", "초간단", "핵심", "간단"):
         max_chapters = 3
     elif depth in ("deep", "심층", "꽉찬"):
         max_chapters = 15

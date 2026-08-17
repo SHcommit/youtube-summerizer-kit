@@ -278,7 +278,7 @@ def summarize(
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
         str | None,
-        typer.Option("--depth", "--요약강도", "-d", help="Summary depth intensity: concise, detailed, deep"),
+        typer.Option("--depth", "--요약강도", "-d", help="Summary intensity: quick (short/brief), detailed, deep"),
     ] = None,
 ) -> None:
     """Create a detailed digest from a video."""
@@ -294,7 +294,7 @@ def blog(
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
         str | None,
-        typer.Option("--depth", "--요약강도", "-d", help="Summary depth intensity: concise, detailed, deep"),
+        typer.Option("--depth", "--요약강도", "-d", help="Summary intensity: quick (short/brief), detailed, deep"),
     ] = None,
 ) -> None:
     """설정한 문체로 블로그 글을 만듭니다."""
@@ -310,7 +310,7 @@ def study(
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
         str | None,
-        typer.Option("--depth", "--요약강도", "-d", help="Summary depth intensity: concise, detailed, deep"),
+        typer.Option("--depth", "--요약강도", "-d", help="Summary intensity: quick (short/brief), detailed, deep"),
     ] = None,
 ) -> None:
     """학습 노트와 추가 학습 항목을 만듭니다."""
@@ -326,7 +326,7 @@ def obsidian(
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
         str | None,
-        typer.Option("--depth", "--요약강도", "-d", help="Summary depth intensity: concise, detailed, deep"),
+        typer.Option("--depth", "--요약강도", "-d", help="Summary intensity: quick (short/brief), detailed, deep"),
     ] = None,
 ) -> None:
     """위키링크가 포함된 Obsidian 노트를 만듭니다."""
