@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import time
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -17,7 +16,7 @@ try:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
     from opentelemetry.trace import Status, StatusCode
 
     HAS_OPENTELEMETRY = True
@@ -62,7 +61,9 @@ class TelemetryManager:
             self.tracer = trace.get_tracer("chew.telemetry")
 
     @contextmanager
-    def span(self, name: str, attributes: dict[str, Any] | None = None) -> Generator[SpanRecord, None, None]:
+    def span(
+        self, name: str, attributes: dict[str, Any] | None = None
+    ) -> Generator[SpanRecord, None, None]:
         start_time = time.time()
         record = SpanRecord(name=name, start_time=start_time, attributes=attributes or {})
         self._active_spans.append(record)
@@ -126,13 +127,23 @@ class TelemetryManager:
             min_start = min(s.start_time for s in self.spans)
             for s in self.spans:
                 rel_start = (s.start_time - min_start) * 1000.0
-                attr_str = ", ".join(f"{k}: {v}" for k, v in s.attributes.items()) if s.attributes else "-"
-                lines.append(f"| `{s.name}` | {s.duration_ms:.1f} ms | +{rel_start:.1f} ms | {s.status} | {attr_str} |")
+                attr_str = (
+                    ", ".join(f"{k}: {v}" for k, v in s.attributes.items())
+                    if s.attributes
+                    else "-"
+                )
+                lines.append(
+                    f"| `{s.name}` | {s.duration_ms:.1f} ms | +{rel_start:.1f} ms | "
+                    f"{s.status} | {attr_str} |"
+                )
 
         lines.append("")
         lines.append("## 4. OpenTelemetry Jaeger Integration")
         lines.append("")
-        lines.append("- Open http://localhost:16686 to view real-time OpenTelemetry trace graphs in Jaeger UI.")
+        lines.append(
+            "- Open http://localhost:16686 to view real-time OpenTelemetry trace "
+            "graphs in Jaeger UI."
+        )
         lines.append("")
 
         target.write_text("\n".join(lines), encoding="utf-8")

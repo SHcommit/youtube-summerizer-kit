@@ -74,16 +74,17 @@ pythonpath = ["src"]
 
 [tool.ruff]
 target-version = "py312"
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["ytsum"]
+packages = ["chew"]
 
 [tool.coverage.run]
 branch = true
-source = ["ytsum"]
+source = ["chew"]

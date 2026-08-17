@@ -162,7 +162,11 @@ class AnalysisPipeline:
         selected_chapters = chapters or transcript.chapters
         with telemetry.span(
             "chew.segmentation",
-            {"raw_chapters": len(transcript.chapters), "selected_chapters": len(selected_chapters), "depth": settings.depth},
+            {
+                "raw_chapters": len(transcript.chapters),
+                "selected_chapters": len(selected_chapters),
+                "depth": settings.depth,
+            },
         ):
             manifest = segment_transcript(
                 transcript, selected_chapters, SegmentationPolicy(), depth=settings.depth
@@ -246,7 +250,11 @@ class AnalysisPipeline:
         )
         with telemetry.span(
             "chew.dag_scheduler",
-            {"total_jobs": len(graph), "concurrency": self.concurrency, "runtime": self.harness.runtime_id},
+            {
+                "total_jobs": len(graph),
+                "concurrency": self.concurrency,
+                "runtime": self.harness.runtime_id,
+            },
         ):
             summary = await scheduler.run(run_id)
         pack_hash = self.database.get_run_pack(run_id)

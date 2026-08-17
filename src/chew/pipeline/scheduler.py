@@ -84,7 +84,9 @@ class Scheduler:
         worker_id = f"worker-{uuid4()}"
         running: set[asyncio.Task[None]] = set()
         try:
-            while (self.terminal_error is None and self.database.active_job_count(run_id)) or running:
+            while (
+                self.terminal_error is None and self.database.active_job_count(run_id)
+            ) or running:
                 finished = {task for task in running if task.done()}
                 if finished:
                     await asyncio.gather(*finished)
