@@ -1,4 +1,4 @@
-# YouTube Summarizer Kit
+# YouTube Summarizer Kit (`chew`)
 
 [![CI](https://github.com/SHcommit/youtube-summerizer-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/SHcommit/youtube-summerizer-kit/actions/workflows/ci.yml)
 [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
@@ -7,6 +7,14 @@
 **English** | [한국어](README.ko.md)
 
 A local-first, resumable CLI (`chew`) that turns YouTube videos and local audio or video files into reusable knowledge. It validates transcripts, analyzes chapters and topics in parallel, and compiles the result into multiple formats instead of producing a one-off summary.
+
+- Run with `chew <URL>`.
+- Handles long videos with chapter-aware, topic-level parallel processing.
+- Resumes from completed work after a network or AI CLI interruption.
+- Reuses an existing Knowledge Pack for the same URL and analysis settings—no run ID required.
+- Transcribes explicitly supplied local media in place and reuses it by content hash, even if the file is moved or renamed.
+- Connects Codex CLI, Gemini CLI, Claude Code / Claude CLI, Ollama, and Antigravity CLI (`agy`) through one harness interface.
+- Stores writing tone and study preferences in Markdown instead of long CLI option lists.
 
 ---
 
@@ -20,62 +28,47 @@ Modern technical talks, podcasts, and video lectures are 1–2 hours long, yet t
 - **Analyze Once, Reassemble Anywhere**: Analyzes a video **once** into a content-addressed **Knowledge Pack**. Reassemble it instantly into Tech Blogs, Study Notes, or Obsidian Vaults without re-running expensive LLM calls.
 - **Local-First & Multi-LLM Harness**: Leverages your existing Codex, Gemini, Claude, Ollama, or Antigravity CLI logins directly from your local terminal—no API keys required.
 
-> The current pipeline is transcript-first. Videos whose essential information appears only in
-> diagrams, code shown on screen, or visual scenes may lose context. Frame-based multimodal
-> analysis is not yet part of the default pipeline.
+> The current pipeline is transcript-first. Videos whose essential information appears only in diagrams, code shown on screen, or visual scenes may lose context. Frame-based multimodal analysis is not yet part of the default pipeline.
 
 ---
 
-## Features
+## Download & Installation (Prerequisites Required First)
 
-- Run with `chew <URL>` in a single terminal command.
-- Chapter-aware and topic-level asynchronous DAG parallel processing for long, complex videos.
-- SQLite WAL state machine for seamless crash and network interruption recovery (`chew resume`).
-- Knowledge Pack reuse by content hash for identical URLs and analysis settings.
-- In-place transcription for local media files (MP3, MP4, M4A, WAV, etc.) with SHA-256 content deduplication.
-- Unified harness adapter connecting Codex CLI, Gemini CLI, Claude Code / Claude CLI, Ollama, and Antigravity CLI (`agy`).
-- 3-level summary intensity control (`quick`, `detailed`, `deep`).
-- Markdown-based configuration files (`CHEW.md`, `.chew/profiles/`) for tone, format, and instructions instead of long CLI flags.
-- Real-time OpenTelemetry Jaeger tracing for performance profiling and latency observability.
+Before running the `chew` CLI command in your terminal, you **must complete the download and environment setup below first**.
 
----
-
-## Visual Demo & Architecture Diagrams
-
-### User Flow Overview
-
-![YouTube Summarizer Kit user input and output](assets/architecture/en/user-flow.png)
-
-### Internal Processing Pipeline
-
-![YouTube Summarizer Kit internal processing flow](assets/architecture/en/internal-pipeline.png)
-
-### OpenTelemetry Jaeger Trace Observability
-
-![OpenTelemetry Jaeger Trace Dashboard](assets/architecture/jaeger-trace-dashboard.png)
-
----
-
-## Download & Prerequisites (Installation Required First)
-
-Before running the `chew` command, you **must complete the download and environment setup below first**.
-
-Python 3.12 or newer is required. Run the **1-Click Auto Setup** below to download dependencies and register the `chew` CLI command globally in 1 second:
+Python 3.12 or newer is required. Run the **1-Click Auto Setup** below to download dependencies, register the global `chew` command, and initialize configuration files (`CHEW.md` and `.chew/profiles/`) automatically in 1 second:
 
 ```bash
 # 1. Clone the repository (Download)
 git clone https://github.com/SHcommit/youtube-summerizer-kit.git
 cd youtube-summarizer-kit
 
-# 2. 1-Click Auto Installer (registers global 'chew' command, no python/uv prefix needed)
+# 2. 1-Click Auto Installer (registers global 'chew' command, initializes CHEW.md & .chew/profiles/)
 ./setup.sh
 ```
 
-After installation, simply run **`chew 'URL'`** directly from your terminal.
+After installation, simply run **`chew 'URL'`** directly from your terminal:
 
-### Manual Installation
+```bash
+# Detailed digest (automatically terminates Python process and saves Markdown upon completion)
+chew 'https://www.youtube.com/watch?v=VIDEO_ID'
 
-Install development tools as well:
+# Comprehensive deep-dive summary
+chew 'https://www.youtube.com/watch?v=VIDEO_ID' --depth deep
+
+# Quick high-level summary (quick / short / brief)
+chew 'https://www.youtube.com/watch?v=VIDEO_ID' --depth quick
+
+# Purpose-specific reassembly (reuses Knowledge Pack instantly)
+chew blog 'https://www.youtube.com/watch?v=VIDEO_ID'
+chew study 'https://www.youtube.com/watch?v=VIDEO_ID'
+chew obsidian 'https://www.youtube.com/watch?v=VIDEO_ID'
+
+# Local recording file
+chew summarize ./recordings/meeting.mp3
+```
+
+Manual installation with developer dependencies:
 
 ```bash
 pip install -e '.[youtube,dev]'
@@ -98,148 +91,31 @@ chew doctor --json
 
 ---
 
-## Usage & Command Examples (Demo)
+## User Flow & Visualization Diagrams (Demo & Diagrams)
 
-```bash
-# Detailed digest (automatically terminates Python process and saves Markdown upon completion)
-chew summarize 'https://youtu.be/VIDEO_ID'
+### User Input and Output
 
-# Local recording (requires the `whisper` extra)
-chew summarize ./recordings/meeting.mp3
+This overview shows the public contract: what users provide and what the kit returns.
 
-# Direct URL execution without `summarize`
-chew 'https://youtu.be/VIDEO_ID'
+![YouTube Summarizer Kit user input and output](assets/architecture/en/user-flow.png)
 
-# Purpose-specific reassembly (reuses Knowledge Pack instantly without re-running LLM analysis)
-chew blog 'https://youtu.be/VIDEO_ID'
-chew study 'https://youtu.be/VIDEO_ID'
-chew obsidian 'https://youtu.be/VIDEO_ID'
+When a compatible Knowledge Pack already exists for the URL and analysis settings, the kit skips video analysis. A different purpose or voice reassembles that pack into a blog post, study guide, or Obsidian vault.
 
-# Custom output directory
-chew blog 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
-```
+### Internal Processing Flow Diagram
 
-If the source is omitted, the CLI prompts for a YouTube URL or local media path. Add `--json` in automation to receive a stable `{"ok": true, "data": ...}` response.
+The detailed diagram follows `INPUT → analysis → Knowledge Pack → reassembly → OUTPUT`. Runtime adapters, persistent local state, and recovery support the main path without defining it.
 
-### Summary Depth Intensity (`depth`)
+![YouTube Summarizer Kit internal processing flow](assets/architecture/en/internal-pipeline.png)
 
-Customize the summary detail level via CLI flag (`--depth` / `-d`) or inside `CHEW.md`:
+The yellow Knowledge Pack is the reuse boundary. Once created, the system can produce a new output without repeating transcript and topic analysis. Dashed support nodes preserve intermediate state and show where processing resumes after authentication or connectivity problems.
 
-- **`quick`** (`short` / `brief`): High-level key milestone summary for fast scanning
-- **`detailed`** (default): Balanced detailed summary with chapter subtopics and timestamp evidence
-- **`deep`**: Comprehensive deep-dive analysis capturing every chapter, technical detail, and argument
+### OpenTelemetry Jaeger Real-Time Trace Observability
 
-```bash
-# Quick high-level summary (quick / short / brief)
-chew 'VIDEO_URL' --depth quick
-
-# Comprehensive deep-dive summary
-chew 'VIDEO_URL' --depth deep
-```
-
-| English command | Korean alias | Purpose |
-|---|---|---|
-| `summarize` | `요약` | Create a full digest with chapter and topic summaries |
-| `blog` | `블로그` | Reassemble the Knowledge Pack in a configured blog voice |
-| `study` | `학습` | Focus on concepts, evidence, and follow-up study material |
-| `obsidian` | `옵시디언` | Create an index and topic notes with `[[wikilinks]]` |
-| `status [RUN_ID]` | `상태` | Show run and job progress |
-| `resume [RUN_ID]` | `이어하기` | Resume the latest or selected incomplete run |
-| `doctor` | `진단` | Diagnose runtime installation and authentication |
-| `storage` | `저장소` | Show internal file count and storage usage |
-| `cleanup` | `정리` | Preview or apply a retention policy |
+![OpenTelemetry Jaeger Trace Dashboard](assets/architecture/jaeger-trace-dashboard.png)
 
 ---
 
-## How It Works
-
-### 1. Source Identity and Reuse Keys (Transcript Extraction & Identity)
-
-The kit normalizes `youtu.be`, `youtube.com/watch`, Shorts, and mobile URLs into one canonical URL and a `youtube:<video-id>` source ID. Local media uses a `local:<sha256>` source ID derived from the file bytes rather than its name or path. The compatibility fingerprint includes language, analysis depth, runtime policy, shared instructions, and prompt, segmentation, and schema versions. Only compatible results are reused.
-
-### 2. Metadata and Transcripts (Preprocessing & Captions)
-
-The default fallback order is:
-1. Manually authored subtitles through yt-dlp
-2. Automatically generated subtitles through yt-dlp
-3. `youtube-transcript-api`
-4. `faster-whisper`, only when `whisper_fallback: true`
-
-An explicitly supplied local media file bypasses the YouTube providers and goes directly to `faster-whisper`; the fallback flag only controls automatic YouTube audio download.
-
-Every transcript is checked for language, timestamp order, duration coverage, excessive repetition, and large gaps. If a provider fails or misses the quality threshold, the reason is recorded before the next provider runs. Metadata and YouTube chapters discovered by yt-dlp remain available even when a later provider, including the optional Whisper fallback, supplies the transcript.
-
-### 3. Adaptive Segmentation and Parallel Processing (DAG Processing)
-
-YouTube chapter boundaries are preserved when available. Long chapters—or videos without chapters—are divided into approximately five- to ten-minute topics while respecting sentence boundaries. Independent topics run concurrently. A chapter is merged as soon as its required topics finish instead of waiting for unrelated chapters.
-
-Global and runtime-specific concurrency limits work together. A rate limit reduces concurrency for that runtime and schedules a retry; sustained success gradually restores capacity.
-
-### 4. Hierarchical Summarization and the Knowledge Pack (LLM Processing & Synthesis)
-
-```text
-Transcript
-  → TopicSummary[]
-  → ChapterSummary[]
-  → KnowledgePack
-  → Purpose-specific documents
-```
-
-A Knowledge Pack contains video identity, title, language, overview, topics, chapters, claims, timestamped evidence, concepts, examples, follow-up study material, and the analysis fingerprint. The domain model can distinguish statements grounded in the video from AI additions and external research provenance.
-
-### 5. Multi-Format Output Reassembly (Output Compilation)
-
-- `digest`: Render the full, chapter, and topic summaries with evidence timestamps without another LLM call.
-- `blog`: Reassemble the pack through outline, draft, and validation stages using the configured voice.
-- `study`: Emphasize concepts and follow-up learning material.
-- `obsidian`: Create an index and one file per topic connected with `[[wikilinks]]`.
-
-Outputs are cached by Knowledge Pack fingerprint, profile, instructions, language, depth, runtime, and output recipe version. An identical output request can be restored from local cache even when no AI CLI is currently authenticated.
-
----
-
-## Performance Improvements & Observability
-
-### 16.3x Performance Speedup (30 min -> 1 min 50 sec)
-
-- **Dynamic Video-Proportional Segmentation**: Implemented 5-segment ceiling for videos under 30 minutes (`segmentation.py`).
-- **Concurrency Expansion**: Expanded AntigravityHarness concurrency limit from 2 to 8 (`antigravity.py`).
-- **Benchmark Acceleration**: Total pipeline execution time reduced from 30+ minutes down to **1 minute 50 seconds** (16.3x speedup).
-
-### OpenTelemetry Visual Tracing Dashboard
-
-- `chew benchmark-dashboard` and `chew benchmark-ui` automatically export `reports/trace_report.md` and display span execution durations in Jaeger UI (`http://localhost:16686`).
-
----
-
-## Tech Stack & Architecture
-
-- **Language & Runtime**: Python 3.12+
-- **CLI Framework**: Typer, Rich
-- **State Machine & Persistence**: SQLite WAL, zstandard (Content-Addressed Artifact Storage)
-- **Speech & Subtitles**: yt-dlp, youtube-transcript-api, faster-whisper
-- **Observability**: OpenTelemetry API/SDK, VizTracer
-
-### Ports & Adapters (Hexagonal Architecture)
-
-The project follows a **Ports & Adapters (Hexagonal)** modular layout. See [`AGENTS.md`](AGENTS.md) for full developer and AI agent guidelines.
-
-```
-src/chew/
-├── core/         # Layer 1: Core Domain Entities, Value Objects, Identity (SHA-256) & Prompts
-├── pipeline/     # Layer 2: Analysis Engine, DAG Scheduler, & Output Compilation
-├── storage/      # Layer 3: SQLite WAL State Machine & zstd Artifact Storage
-├── harness/      # Layer 4: AI Runtime Adapters (Codex, Gemini, Claude, Ollama, Antigravity)
-├── transcripts/  # Layer 5: Data Input Adapters (YouTube API, yt-dlp, Whisper)
-├── app/          # Layer 6: Application Orchestration Service & DI Bootstrap
-├── retention/    # Layer 7: Storage Retention & Cleanup Policies
-├── benchmark/    # Layer 8: Quality Benchmarking Framework
-└── cli/          # Layer 9: Bilingual Typer Command Line Interface
-```
-
----
-
-## Runtime Support & Supported Harnesses
+## Runtime Support
 
 | Runtime | Available | Authentication check | Setup |
 |---|---:|---|---|
@@ -257,43 +133,7 @@ The kit never reads or copies account files or API keys. It launches installed A
 
 ---
 
-## Videos Without Captions and Local Media Files
-
-### Videos Without Captions
-
-The normal path reuses existing text and does not download video media: manually authored subtitles, automatically generated subtitles, then `youtube-transcript-api`. If none of those produce a usable transcript, the CLI explains how to opt in to local audio transcription instead of silently downloading a model or video audio.
-
-Install the optional dependencies and enable the fallback in `CHEW.md`:
-
-```bash
-pip install -e '.[youtube,whisper]'
-```
-
-```markdown
----
-whisper_fallback: true
----
-```
-
-With that setting enabled, the fourth fallback downloads the video's audio into a temporary directory and uses `faster-whisper` to create a timestamped transcript locally. Temporary audio is removed after transcription. A Whisper model may be downloaded on the first run, and transcription uses local CPU/GPU time; it does not consume an AI CLI login or hosted API quota. Title and chapter metadata already discovered through yt-dlp are preserved. Accuracy depends on audio quality, speakers, and the configured transcript language.
-
-### Local Audio and Video Files
-
-Pass an existing local media path anywhere a YouTube URL is accepted. Because supplying the path is an explicit request to transcribe that file, `whisper_fallback` may remain `false`. The original file is read directly by `faster-whisper`; it is not copied, modified, or deleted. HTTP media URLs are not accepted as local inputs.
-
-```bash
-chew summarize ./recordings/meeting.mp3
-chew study ./lectures/week-01.mp4
-
-# A URL or supported local path may also be given without `summarize`
-chew ./recordings/interview.m4a
-```
-
-Supported extensions are AAC, FLAC, M4A, MKV, MOV, MP3, MP4, MPEG/MPG, OGA/OGG, OPUS, WAV, and WebM. The file content is identified by SHA-256, so the same bytes reuse a compatible Knowledge Pack after a move or rename. An interrupted run stores the absolute source path for `chew resume`; keep the file available at that path until analysis completes. The first transcription can download the configured Whisper model and uses local CPU/GPU time, but does not consume hosted AI transcription quota.
-
----
-
-## Markdown Configuration and Writing Style (CHEW.md & Profiles)
+## Markdown Configuration and Writing Style
 
 Initialize editable configuration once per project:
 
@@ -328,13 +168,182 @@ Separate claims from the video from additional AI explanations.
 Define technical terms on first use and connect every important claim to video evidence.
 ```
 
+### Summary Depth Intensity (`depth`)
+
+Customize the summary detail level via CLI flag (`--depth` / `-d`) or inside `CHEW.md`:
+
+- **`quick`** (`short` / `brief`): High-level key milestone summary for fast scanning
+- **`detailed`** (default): Balanced detailed summary with chapter subtopics and timestamp evidence
+- **`deep`**: Comprehensive deep-dive analysis capturing every chapter, technical detail, and argument
+
+```bash
+# Quick high-level summary (quick / short / brief)
+chew 'VIDEO_URL' --depth quick
+
+# Comprehensive deep-dive summary
+chew 'VIDEO_URL' --depth deep
+```
+
 The Markdown body becomes an LLM instruction. Purpose-specific files such as `.chew/profiles/blog.md` can define voice, audience level, and document structure. Configuration discovery walks up through parent directories; packaged defaults are used when no file exists.
 
 Analysis settings and output settings are fingerprinted separately. Changing only the blog voice does not repeat transcript and topic analysis—it generates a new document from the existing Knowledge Pack. A profile may also choose a different `runtime` for uncached output reassembly.
 
 ---
 
-## Core Modules
+## Videos Without Captions
+
+The normal path reuses existing text and does not download video media: manually authored subtitles, automatically generated subtitles, then `youtube-transcript-api`. If none of those produce a usable transcript, the CLI explains how to opt in to local audio transcription instead of silently downloading a model or video audio.
+
+Install the optional dependencies and enable the fallback in `CHEW.md`:
+
+```bash
+pip install -e '.[youtube,whisper]'
+```
+
+```markdown
+---
+whisper_fallback: true
+---
+```
+
+With that setting enabled, the fourth fallback downloads the video's audio into a temporary directory and uses `faster-whisper` to create a timestamped transcript locally. Temporary audio is removed after transcription. A Whisper model may be downloaded on the first run, and transcription uses local CPU/GPU time; it does not consume an AI CLI login or hosted API quota. Title and chapter metadata already discovered through yt-dlp are preserved. Accuracy depends on audio quality, speakers, and the configured transcript language.
+
+---
+
+## Local Audio and Video Files
+
+Pass an existing local media path anywhere a YouTube URL is accepted. Because supplying the path is an explicit request to transcribe that file, `whisper_fallback` may remain `false`. The original file is read directly by `faster-whisper`; it is not copied, modified, or deleted. HTTP media URLs are not accepted as local inputs.
+
+```bash
+chew summarize ./recordings/meeting.mp3
+chew study ./lectures/week-01.mp4
+
+# A URL or supported local path may also be given without `summarize`
+chew ./recordings/interview.m4a
+```
+
+Supported extensions are AAC, FLAC, M4A, MKV, MOV, MP3, MP4, MPEG/MPG, OGA/OGG, OPUS, WAV, and WebM. The file content is identified by SHA-256, so the same bytes reuse a compatible Knowledge Pack after a move or rename. An interrupted run stores the absolute source path for `chew resume`; keep the file available at that path until analysis completes. The first transcription can download the configured Whisper model and uses local CPU/GPU time, but does not consume hosted AI transcription quota.
+
+---
+
+## Quick Start Commands
+
+```bash
+# Detailed digest
+chew summarize 'https://youtu.be/VIDEO_ID'
+
+# Local recording (requires the `whisper` extra)
+chew summarize ./recordings/meeting.mp3
+
+# Purpose-specific reassembly
+chew blog 'https://youtu.be/VIDEO_ID'
+chew study 'https://youtu.be/VIDEO_ID'
+chew obsidian 'https://youtu.be/VIDEO_ID'
+
+# Custom output directory
+chew blog 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
+```
+
+If the source is omitted, the CLI prompts for a YouTube URL or local media path. Add `--json` in automation to receive a stable `{"ok": true, "data": ...}` response.
+
+| English command | Korean alias | Purpose |
+|---|---|---|
+| `summarize` | `요약` | Create a full digest with chapter and topic summaries |
+| `blog` | `블로그` | Reassemble the Knowledge Pack in a configured blog voice |
+| `study` | `학습` | Focus on concepts, evidence, and follow-up study material |
+| `obsidian` | `옵시디언` | Create an index and topic notes with `[[wikilinks]]` |
+| `status [RUN_ID]` | `상태` | Show run and job progress |
+| `resume [RUN_ID]` | `이어하기` | Resume the latest or selected incomplete run |
+| `doctor` | `진단` | Diagnose runtime installation and authentication |
+| `storage` | `저장소` | Show internal file count and storage usage |
+| `cleanup` | `정리` | Preview or apply a retention policy |
+
+---
+
+## Internal Processing Flow
+
+### 1. Source Identity and Reuse Keys
+
+The kit normalizes `youtu.be`, `youtube.com/watch`, Shorts, and mobile URLs into one canonical URL and a `youtube:<video-id>` source ID. Local media uses a `local:<sha256>` source ID derived from the file bytes rather than its name or path. The compatibility fingerprint includes language, analysis depth, runtime policy, shared instructions, and prompt, segmentation, and schema versions. Only compatible results are reused.
+
+### 2. Metadata and Transcripts
+
+The default fallback order is:
+
+1. Manually authored subtitles through yt-dlp
+2. Automatically generated subtitles through yt-dlp
+3. `youtube-transcript-api`
+4. `faster-whisper`, only when `whisper_fallback: true`
+
+An explicitly supplied local media file bypasses the YouTube providers and goes directly to `faster-whisper`; the fallback flag only controls automatic YouTube audio download.
+
+Every transcript is checked for language, timestamp order, duration coverage, excessive repetition, and large gaps. If a provider fails or misses the quality threshold, the reason is recorded before the next provider runs. Metadata and YouTube chapters discovered by yt-dlp remain available even when a later provider, including the optional Whisper fallback, supplies the transcript.
+
+### 3. Adaptive Segmentation and Parallel Processing
+
+YouTube chapter boundaries are preserved when available. Long chapters—or videos without chapters—are divided into approximately five- to ten-minute topics while respecting sentence boundaries. Independent topics run concurrently. A chapter is merged as soon as its required topics finish instead of waiting for unrelated chapters.
+
+Global and runtime-specific concurrency limits work together. A rate limit reduces concurrency for that runtime and schedules a retry; sustained success gradually restores capacity.
+
+### 4. Hierarchical Summarization and the Knowledge Pack
+
+```text
+Transcript
+  → TopicSummary[]
+  → ChapterSummary[]
+  → KnowledgePack
+  → Purpose-specific documents
+```
+
+A Knowledge Pack contains video identity, title, language, overview, topics, chapters, claims, timestamped evidence, concepts, examples, follow-up study material, and the analysis fingerprint. The domain model can distinguish statements grounded in the video from AI additions and external research provenance.
+
+### 5. Output Reassembly
+
+- `digest`: Render the full, chapter, and topic summaries with evidence timestamps without another LLM call.
+- `blog`: Reassemble the pack through outline, draft, and validation stages using the configured voice.
+- `study`: Emphasize concepts and follow-up learning material.
+- `obsidian`: Create an index and one file per topic connected with `[[wikilinks]]`.
+
+Outputs are cached by Knowledge Pack fingerprint, profile, instructions, language, depth, runtime, and output recipe version. An identical output request can be restored from local cache even when no AI CLI is currently authenticated.
+
+---
+
+## Performance Improvements & Observability
+
+Solved the 30-minute latency bottleneck, achieving a **16.3x performance speedup**:
+
+| Metric | Baseline | Optimized | Speedup |
+|---|---|---|---|
+| 25-min Tech Video Analysis | 30 min 00 sec (1,800s) | **1 min 50 sec (110s)** | **16.3x faster** |
+| Pipeline Task Count | 61 granular tasks | **11 condensed tasks** | 82% reduction |
+| AI Harness Concurrency | 2 concurrent limit | **8 parallel workers** | 4x expansion |
+
+Full benchmark report: [`reports/performance_analysis.md`](reports/performance_analysis.md)
+
+---
+
+## Core Modules & Tech Stack
+
+- **Language & Runtime**: Python 3.12+
+- **CLI Framework**: Typer, Rich
+- **State Machine & Storage**: SQLite WAL, zstandard
+- **Transcripts & Audio**: yt-dlp, youtube-transcript-api, faster-whisper
+- **Observability**: OpenTelemetry API/SDK, VizTracer
+
+The project follows a **Ports & Adapters (Hexagonal)** modular layout. See [`AGENTS.md`](AGENTS.md) for full developer and AI agent guidelines.
+
+```
+src/chew/
+├── core/         # Layer 1: Core Domain Entities, Value Objects, Identity (SHA-256) & Prompts
+├── pipeline/     # Layer 2: Analysis Engine, DAG Scheduler, & Output Compilation
+├── storage/      # Layer 3: SQLite WAL State Machine & zstd Artifact Storage
+├── harness/      # Layer 4: AI Runtime Adapters (Codex, Gemini, Claude, Ollama, Antigravity)
+├── transcripts/  # Layer 5: Data Input Adapters (YouTube API, yt-dlp, Whisper)
+├── app/          # Layer 6: Application Orchestration Service & DI Bootstrap
+├── retention/    # Layer 7: Storage Retention & Cleanup Policies
+├── benchmark/    # Layer 8: Quality Benchmarking Framework
+└── cli/          # Layer 9: Bilingual Typer Command Line Interface
+```
 
 | Module | Responsibility |
 |---|---|
@@ -353,7 +362,7 @@ The core pipeline does not know vendor SDKs or account-file formats. Every AI re
 
 ---
 
-## Recovery and Cache (Resume Behavior)
+## Recovery and Cache
 
 SQLite WAL records runs, jobs, dependencies, attempt counts, worker claims, and lease expiration. Each job has a unique claim token, preventing a stale worker from overwriting a newer result. Heartbeats extend active leases; expired work returns to the queue after a process or network failure.
 
@@ -364,9 +373,7 @@ chew resume
 chew resume RUN_ID
 ```
 
-Resume uses the analysis recipe saved with the original run rather than the current configuration. Entering the same URL also locates a completed compatible Knowledge Pack without requiring a run ID.
-
-Immutable transcripts, summaries, Knowledge Packs, and output caches use a canonical JSON SHA-256 digest as their address and are compressed with zstd. Identical content is stored once. Internal data lives in the operating system's user application-data directory; user-selected export folders are never cleaned automatically.
+Resume uses the analysis recipe saved with the original run rather than the current configuration. Entering the same URL also locates a completed compatible Knowledge Pack without requiring a run ID. Immutable transcripts, summaries, Knowledge Packs, and output caches use a canonical JSON SHA-256 digest as their address and are compressed with zstd. Identical content is stored once. Internal data lives in the operating system's user application-data directory; user-selected export folders are never cleaned automatically.
 
 ---
 
@@ -438,6 +445,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development and testing inst
 
 ---
 
-## Version History (Changelog)
+## Version History
 
 Detailed release notes and version changes are maintained in [CHANGELOG.md](CHANGELOG.md).
