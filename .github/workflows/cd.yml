@@ -50,3 +50,12 @@ jobs:
           skip-existing: true
         env:
           PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Update Homebrew Formula (if HOMEBREW_TAP_TOKEN is set)
+        if: env.HOMEBREW_TAP_TOKEN != ''
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          echo "Updating Homebrew Formula for tag: $TAG_NAME"
+          # Automation step for homebrew-tap sync
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
