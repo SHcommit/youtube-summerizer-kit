@@ -384,7 +384,7 @@ def config(
 ) -> None:
     if initialize:
         targets = (
-            ("YTSUM.md", Path("YTSUM.md")),
+            ("CHEW.md", Path("CHEW.md")),
             ("profiles/blog.md", Path(".chew/profiles/blog.md")),
             ("profiles/study.md", Path(".chew/profiles/study.md")),
             ("profiles/obsidian.md", Path(".chew/profiles/obsidian.md")),
@@ -395,9 +395,12 @@ def config(
             if destination.exists():
                 continue
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_text(
-                templates.joinpath(resource).read_text(encoding="utf-8"), encoding="utf-8"
-            )
+            resource_name = "CHEW.md" if resource == "CHEW.md" else resource
+            try:
+                content = templates.joinpath(resource_name).read_text(encoding="utf-8")
+            except TypeError:
+                content = templates.joinpath("YTSUM.md").read_text(encoding="utf-8")
+            destination.write_text(content, encoding="utf-8")
             created.append(destination)
         if created:
             label = "생성" if _is_korean(context) else "Created"
@@ -410,9 +413,9 @@ def config(
             )
         return
     typer.echo(
-        "프로젝트 루트의 YTSUM.md와 .chew/profiles/*.md를 편집하세요."
+        "프로젝트 루트의 CHEW.md와 .chew/profiles/*.md를 편집하세요."
         if _is_korean(context)
-        else "Edit YTSUM.md and .chew/profiles/*.md in the project root."
+        else "Edit CHEW.md and .chew/profiles/*.md in the project root."
     )
 
 

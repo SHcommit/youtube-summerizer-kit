@@ -59,7 +59,10 @@ def _parse_markdown(path: Path) -> tuple[dict[str, Any], str]:
 
 
 def _template(name: str) -> Path:
-    return Path(str(files("chew.templates").joinpath(name)))
+    target = Path(str(files("chew.templates").joinpath(name)))
+    if not target.exists() and name == "YTSUM.md":
+        target = Path(str(files("chew.templates").joinpath("CHEW.md")))
+    return target
 
 
 def _merge(settings: Settings, path: Path) -> Settings:
@@ -73,7 +76,8 @@ def _merge(settings: Settings, path: Path) -> Settings:
 def load_settings(start: Path, profile: str | None) -> Settings:
     """Load packaged defaults, project defaults, then a purpose profile."""
 
-    settings = _merge(Settings(), _template("YTSUM.md"))
+    template_file = "CHEW.md" if _template("CHEW.md").exists() else "YTSUM.md"
+    settings = _merge(Settings(), _template(template_file))
     project_config = discover_config(start)
     if project_config is not None:
         settings = _merge(settings, project_config)
