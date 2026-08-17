@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.domain import SourceIdentity, SourceKind
-from ytsum.identity import fingerprint, normalize_source, normalize_youtube_url
+from chew.domain import SourceIdentity, SourceKind
+from chew.identity import fingerprint, normalize_source, normalize_youtube_url
 
 
 @pytest.mark.parametrize(

@@ -4,8 +4,8 @@ import os
 
 import pytest
 
-from ytsum.identity import normalize_youtube_url
-from ytsum.transcripts import TranscriptService, default_providers
+from chew.identity import normalize_youtube_url
+from chew.transcripts import TranscriptService, default_providers
 
 
 @pytest.mark.asyncio

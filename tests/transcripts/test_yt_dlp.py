@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from ytsum.domain import Provenance
-from ytsum.identity import normalize_youtube_url
-from ytsum.transcripts.yt_dlp import YtDlpSubtitleProvider
+from chew.domain import Provenance
+from chew.identity import normalize_youtube_url
+from chew.transcripts.yt_dlp import YtDlpSubtitleProvider
 
 SOURCE = normalize_youtube_url("https://youtu.be/abcDEF_1234")
 pytestmark = pytest.mark.asyncio
@@ -35,7 +35,7 @@ async def test_provider_failure_allows_fallback() -> None:
 
 
 async def test_provider_failure_reason_is_recorded_by_fallback_service() -> None:
-    from ytsum.transcripts.service import TranscriptService, TranscriptUnavailable
+    from chew.transcripts.service import TranscriptService, TranscriptUnavailable
 
     def broken(_: str) -> dict[str, object]:
         raise RuntimeError("network")
@@ -56,7 +56,7 @@ async def test_manual_and_automatic_can_be_independent_fallback_candidates() -> 
             "ko": [{"data": "WEBVTT\n\n00:00.000 --> 00:10.000\n전체 자동 자막"}]
         },
     }
-    from ytsum.transcripts.service import TranscriptService
+    from chew.transcripts.service import TranscriptService
 
     resolution = await TranscriptService(
         [
@@ -69,8 +69,8 @@ async def test_manual_and_automatic_can_be_independent_fallback_candidates() -> 
 
 
 async def test_metadata_survives_when_yt_dlp_has_no_usable_subtitle() -> None:
-    from ytsum.domain import Transcript, TranscriptSegment
-    from ytsum.transcripts.service import TranscriptService
+    from chew.domain import Transcript, TranscriptSegment
+    from chew.transcripts.service import TranscriptService
 
     info = {
         "duration": 10.0,
@@ -99,8 +99,8 @@ async def test_metadata_survives_when_yt_dlp_has_no_usable_subtitle() -> None:
 
 
 async def test_metadata_survives_when_optional_whisper_is_used() -> None:
-    from ytsum.domain import Transcript, TranscriptSegment
-    from ytsum.transcripts.service import TranscriptService
+    from chew.domain import Transcript, TranscriptSegment
+    from chew.transcripts.service import TranscriptService
 
     info = {
         "duration": 10.0,

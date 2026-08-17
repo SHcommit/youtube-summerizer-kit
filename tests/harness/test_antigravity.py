@@ -3,9 +3,9 @@ from typing import Any
 
 import pytest
 
-from ytsum.domain import GenerationRequest
-from ytsum.harness.antigravity import AntigravityHarness
-from ytsum.harness.builtin import HarnessExecutionError
+from chew.domain import GenerationRequest
+from chew.harness.antigravity import AntigravityHarness
+from chew.harness.builtin import HarnessExecutionError
 
 
 class FakeExecutor:

@@ -1,5 +1,5 @@
-from ytsum.domain import Chapter, Provenance, SourceIdentity, Transcript, TranscriptSegment
-from ytsum.segmentation import SegmentationPolicy, segment_transcript
+from chew.domain import Chapter, Provenance, SourceIdentity, Transcript, TranscriptSegment
+from chew.segmentation import SegmentationPolicy, segment_transcript
 
 SOURCE = SourceIdentity(
     source_id="youtube:abcDEF_1234",

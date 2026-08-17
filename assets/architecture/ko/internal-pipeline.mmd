@@ -1,27 +1,29 @@
 %%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, Apple SD Gothic Neo, Noto Sans KR, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b","clusterBkg":"#ffffff","clusterBorder":"#cbd5e1"},"flowchart":{"curve":"basis","nodeSpacing":38,"rankSpacing":52,"htmlLabels":false}}}%%
 flowchart TB
-    INPUT["INPUT<br/>YouTube URL 또는 로컬 미디어 · 목적 · 사용자 설정"]
-    IDENTITY["1 · 식별과 재사용 판단<br/>URL/콘텐츠 해시 정규화 · 호환 분석 확인"]
+    INPUT["INPUT<br/>YouTube URL 또는 로컬 미디어 · 요약 강도(depth) · 설정"]
+    IDENTITY["1 · 식별과 재사용 판단<br/>URL/콘텐츠 SHA-256 정규화 · 호환 분석 확인"]
     INPUT --> IDENTITY
     IDENTITY --> CACHE{"Knowledge Pack이<br/>이미 있는가?"}
 
-    CACHE -->|아니요| ACQUIRE["2 · 콘텐츠 획득과 검증<br/>메타데이터 · 자막 · 품질 검사"]
-    ACQUIRE --> SEGMENT["3 · 구조화<br/>영상 챕터 또는 적응형 소주제 분할"]
-    SEGMENT --> SYNTHESIS["4 · 병렬 계층형 분석<br/>소주제 요약 → 챕터 요약 → 전체 합성"]
-    SYNTHESIS --> PACK["Knowledge Pack<br/>개요 · 소주제 · 챕터 · 주장 · 근거 시간"]
+    CACHE -->|아니요| ACQUIRE["2 · 자막 수집과 검증<br/>yt-dlp → API → faster-whisper 품질 검사"]
+    ACQUIRE --> SEGMENT["3 · 적응형 동적 분할<br/>30분 미만 5개 제한 및 소주제 분할"]
+    SEGMENT --> SYNTHESIS["4 · 16.3배 속도 DAG 병렬 처리<br/>8개 워커 동시 처리 (Topic → Chapter → Pack)"]
+    SYNTHESIS --> PACK["Knowledge Pack<br/>개요 · 소주제 · 챕터 · 주장 · 근거 타임스탬프"]
     CACHE --> PACK
 
-    PACK --> REUSE["재분석 없이 활용<br/>목적과 문체별 재조립"]
-    REUSE --> ASSEMBLY["5 · 출력 검증"]
-    ASSEMBLY --> OUTPUT["OUTPUT<br/>정리본 · 블로그 · 학습 노트 · Obsidian"]
+    PACK --> REUSE["재분석 없이 활용<br/>목적과 문체별 1초 재조립"]
+    REUSE --> ASSEMBLY["5 · 출력 생성과 검증"]
+    ASSEMBLY --> OUTPUT["OUTPUT<br/>전체 요약본 · 블로그 · 학습 노트 · Obsidian"]
 
     RUNTIMES["AI Runtime Adapters<br/>Codex · Gemini · Claude · Ollama · Antigravity (agy)"] -.-> SYNTHESIS
     RUNTIMES -.-> ASSEMBLY
 
-    LOCAL["Local State & Cache<br/>중간 결과 저장 · 중단 복구 · URL 및 해시 기반 재사용"] -.-> IDENTITY
+    LOCAL["Local State & Cache (SQLite WAL & zstd)<br/>중간 결과 저장 · 중단 복구 · 콘텐츠 해시 재사용"] -.-> IDENTITY
     LOCAL -.-> SYNTHESIS
     LOCAL -.-> PACK
     LOCAL -.-> ASSEMBLY
+
+    TELEMETRY["OpenTelemetry Jaeger Observability<br/>실시간 트레이스 관측성 · benchmark-dashboard"] -.-> SYNTHESIS
 
     RECOVERY["로그인 또는 연결 문제<br/>완료 결과 유지 → 문제 해결 → 이어하기 (chew resume)"] -.-> SYNTHESIS
 
@@ -35,5 +37,5 @@ flowchart TB
     class IDENTITY,CACHE,ACQUIRE,SEGMENT,SYNTHESIS,REUSE,ASSEMBLY process;
     class PACK knowledge;
     class OUTPUT output;
-    class RUNTIMES,LOCAL support;
+    class RUNTIMES,LOCAL,TELEMETRY support;
     class RECOVERY recovery;

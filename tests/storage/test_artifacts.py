@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.storage.artifacts import ArtifactCorruptError, ArtifactStore
+from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 
 
 def test_artifact_store_deduplicates_canonical_json(tmp_path: Path) -> None:

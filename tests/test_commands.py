@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from ytsum.application import AuthenticationRequired, CommandResult, RunStatus
-from ytsum.cli import app, normalize_cli_args
-from ytsum.config import ConfigurationError
-from ytsum.identity import SourceInputError
-from ytsum.transcripts.service import TranscriptUnavailable
-from ytsum.transcripts.whisper import WhisperDependencyMissing
+from chew.application import AuthenticationRequired, CommandResult, RunStatus
+from chew.cli import app, normalize_cli_args
+from chew.config import ConfigurationError
+from chew.identity import SourceInputError
+from chew.transcripts.service import TranscriptUnavailable
+from chew.transcripts.whisper import WhisperDependencyMissing
 
 URL = "https://youtu.be/abcDEF_1234"
 
@@ -23,7 +23,9 @@ class StubApplication:
     error: Exception | None = None
     resume_error: Exception | None = None
 
-    async def generate(self, url: str, profile: str, destination: Path) -> CommandResult:
+    async def generate(
+        self, url: str, profile: str, destination: Path, depth: str | None = None
+    ) -> CommandResult:
         self.calls.append((url, profile))
         if self.error is not None:
             raise self.error
@@ -44,7 +46,7 @@ class StubApplication:
 @pytest.fixture
 def stub(monkeypatch: pytest.MonkeyPatch) -> StubApplication:
     value = StubApplication()
-    monkeypatch.setattr("ytsum.cli._application_factory", lambda: value)
+    monkeypatch.setattr("chew.cli._application_factory", lambda: value)
     return value
 
 

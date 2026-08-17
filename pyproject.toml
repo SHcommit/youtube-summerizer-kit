@@ -33,6 +33,12 @@ dependencies = [
 [project.optional-dependencies]
 youtube = ["yt-dlp", "youtube-transcript-api"]
 whisper = ["faster-whisper"]
+telemetry = [
+  "opentelemetry-api",
+  "opentelemetry-sdk",
+  "opentelemetry-exporter-otlp-proto-http",
+  "viztracer",
+]
 dev = [
   "build",
   "coverage[toml]",
@@ -44,14 +50,14 @@ dev = [
 ]
 
 [project.scripts]
-chew = "ytsum.cli:main"
+chew = "chew.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ytsum"]
+packages = ["src/chew"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "src/ytsum",
+  "src/chew",
   "tests",
   "assets/architecture",
   "README.md",
@@ -68,16 +74,17 @@ pythonpath = ["src"]
 
 [tool.ruff]
 target-version = "py312"
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["ytsum"]
+packages = ["chew"]
 
 [tool.coverage.run]
 branch = true
-source = ["ytsum"]
+source = ["chew"]

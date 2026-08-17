@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.application import ApplicationService
-from ytsum.config import Settings
-from ytsum.domain import (
+from chew.application import ApplicationService
+from chew.config import Settings
+from chew.domain import (
     GenerationRequest,
     GenerationResult,
     KnowledgePack,
@@ -15,11 +15,11 @@ from ytsum.domain import (
     Transcript,
     TranscriptSegment,
 )
-from ytsum.outputs import OutputCompiler, OutputManifest
-from ytsum.pipeline import AnalysisPipeline, AnalysisResult
-from ytsum.storage.artifacts import ArtifactStore
-from ytsum.storage.database import Database
-from ytsum.transcripts.service import TranscriptService
+from chew.outputs import OutputCompiler, OutputManifest
+from chew.pipeline import AnalysisPipeline, AnalysisResult
+from chew.storage.artifacts import ArtifactStore
+from chew.storage.database import Database
+from chew.transcripts.service import TranscriptService
 
 
 class Harness:
@@ -63,7 +63,7 @@ class Compiler:
 @pytest.mark.asyncio
 async def test_output_profile_does_not_change_analysis_settings(tmp_path: Path) -> None:
     (tmp_path / "YTSUM.md").write_text("공통 분석 지침")
-    profiles = tmp_path / ".ytsum" / "profiles"
+    profiles = tmp_path / ".chew" / "profiles"
     profiles.mkdir(parents=True)
     (profiles / "blog.md").write_text("블로그 전용 문체")
     source = SourceIdentity(
@@ -233,7 +233,7 @@ async def test_profile_changes_reassemble_without_reanalyzing_and_output_cache_i
     tmp_path: Path,
 ) -> None:
     (tmp_path / "YTSUM.md").write_text("---\nlanguage: ko\n---\n공통 지침")
-    profiles = tmp_path / ".ytsum" / "profiles"
+    profiles = tmp_path / ".chew" / "profiles"
     profiles.mkdir(parents=True)
     blog_profile = profiles / "blog.md"
     blog_profile.write_text("첫 문체")
@@ -280,4 +280,5 @@ async def test_profile_changes_reassemble_without_reanalyzing_and_output_cache_i
     assert calls_before_cache_restore.count("compose") == 1
     assert calls_before_cache_restore.count("output_compose") == 2
     assert restored.reused
-    assert restored.files[0].read_text() == (tmp_path / "blog-two" / "index.md").read_text()
+    target_file = tmp_path / "blog-two" / restored.files[0].name
+    assert restored.files[0].read_text() == target_file.read_text()

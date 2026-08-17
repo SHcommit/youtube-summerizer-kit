@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from ytsum.domain import Claim, Provenance, SourceIdentity, Transcript, TranscriptSegment
+from chew.domain import Claim, Provenance, SourceIdentity, Transcript, TranscriptSegment
 
 
 def test_domain_models_are_immutable() -> None:

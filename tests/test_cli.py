@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from ytsum.cli import app
+from chew.cli import app
 
 
 def test_help_exposes_english_commands_as_the_public_default() -> None:
@@ -46,10 +46,10 @@ def test_config_init_creates_editable_markdown_without_overwriting(
     runner = CliRunner()
 
     first = runner.invoke(app, ["설정", "--초기화"])
-    original = (tmp_path / "YTSUM.md").read_text(encoding="utf-8")
+    original = (tmp_path / "CHEW.md").read_text(encoding="utf-8")
     second = runner.invoke(app, ["config", "--init"])
 
     assert first.exit_code == second.exit_code == 0
-    assert (tmp_path / ".ytsum/profiles/blog.md").is_file()
-    assert (tmp_path / "YTSUM.md").read_text(encoding="utf-8") == original
+    assert (tmp_path / ".chew/profiles/blog.md").is_file()
+    assert (tmp_path / "CHEW.md").read_text(encoding="utf-8") == original
     assert "preserved" in second.stdout

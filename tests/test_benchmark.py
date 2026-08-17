@@ -5,7 +5,7 @@ import json
 import pytest
 from typer.testing import CliRunner
 
-from ytsum.benchmark import (
+from chew.benchmark import (
     BenchmarkCondition,
     BenchmarkObservation,
     BenchmarkReference,
@@ -14,7 +14,7 @@ from ytsum.benchmark import (
     ReferenceClaim,
     _score_output,
 )
-from ytsum.cli import app
+from chew.cli import app
 
 
 class Runner:

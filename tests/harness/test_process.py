@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from ytsum.harness.process import ProcessExecutor, ProcessTimeout
+from chew.harness.process import ProcessExecutor, ProcessTimeout
 
 
 @pytest.mark.asyncio

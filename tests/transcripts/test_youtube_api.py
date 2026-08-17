@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 import pytest
 
-from ytsum.domain import Provenance
-from ytsum.identity import normalize_youtube_url
-from ytsum.transcripts.youtube_api import YouTubeApiTranscriptProvider
+from chew.domain import Provenance
+from chew.identity import normalize_youtube_url
+from chew.transcripts.youtube_api import YouTubeApiTranscriptProvider
 
 pytestmark = pytest.mark.asyncio
 
@@ -35,7 +35,7 @@ async def test_current_api_fetch_result_is_converted() -> None:
 
 
 async def test_api_failure_reason_is_available_to_fallback_service() -> None:
-    from ytsum.transcripts.service import TranscriptService, TranscriptUnavailable
+    from chew.transcripts.service import TranscriptService, TranscriptUnavailable
 
     class BrokenApi:
         def fetch(self, video_id: str, languages: list[str]) -> list[Snippet]:

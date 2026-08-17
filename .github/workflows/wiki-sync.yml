@@ -1,0 +1,41 @@
+name: Sync Performance Reports to GitHub Wiki
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'reports/performance_analysis.md'
+      - 'reports/BENCHMARK.md'
+      - 'reports/trace_report.md'
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+
+      - name: Checkout Wiki repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync performance reports to Wiki
+        run: |
+          cd wiki
+          cp ../reports/performance_analysis.md ./Performance-Analysis.md
+          cp ../reports/trace_report.md ./Trace-Report.md
+          cp ../reports/BENCHMARK.md ./Benchmark-Guide.md
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if ! git diff --staged --quiet; then
+            git commit -m "docs(wiki): auto-sync performance analysis and trace reports from main repo"
+            git push
+          else
+            echo "No changes to sync to Wiki."
+          fi

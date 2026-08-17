@@ -1,5 +1,5 @@
-from ytsum.domain import Provenance, SourceIdentity, Transcript, TranscriptSegment
-from ytsum.transcripts.validation import normalize_transcript, validate_transcript
+from chew.domain import Provenance, SourceIdentity, Transcript, TranscriptSegment
+from chew.transcripts.validation import normalize_transcript, validate_transcript
 
 SOURCE = SourceIdentity(
     source_id="youtube:abcDEF_1234",

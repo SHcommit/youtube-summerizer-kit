@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from ytsum.config import Settings
-from ytsum.domain import (
+from chew.config import Settings
+from chew.domain import (
     Chapter,
     GenerationRequest,
     GenerationResult,
@@ -13,12 +13,12 @@ from ytsum.domain import (
     Transcript,
     TranscriptSegment,
 )
-from ytsum.identity import normalize_source
-from ytsum.pipeline import AnalysisPipeline, build_analysis_job_graph
-from ytsum.segmentation import SegmentationPolicy, segment_transcript
-from ytsum.storage.artifacts import ArtifactStore
-from ytsum.storage.database import Database
-from ytsum.transcripts.service import TranscriptResolution, TranscriptService
+from chew.identity import normalize_source
+from chew.pipeline import AnalysisPipeline, build_analysis_job_graph
+from chew.segmentation import SegmentationPolicy, segment_transcript
+from chew.storage.artifacts import ArtifactStore
+from chew.storage.database import Database
+from chew.transcripts.service import TranscriptResolution, TranscriptService
 
 
 def test_analysis_graph_has_topic_chapter_and_final_dependencies() -> None:

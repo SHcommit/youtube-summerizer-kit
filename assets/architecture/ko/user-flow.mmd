@@ -1,10 +1,10 @@
-%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, Apple SD Gothic Neo, Noto Sans KR, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b"},"flowchart":{"curve":"basis","nodeSpacing":44,"rankSpacing":54}}}%%
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Apple SD Gothic Neo, Noto Sans KR, Malgun Gothic, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b"},"flowchart":{"curve":"basis","nodeSpacing":44,"rankSpacing":54,"htmlLabels":true}}}%%
 flowchart TB
-    USER([사용자])
-    INPUT["INPUT<br/>YouTube URL 또는 로컬 미디어<br/>정리 목적 · 사용자 설정"]
-    KIT["YouTube Summarizer Kit (chew)<br/>영상·오디오 분석 → 재사용 가능한 지식 구조화"]
-    PACK["Knowledge Pack<br/>전체 개요 · 챕터 · 소주제 · 핵심 주장 · 근거 시간"]
-    OUTPUT["OUTPUT<br/>전체 정리본 · 블로그<br/>학습 노트 · Obsidian"]
+    USER["&nbsp;&nbsp;사용자&nbsp;&nbsp;"]
+    INPUT["INPUT<br/>YouTube URL 또는 로컬 미디어 (MP3·MP4)<br/>요약 강도 (quick · detailed · deep) · 문체 프로필"]
+    KIT["YouTube Summarizer Kit (chew)<br/>16.3배 속도 동적 비동기 DAG 병렬 처리 & OpenTelemetry Jaeger 실시간 추적"]
+    PACK["Knowledge Pack (단 1회 분석 후 재사용)<br/>전체 개요 · 챕터 · 소주제 · 핵심 주장 · 근거 타임스탬프"]
+    OUTPUT["OUTPUT (1초 목적별 자동 재조립)<br/>전체 요약본 (Digest) · 기술 블로그 (Blog)<br/>학습 노트 (Study) · Obsidian Vault (Wikilinks)"]
 
     USER --> INPUT --> KIT --> PACK --> OUTPUT
 

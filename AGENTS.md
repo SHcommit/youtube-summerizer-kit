@@ -9,7 +9,7 @@ This document provides essential context, architectural layout, and development 
 The codebase follows the **Ports & Adapters (Hexagonal)** architecture pattern to guarantee strict separation between core synthesis logic and external AI/data adapters.
 
 ```
-src/ytsum/
+src/chew/
 ├── core/              # Layer 1: Core Domain Entities, Value Objects, Identity (SHA-256), & Prompts
 │   ├── models.py      (Frozen pydantic models: SourceIdentity, Transcript, KnowledgePack, etc.)
 │   ├── identity.py    (YouTube URL & local media normalization, SHA-256 fingerprinting)
@@ -37,7 +37,7 @@ src/ytsum/
 ├── app/               # Layer 6: Application Service & Container Bootstrap
 │   ├── service.py     (Application use-case orchestrator)
 │   ├── bootstrap.py   (Dependency injection container & AutoHarness)
-│   └── config.py      (Markdown-based settings loader: YTSUM.md)
+│   └── config.py      (Markdown-based settings loader: CHEW.md)
 │
 ├── retention/         # Layer 7: Storage Retention & Cleanup Policies
 │   └── planner.py     (Retention policy planner & cleaner)
@@ -47,6 +47,11 @@ src/ytsum/
 │
 └── cli/               # Layer 9: Presentation Layer (Typer CLI Commands)
     └── main.py        (Bilingual Korean/English Typer commands)
+
+reports/               # Central Benchmarking & Performance Observability Reports
+├── BENCHMARK.md       (Release performance history & OpenTelemetry Jaeger setup)
+├── performance_analysis.md (Baseline vs optimized commit diff comparisons)
+└── trace_report.md    (Generated OpenTelemetry span execution report)
 ```
 
 ---
@@ -60,7 +65,7 @@ src/ytsum/
    - `transcripts` providers implement `TranscriptProvider` in `transcripts/base.py`.
 
 2. **Backward Compatibility**:
-   - Re-export modules at the package root (`src/ytsum/domain.py`, `src/ytsum/pipeline.py`, `src/ytsum/config.py`, `src/ytsum/cli.py`) MUST be maintained so tests and external entrypoints remain compatible.
+   - Re-export modules at the package root (`src/chew/domain.py`, `src/chew/pipeline.py`, `src/chew/config.py`, `src/chew/cli.py`) MUST be maintained so tests and external entrypoints remain compatible.
 
 3. **Single Source of Truth & Symlink Propagation**:
    - `AGENTS.md` is the single source of truth for architectural guidelines.
@@ -72,7 +77,7 @@ src/ytsum/
 5. **Gitflow Branching & Tag Release Strategy**:
    - Feature development MUST occur on topic branches (`feature/*`).
    - External contributors fork the repository and submit Pull Requests targeting the **`develop`** branch.
-   - Completed features are merged into the `develop` integration testing branch.
+   - Completed features MUST be merged into the **`develop`** integration testing branch first. `master` is reserved strictly for tagged production releases.
    - Verified releases are merged from `develop` into `master` / `main` and tagged using Semantic Versioning (`v*.*.*`).
    - Pushing release tags (`git push origin master --tags`) triggers automated PyPI publishing and GitHub Release creation via `.github/workflows/cd.yml`.
 
@@ -81,5 +86,19 @@ src/ytsum/
      ```bash
      uv run --extra dev pytest
      uv run --extra dev ruff check .
-     uv run --extra dev mypy src/ytsum
+     uv run --extra dev mypy src/chew
      ```
+
+7. **Background Process & Task Lifecycle Management**:
+   - AI Agents working on this codebase MUST clean up and terminate all spawned background tasks (`uv run chew`, async CLI processes, schedule timers) using `manage_task kill` immediately upon task completion, cancellation, or before responding to the user. Never leave orphan processes running in the background.
+
+8. **No Blind Full-Disk File Scanning**:
+   - AI Agents MUST NOT run recursive home-directory searches (`Path.home().glob()`, `find ~`) when locating application state or database files. Always inspect `bootstrap.py`, settings, or query the user directly.
+
+9. **Performance Benchmarking & OpenTelemetry Trace Score Tracking**:
+   - Whenever modifying pipeline segmentation, harness concurrency, or DAG execution logic, AI Agents MUST run the benchmark (`time uv run --extra youtube chew 'https://www.youtube.com/watch?v=NAumQObJEwM'`) to verify no performance regressions occurred compared to the baseline (1m 50s).
+   - Use `chew benchmark-dashboard` or `chew benchmark-ui` to generate `reports/trace_report.md` and inspect real-time OpenTelemetry trace graphs in Jaeger UI at `http://localhost:16686`.
+   - Before tagging a new production release, AI Agents MUST record and update the best benchmark scores table in `reports/BENCHMARK.md` (symlinked at `BENCHMARK.md`) and synchronize the latest performance reports to [GitHub Wiki](https://github.com/SHcommit/youtube-summerizer-kit/wiki).
+
+
+
