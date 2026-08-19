@@ -9,7 +9,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ValidationError
 
-from chew.app.config import Settings
 from chew.core.identity import fingerprint, normalize_source
 from chew.core.models import (
     Chapter,
@@ -36,6 +35,16 @@ from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 from chew.storage.database import Database, JobRecord, JobSpec
 from chew.telemetry import telemetry
 from chew.transcripts.service import TranscriptService
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisConfig:
+    language: str
+    depth: str
+    instructions: str
+    whisper_fallback: bool
+    runtime: str
+    recipe_json: str
 
 
 class PipelineExecutionError(RuntimeError):
@@ -109,7 +118,7 @@ class AnalysisPipeline:
     async def analyze(
         self,
         url: str,
-        settings: Settings,
+        config: AnalysisConfig,
         *,
         title: str | None = None,
         chapters: tuple[Chapter, ...] = (),
@@ -119,10 +128,10 @@ class AnalysisPipeline:
             {
                 "segmentation": 1,
                 "prompt": PROMPT_FINGERPRINT,
-                "runtime": settings.runtime,
-                "depth": settings.depth,
-                "language": settings.language,
-                "instructions": settings.instructions,
+                "runtime": config.runtime,
+                "depth": config.depth,
+                "language": config.language,
+                "instructions": config.instructions,
                 "schema": 1,
             }
         )
@@ -135,7 +144,7 @@ class AnalysisPipeline:
                 )
                 return AnalysisResult(reusable, pack, True)
 
-        cached_hash = self.database.get_cached_transcript(source.source_id, settings.language)
+        cached_hash = self.database.get_cached_transcript(source.source_id, config.language)
         if cached_hash is not None:
             try:
                 transcript = Transcript.model_validate(
@@ -147,14 +156,14 @@ class AnalysisPipeline:
             with telemetry.span("chew.transcript_acquisition", {"source": source.canonical_url or source.source_id}):
                 resolution = await self.transcripts.resolve(
                     source,
-                    settings.language,
-                    include_optional=settings.whisper_fallback,
+                    config.language,
+                    include_optional=config.whisper_fallback,
                 )
                 transcript = resolution.transcript
                 transcript_ref = self.artifacts.put_json(transcript)
                 self.database.cache_transcript(
                     source.source_id,
-                    settings.language,
+                    config.language,
                     transcript_ref.digest,
                     fingerprint(transcript),
                 )
@@ -165,11 +174,11 @@ class AnalysisPipeline:
             {
                 "raw_chapters": len(transcript.chapters),
                 "selected_chapters": len(selected_chapters),
-                "depth": settings.depth,
+                "depth": config.depth,
             },
         ):
             manifest = segment_transcript(
-                transcript, selected_chapters, SegmentationPolicy(), depth=settings.depth
+                transcript, selected_chapters, SegmentationPolicy(), depth=config.depth
             )
         analysis_key = fingerprint(
             {
@@ -194,7 +203,7 @@ class AnalysisPipeline:
                     source.source_id,
                     analysis_key,
                     request_key=request_key,
-                    recipe_json=settings.model_dump_json(),
+                    recipe_json=config.recipe_json,
                     source_locator=source.local_path or source.canonical_url,
                 )
             except sqlite3.IntegrityError:
@@ -214,8 +223,8 @@ class AnalysisPipeline:
                 payload = {
                     "topic_id": topic.topic_id,
                     "title": topic.title,
-                    "language": settings.language,
-                    "user_instructions": settings.instructions,
+                    "language": config.language,
+                    "user_instructions": config.instructions,
                     "segments": [
                         transcript.segments[index].model_dump(mode="json")
                         for index in topic.segment_indexes
@@ -227,15 +236,15 @@ class AnalysisPipeline:
                 payload = {
                     "chapter_id": chapter.chapter_id,
                     "title": chapter.title,
-                    "language": settings.language,
-                    "user_instructions": settings.instructions,
+                    "language": config.language,
+                    "user_instructions": config.instructions,
                 }
             else:
                 payload = {
                     "source": source.model_dump(mode="json"),
                     "title": title or transcript.title or "YouTube 영상",
-                    "language": settings.language,
-                    "user_instructions": settings.instructions,
+                    "language": config.language,
+                    "user_instructions": config.instructions,
                     "transcript_fingerprint": transcript_hash,
                 }
             payload_ref = self.artifacts.put_json(payload)

@@ -15,10 +15,25 @@ from chew.domain import (
 )
 from chew.identity import normalize_source
 from chew.pipeline import AnalysisPipeline, build_analysis_job_graph
+from chew.pipeline.engine import AnalysisConfig
 from chew.segmentation import SegmentationPolicy, segment_transcript
 from chew.storage.artifacts import ArtifactStore
 from chew.storage.database import Database
 from chew.transcripts.service import TranscriptResolution, TranscriptService
+
+
+def test_analysis_config_is_defined() -> None:
+    config = AnalysisConfig(
+        language="ko",
+        depth="detailed",
+        instructions="",
+        whisper_fallback=False,
+        runtime="auto",
+        recipe_json='{"language":"ko"}',
+    )
+    assert config.language == "ko"
+    assert config.depth == "detailed"
+    assert config.recipe_json == '{"language":"ko"}'
 
 
 def test_analysis_graph_has_topic_chapter_and_final_dependencies() -> None:
