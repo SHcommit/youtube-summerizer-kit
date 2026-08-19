@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 
@@ -60,3 +61,52 @@ async def test_early_exit_preserves_error_result_when_stdin_pipe_breaks() -> Non
 
     assert result.exit_code == 1
     assert "Not logged in" in result.stderr
+
+
+@pytest.mark.asyncio
+async def test_terminate_uses_sigterm_before_sigkill() -> None:
+    """Process that exits on SIGTERM should not be SIGKILLed."""
+    import sys as _sys
+    executor = ProcessExecutor()
+    code = (
+        "import signal, sys\n"
+        "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
+        "import time; time.sleep(30)\n"
+    )
+    process = await asyncio.create_subprocess_exec(
+        _sys.executable, "-c", code,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    await asyncio.sleep(0.1)  # allow child to install signal handler before SIGTERM
+    executor._terminate(process)
+    await executor._await_termination(process, sigterm_timeout=3.0)
+    assert process.returncode == 0  # clean exit via SIGTERM handler
+
+
+@pytest.mark.asyncio
+async def test_await_termination_escalates_to_sigkill_when_process_ignores_sigterm() -> None:
+    """Process that ignores SIGTERM must be killed within timeout + small buffer."""
+    import time as _time2
+    import sys as _sys
+    executor = ProcessExecutor()
+    code = (
+        "import signal, time\n"
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+        "time.sleep(30)\n"
+    )
+    process = await asyncio.create_subprocess_exec(
+        _sys.executable, "-c", code,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    start = _time2.monotonic()
+    executor._terminate(process)
+    await executor._await_termination(process, sigterm_timeout=0.5)
+    elapsed = _time2.monotonic() - start
+    assert process.returncode is not None  # process was killed
+    assert elapsed < 2.0  # killed well within test budget

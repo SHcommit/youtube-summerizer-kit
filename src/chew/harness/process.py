@@ -65,11 +65,11 @@ class ProcessExecutor:
             )
         except TimeoutError as error:
             self._terminate(process)
-            await process.wait()
+            await self._await_termination(process)
             raise ProcessTimeout(f"process timed out after {timeout} seconds") from error
         except asyncio.CancelledError:
             self._terminate(process)
-            await process.wait()
+            await self._await_termination(process)
             raise
         return ProcessResult(
             exit_code=int(process.returncode or 0),
@@ -92,4 +92,13 @@ class ProcessExecutor:
         if process.returncode is not None:
             return
         with suppress(ProcessLookupError):
-            os.killpg(process.pid, signal.SIGKILL)
+            os.killpg(process.pid, signal.SIGTERM)
+
+    @staticmethod
+    async def _await_termination(process: asyncio.subprocess.Process, sigterm_timeout: float = 5.0) -> None:
+        try:
+            await asyncio.wait_for(process.wait(), timeout=sigterm_timeout)
+        except TimeoutError:
+            with suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+            await process.wait()
