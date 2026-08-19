@@ -110,3 +110,25 @@ async def test_await_termination_escalates_to_sigkill_when_process_ignores_sigte
     elapsed = _time2.monotonic() - start
     assert process.returncode is not None  # process was killed
     assert elapsed < 2.0  # killed well within test budget
+
+
+@pytest.mark.asyncio
+async def test_run_raises_runtime_error_when_stdin_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """_execute should raise RuntimeError (not AssertionError) when stdin is None."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    executor = ProcessExecutor()
+
+    # Create a fake process with stdin=None
+    fake_process = MagicMock()
+    fake_process.stdin = None
+    fake_process.stdout = AsyncMock()
+    fake_process.stderr = AsyncMock()
+
+    async def fake_exec(*args: object, **kwargs: object) -> asyncio.subprocess.Process:
+        return fake_process
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+    with pytest.raises(RuntimeError, match="stdin"):
+        await executor.run((sys.executable, "-c", "pass"), "input", 5)

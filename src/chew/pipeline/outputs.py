@@ -181,7 +181,8 @@ class OutputCompiler:
     async def _compose(
         self, pack: KnowledgePack, profile: str, settings: Settings, trace_id: str
     ) -> str:
-        assert self.harness is not None
+        if self.harness is None:
+            raise RuntimeError("OutputCompiler.harness is None; cannot generate composed output")
         source = pack.model_dump(mode="json")
         outline = await self.harness.generate(
             GenerationRequest(

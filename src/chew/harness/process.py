@@ -45,12 +45,14 @@ class ProcessExecutor:
             start_new_session=True,
         )
         try:
-            assert process.stdin is not None
+            if process.stdin is None:
+                raise RuntimeError("Expected subprocess stdin pipe but got None")
             stdout_task = asyncio.create_task(self._read_bounded(process.stdout))
             stderr_task = asyncio.create_task(self._read_bounded(process.stderr))
 
             async def feed_stdin() -> None:
-                assert process.stdin is not None
+                if process.stdin is None:
+                    raise RuntimeError("Expected subprocess stdin pipe but got None")
                 try:
                     process.stdin.write(stdin.encode("utf-8"))
                     await process.stdin.drain()
