@@ -100,5 +100,9 @@ reports/               # Central Benchmarking & Performance Observability Report
    - Use `chew benchmark-dashboard` or `chew benchmark-ui` to generate `reports/trace_report.md` and inspect real-time OpenTelemetry trace graphs in Jaeger UI at `http://localhost:16686`.
    - Before tagging a new production release, AI Agents MUST record and update the best benchmark scores table in `reports/BENCHMARK.md` (symlinked at `BENCHMARK.md`) and synchronize the latest performance reports to [GitHub Wiki](https://github.com/SHcommit/youtube-summerizer-kit/wiki).
 
+10. **Plan-Driven Context Hygiene & Task Compacting**:
+    - When executing multi-step implementation plans or sequential tasks, if subsequent sub-tasks do NOT have direct dependencies on preceding conversational context (e.g., intermediate debug logs, verbose tool outputs), AI Agents SHOULD compact or clear unnecessary context or checkpoint progress in structured artifacts (`implementation_plan.md` / `walkthrough.md`) before proceeding with independent sub-tasks to ensure token efficiency, focus, and clean execution state.
+
+
 
 

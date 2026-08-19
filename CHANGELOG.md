@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **AI Agent Context Hygiene & Task Compacting Guidelines**:
+  - Added Rule 10 to `AGENTS.md` (and symlinked `CLAUDE.md`, `GEMINI.md`) specifying plan-driven context hygiene and task compacting for independent sub-tasks to improve token efficiency and execution focus.
+
+### Added
 - **20-Year Senior IT/Staff Engineer Technical & Operational Evaluation**:
   - Comprehensive architectural and operational readiness assessment added to `IMPROVEMENTS.md` covering 8 core dimensions (Observability, Graceful Shutdown, Retry & Idempotency, Resource Management, Release Management, Getting Started UX, Harness Architecture, and Fault Injection Testing).
   - Defined 11 actionable operational debt tasks (§9) including Structured Logging (`structlog`), Graceful Shutdown signal handling, SQLite connection caching, and Ollama HTTP session reuse.
