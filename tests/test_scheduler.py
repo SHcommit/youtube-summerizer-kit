@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections import Counter
 from pathlib import Path
 from time import monotonic
@@ -177,3 +178,17 @@ async def test_auth_failure_stops_new_work_and_releases_cancelled_claims(tmp_pat
         )
 
     assert database.active_job_count("run-1") == 1
+
+
+@pytest.mark.asyncio
+async def test_scheduler_logs_job_completed(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    database = database_with_run(tmp_path)
+    database.upsert_job(JobSpec("topic-log", "run-1", "topic", 20, runtime_id="fake"))
+    handler = RecordingHandler({})
+
+    with caplog.at_level(logging.INFO, logger="chew.pipeline.scheduler"):
+        scheduler = Scheduler(database, handler, global_concurrency=1, runtime_limits={"fake": 1})
+        await scheduler.run("run-1")
+
+    messages = [r.getMessage() for r in caplog.records if r.name == "chew.pipeline.scheduler"]
+    assert any("job_completed" in m for m in messages)

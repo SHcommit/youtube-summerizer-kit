@@ -8,8 +8,10 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from chew.app.config import Settings
+if TYPE_CHECKING:
+    from chew.app.config import Settings
 from chew.core.identity import fingerprint
 from chew.core.models import GenerationRequest, KnowledgePack, Provenance
 from chew.harness.base import ConfigurableHarness, Harness

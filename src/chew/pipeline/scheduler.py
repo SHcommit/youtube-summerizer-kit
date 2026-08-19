@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time as _time
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -11,7 +13,10 @@ from uuid import uuid4
 
 from chew.harness.base import RateLimitSignal
 from chew.harness.builtin import HarnessAuthenticationError
+from chew.log import job_id_var, run_id_var
 from chew.storage.database import Database, JobRecord
+
+logger = logging.getLogger(__name__)
 
 
 class JobHandler(Protocol):
@@ -128,6 +133,10 @@ class Scheduler:
 
         if self.terminal_error is not None:
             raise self.terminal_error
+        logger.info(
+            "run_complete",
+            extra={"completed_jobs": self.database.completed_job_count(run_id), "failed_jobs": self.failed_jobs},
+        )
         return RunSummary(run_id, self.database.completed_job_count(run_id), self.failed_jobs)
 
     async def _heartbeat(self, job: JobRecord) -> None:
@@ -140,22 +149,35 @@ class Scheduler:
     async def _execute(self, job: JobRecord) -> None:
         limiter = self.runtime_limiters.setdefault(job.runtime_id, AdaptiveLimiter(1))
         async with limiter.slot():
+            token_r = run_id_var.set(job.run_id)
+            token_j = job_id_var.set(job.job_id)
             heartbeat = asyncio.create_task(self._heartbeat(job))
+            start = _time.monotonic()
             try:
+                logger.info(
+                    "job_started",
+                    extra={"kind": job.kind, "runtime_id": job.runtime_id, "attempts": job.attempts},
+                )
                 result_hash = await self.handler.handle(job)
             except (RateLimited, RateLimitSignal) as error:
                 new_limit = self.database.note_rate_limit(job.runtime_id)
                 await limiter.set_limit(new_limit)
                 self.database.retry_job(job.job_id, job.worker_id)
+                logger.warning(
+                    "rate_limited",
+                    extra={"runtime_id": job.runtime_id, "retry_after": error.retry_after, "new_limit": new_limit},
+                )
                 await asyncio.sleep(error.retry_after)
                 return
             except HarnessAuthenticationError as error:
                 if self.database.fail_job(job.job_id, "blocked_auth", job.worker_id):
                     self.failed_jobs += 1
+                logger.error("auth_error", extra={"runtime_id": error.runtime_id})
                 self.terminal_error = error
                 return
             except asyncio.CancelledError:
                 self.database.retry_job(job.job_id, job.worker_id)
+                logger.warning("job_cancelled", extra={"kind": job.kind})
                 raise
             except Exception as error:
                 err_msg = str(error).lower()
@@ -163,15 +185,30 @@ class Scheduler:
                 if is_quota or job.attempts >= 2:
                     if self.database.fail_job(job.job_id, "failed_runtime", job.worker_id):
                         self.failed_jobs += 1
+                    logger.error(
+                        "job_failed",
+                        extra={"kind": job.kind, "error": str(error), "attempts": job.attempts},
+                    )
                     self.terminal_error = error
                     return
                 self.database.retry_job(job.job_id, job.worker_id)
+                logger.warning(
+                    "job_retried",
+                    extra={"kind": job.kind, "attempts": job.attempts, "error": str(error)},
+                )
                 return
             finally:
                 heartbeat.cancel()
                 with suppress(asyncio.CancelledError):
                     await heartbeat
+                run_id_var.reset(token_r)
+                job_id_var.reset(token_j)
+            latency_ms = int((_time.monotonic() - start) * 1000)
             if not self.database.complete_job(job.job_id, result_hash, job.worker_id):
                 return
             new_limit = self.database.note_runtime_success(job.runtime_id)
             await limiter.set_limit(new_limit)
+            logger.info(
+                "job_completed",
+                extra={"kind": job.kind, "latency_ms": latency_ms, "runtime_id": job.runtime_id},
+            )
