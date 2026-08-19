@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from chew.app.config import Settings, load_settings
+from chew.harness.base import ConfigurableHarness
 from chew.harness.builtin import HarnessAuthenticationError
 from chew.harness.registry import HarnessRegistry
 from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
@@ -70,9 +71,8 @@ class ApplicationService:
         analysis_settings: Settings,
         output_settings: Settings,
     ) -> CommandResult:
-        preference = getattr(self.pipeline.harness, "set_preference", None)
-        if callable(preference):
-            preference(analysis_settings.runtime)
+        if isinstance(self.pipeline.harness, ConfigurableHarness):
+            self.pipeline.harness.set_preference(analysis_settings.runtime)
         config = AnalysisConfig(
             language=analysis_settings.language,
             depth=analysis_settings.depth,

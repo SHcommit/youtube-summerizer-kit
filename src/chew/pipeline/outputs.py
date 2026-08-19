@@ -12,7 +12,7 @@ from pathlib import Path
 from chew.app.config import Settings
 from chew.core.identity import fingerprint
 from chew.core.models import GenerationRequest, KnowledgePack, Provenance
-from chew.harness.base import Harness
+from chew.harness.base import ConfigurableHarness, Harness
 from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 from chew.storage.database import Database
 
@@ -106,9 +106,8 @@ class OutputCompiler:
             )
             files = (path,)
         elif profile in {"blog", "study"} and self.harness is not None:
-            preference = getattr(self.harness, "set_preference", None)
-            if callable(preference):
-                preference(settings.runtime)
+            if isinstance(self.harness, ConfigurableHarness):
+                self.harness.set_preference(settings.runtime)
             path = (
                 destination
                 if destination.suffix.lower() == ".md"
