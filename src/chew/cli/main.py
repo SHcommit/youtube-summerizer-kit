@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import signal as _signal
 import sys
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -13,7 +14,6 @@ from typing import Annotated, Any, Protocol, cast
 
 import typer
 
-from chew.log import configure_logging
 from chew.app.config import ConfigurationError
 from chew.app.retention import CleanupPlan, RetentionPlanner
 from chew.app.service import AuthenticationRequired, CommandResult, RunStatus
@@ -29,6 +29,7 @@ from chew.core.identity import (
     looks_like_local_media_input,
     normalize_youtube_url,
 )
+from chew.log import configure_logging
 from chew.telemetry import telemetry
 from chew.transcripts.service import TranscriptUnavailable
 from chew.transcripts.whisper import WhisperDependencyMissing
@@ -62,6 +63,11 @@ def _startup(
     ),
 ) -> None:
     configure_logging(level=log_level)
+
+    def _handle_sigterm(signum: int, frame: object) -> None:
+        raise KeyboardInterrupt
+
+    _signal.signal(_signal.SIGTERM, _handle_sigterm)
 
 
 def _application_factory() -> Application:

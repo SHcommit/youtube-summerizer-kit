@@ -1,4 +1,5 @@
 import logging
+import signal
 from pathlib import Path
 
 import pytest
@@ -67,3 +68,13 @@ def test_config_init_creates_editable_markdown_without_overwriting(
     assert (tmp_path / ".chew/profiles/blog.md").is_file()
     assert (tmp_path / "CHEW.md").read_text(encoding="utf-8") == original
     assert "preserved" in second.stdout
+
+
+def test_sigterm_handler_is_registered_on_startup() -> None:
+    from typer.testing import CliRunner
+
+    from chew.cli.main import app as cli_app
+    runner = CliRunner()
+    runner.invoke(cli_app, ["doctor"])
+    current_handler = signal.getsignal(signal.SIGTERM)
+    assert current_handler not in (signal.SIG_DFL, None)

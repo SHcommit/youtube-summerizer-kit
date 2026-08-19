@@ -89,8 +89,8 @@ async def test_terminate_uses_sigterm_before_sigkill() -> None:
 @pytest.mark.asyncio
 async def test_await_termination_escalates_to_sigkill_when_process_ignores_sigterm() -> None:
     """Process that ignores SIGTERM must be killed within timeout + small buffer."""
-    import time as _time2
     import sys as _sys
+    import time as _time2
     executor = ProcessExecutor()
     code = (
         "import signal, time\n"
