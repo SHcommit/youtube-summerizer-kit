@@ -138,6 +138,11 @@ class Database:
             row = connection.execute("PRAGMA journal_mode").fetchone()
         return str(row[0])
 
+    def checkpoint(self) -> None:
+        """Flush the WAL to the main database file."""
+        with self._connect() as connection:
+            connection.execute("PRAGMA wal_checkpoint(FULL)")
+
     def schema_version(self) -> int:
         with self._connect() as connection:
             row = connection.execute("PRAGMA user_version").fetchone()

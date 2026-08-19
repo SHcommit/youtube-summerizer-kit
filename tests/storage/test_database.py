@@ -87,6 +87,12 @@ def test_run_preserves_source_locator_for_local_media_resume(tmp_path: Path) -> 
     assert database.get_run_source_locator("run-local") == "/recordings/meeting.mp3"
 
 
+def test_database_checkpoint_runs_without_error(tmp_path: Path) -> None:
+    db = Database(tmp_path / "state.sqlite3")
+    db.initialize()
+    db.checkpoint()  # must not raise
+
+
 def test_initialize_rejects_newer_database_schema(tmp_path: Path) -> None:
     path = tmp_path / "future.db"
     with sqlite3.connect(path) as connection:

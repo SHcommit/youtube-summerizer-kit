@@ -70,6 +70,7 @@ class Scheduler:
         runtime_limits: dict[str, int],
         lease_seconds: int = 60,
         poll_interval: float = 0.005,
+        shutdown_event: asyncio.Event | None = None,
     ) -> None:
         if global_concurrency < 1:
             raise ValueError("global_concurrency must be positive")
@@ -84,12 +85,17 @@ class Scheduler:
         self.poll_interval = poll_interval
         self.failed_jobs = 0
         self.terminal_error: Exception | None = None
+        self.shutdown_event = shutdown_event
 
     async def run(self, run_id: str) -> RunSummary:
         worker_id = f"worker-{uuid4()}"
         running: set[asyncio.Task[None]] = set()
         try:
-            while (self.terminal_error is None and self.database.active_job_count(run_id)) or running:
+            while (
+                self.terminal_error is None
+                and (self.shutdown_event is None or not self.shutdown_event.is_set())
+                and self.database.active_job_count(run_id)
+            ) or running:
                 finished = {task for task in running if task.done()}
                 if finished:
                     await asyncio.gather(*finished)
@@ -104,7 +110,8 @@ class Scheduler:
                         break
 
                 capacity = self.global_concurrency - len(running)
-                if capacity > 0 and self.terminal_error is None:
+                shutting_down = self.shutdown_event is not None and self.shutdown_event.is_set()
+                if capacity > 0 and self.terminal_error is None and not shutting_down:
                     self.database.release_expired_leases(datetime.now(UTC))
                     claimed = self.database.claim_ready_jobs(
                         run_id,

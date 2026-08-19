@@ -181,6 +181,34 @@ async def test_auth_failure_stops_new_work_and_releases_cancelled_claims(tmp_pat
 
 
 @pytest.mark.asyncio
+async def test_scheduler_stops_on_shutdown_event(tmp_path: Path) -> None:
+    """Scheduler exits cleanly when shutdown_event is set mid-run."""
+    database = database_with_run(tmp_path)
+    # Add many slow jobs
+    for i in range(10):
+        database.upsert_job(JobSpec(f"topic-{i}", "run-1", "topic", 20, runtime_id="fake"))
+
+    shutdown = asyncio.Event()
+
+    class SlowHandler(RecordingHandler):
+        async def handle(self, job: JobRecord) -> str:
+            await asyncio.sleep(0.05)
+            shutdown.set()  # signal shutdown after first job
+            return f"hash-{job.job_id}"
+
+    handler = SlowHandler({})
+    scheduler = Scheduler(
+        database, handler,
+        global_concurrency=1,
+        runtime_limits={"fake": 1},
+        shutdown_event=shutdown,
+    )
+    summary = await scheduler.run("run-1")
+    # Should have stopped early — not all 10 jobs complete
+    assert summary.completed_jobs < 10
+
+
+@pytest.mark.asyncio
 async def test_scheduler_logs_job_completed(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     database = database_with_run(tmp_path)
     database.upsert_job(JobSpec("topic-log", "run-1", "topic", 20, runtime_id="fake"))
