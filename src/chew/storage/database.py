@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -39,17 +40,29 @@ def _timestamp(value: datetime) -> str:
 
 class Database:
     SCHEMA_VERSION = 4
+    _local: threading.local  # class-level annotation; one per Database instance via __init__
 
     def __init__(self, path: Path) -> None:
         self.path = path
+        self._local = threading.local()
         path.parent.mkdir(parents=True, exist_ok=True)
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path, timeout=5, isolation_level=None)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 5000")
+        connection: sqlite3.Connection | None = getattr(self._local, "connection", None)
+        if connection is None:
+            connection = sqlite3.connect(self.path, timeout=5, isolation_level=None)
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA busy_timeout = 5000")
+            self._local.connection = connection
         return connection
+
+    def close(self) -> None:
+        """Close and discard the thread-local connection for the current thread."""
+        connection: sqlite3.Connection | None = getattr(self._local, "connection", None)
+        if connection is not None:
+            connection.close()
+            self._local.connection = None
 
     def initialize(self) -> None:
         with self._connect() as connection:

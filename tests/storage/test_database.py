@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -99,3 +100,39 @@ def test_initialize_rejects_newer_database_schema(tmp_path: Path) -> None:
         connection.execute(f"PRAGMA user_version = {Database.SCHEMA_VERSION + 1}")
     with pytest.raises(RuntimeError, match="newer"):
         Database(path).initialize()
+
+
+def test_database_reuses_connection_within_same_thread(tmp_path: Path) -> None:
+    db = Database(tmp_path / "state.sqlite3")
+    db.initialize()
+    conn1 = db._connect()
+    conn2 = db._connect()
+    assert conn1 is conn2  # same object — connection was reused
+
+
+def test_database_uses_separate_connections_across_threads(tmp_path: Path) -> None:
+    db = Database(tmp_path / "state.sqlite3")
+    db.initialize()
+    connections: list[object] = []
+
+    def grab_connection() -> None:
+        connections.append(db._connect())
+
+    t1 = threading.Thread(target=grab_connection)
+    t2 = threading.Thread(target=grab_connection)
+    t1.start()
+    t1.join()
+    t2.start()
+    t2.join()
+
+    assert len(connections) == 2
+    assert connections[0] is not connections[1]
+
+
+def test_database_close_removes_thread_local_connection(tmp_path: Path) -> None:
+    db = Database(tmp_path / "state.sqlite3")
+    db.initialize()
+    conn1 = db._connect()
+    db.close()
+    conn2 = db._connect()
+    assert conn1 is not conn2  # new connection after close
