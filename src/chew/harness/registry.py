@@ -11,6 +11,7 @@ from chew.harness.builtin import HarnessAuthenticationError
 from chew.harness.claude import ClaudeHarness
 from chew.harness.codex import CodexHarness
 from chew.harness.gemini import GeminiHarness
+from chew.harness.huggingface import HuggingFaceHarness
 from chew.harness.ollama import OllamaHarness
 
 
@@ -54,6 +55,7 @@ def default_registry() -> HarnessRegistry:
             GeminiHarness(),
             ClaudeHarness(),
             OllamaHarness(),
+            HuggingFaceHarness(),
             AntigravityHarness(),
         )
     )
