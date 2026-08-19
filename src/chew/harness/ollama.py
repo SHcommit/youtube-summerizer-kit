@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
 from collections.abc import Awaitable, Callable
-from typing import cast
-from urllib.request import Request, urlopen
+
+import httpx
 
 from chew.domain import GenerationRequest, GenerationResult
 from chew.harness.base import HarnessCapabilities, HarnessProbe
@@ -27,33 +25,39 @@ class OllamaHarness:
     ) -> None:
         self.model = model
         self.endpoint = endpoint.rstrip("/")
-        self.transport = transport or self._transport
+        self._custom_transport = transport
+        self._client: httpx.AsyncClient | None = None
         self._uses_default_transport = transport is None
 
-    async def _transport(self, payload: dict[str, object]) -> dict[str, object]:
-        def send() -> dict[str, object]:
-            request = Request(
-                f"{self.endpoint}/api/generate",
-                data=json.dumps(payload).encode(),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urlopen(request, timeout=180) as response:
-                return cast(dict[str, object], json.loads(response.read()))
+    def _get_client(self) -> httpx.AsyncClient:
+        """Return the shared AsyncClient, creating it on first call."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=180.0)
+        return self._client
 
-        return await asyncio.to_thread(send)
+    async def aclose(self) -> None:
+        """Close and discard the shared HTTP client."""
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def _transport(self, payload: dict[str, object]) -> dict[str, object]:
+        client = self._get_client()
+        response = await client.post(
+            f"{self.endpoint}/api/generate",
+            json=payload,
+        )
+        response.raise_for_status()
+        return response.json()  # type: ignore[no-any-return]
 
     async def probe(self) -> HarnessProbe:
         try:
             if self._uses_default_transport:
-
-                def health() -> None:
-                    with urlopen(f"{self.endpoint}/api/tags", timeout=2):
-                        return
-
-                await asyncio.to_thread(health)
+                client = self._get_client()
+                response = await client.get(f"{self.endpoint}/api/tags", timeout=2.0)
+                response.raise_for_status()
             else:
-                await self.transport({"model": self.model, "prompt": "", "stream": False})
+                await self._custom_transport({"model": self.model, "prompt": "", "stream": False})  # type: ignore[misc]
             available = True
             detail = None
         except Exception as error:
@@ -69,7 +73,8 @@ class OllamaHarness:
         )
 
     async def generate(self, request: GenerationRequest) -> GenerationResult:
-        envelope = await self.transport(
+        transport = self._custom_transport or self._transport
+        envelope = await transport(
             {
                 "model": self.model,
                 "prompt": request_prompt(request),

@@ -22,6 +22,7 @@ classifiers = [
   "Topic :: Text Processing :: Markup :: Markdown",
 ]
 dependencies = [
+  "httpx>=0.27",
   "platformdirs",
   "pydantic>=2",
   "PyYAML",

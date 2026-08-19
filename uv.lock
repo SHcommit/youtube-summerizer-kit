@@ -1419,6 +1419,7 @@ name = "youtube-summarizer-kit"
 version = "0.1.2"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx" },
     { name = "platformdirs" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -1456,6 +1457,7 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'" },
     { name = "coverage", extras = ["toml"], marker = "extra == 'dev'" },
     { name = "faster-whisper", marker = "extra == 'whisper'" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "opentelemetry-api", marker = "extra == 'telemetry'" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'telemetry'" },
