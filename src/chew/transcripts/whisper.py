@@ -101,7 +101,5 @@ class WhisperProvider:
 
         with tempfile.TemporaryDirectory(dir=self.temporary_root, prefix="chew-audio-") as raw:
             destination = Path(raw)
-            audio = await asyncio.to_thread(
-                self.audio_downloader, source.canonical_url, destination
-            )
+            audio = await asyncio.to_thread(self.audio_downloader, source.canonical_url, destination)
             return await transcribe_audio(audio)

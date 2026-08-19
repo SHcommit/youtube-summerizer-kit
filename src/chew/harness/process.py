@@ -34,9 +34,7 @@ class ProcessExecutor:
         timeout: float,
         environment: Mapping[str, str] | None = None,
     ) -> ProcessResult:
-        child_environment = {
-            name: os.environ[name] for name in self._INHERITED_ENV if name in os.environ
-        }
+        child_environment = {name: os.environ[name] for name in self._INHERITED_ENV if name in os.environ}
         child_environment.update(environment or {})
         process = await asyncio.create_subprocess_exec(
             *argv,

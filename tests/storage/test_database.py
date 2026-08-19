@@ -47,9 +47,7 @@ def test_expired_lease_is_claimable_by_another_worker(tmp_path: Path) -> None:
     assert not second_connection.claim_ready_jobs("run-1", "worker-b", now, 5, 1)
 
     second_connection.release_expired_leases(now + timedelta(seconds=6))
-    claimed = second_connection.claim_ready_jobs(
-        "run-1", "worker-b", now + timedelta(seconds=6), 5, 1
-    )
+    claimed = second_connection.claim_ready_jobs("run-1", "worker-b", now + timedelta(seconds=6), 5, 1)
     assert len(claimed) == 1
     assert claimed[0].worker_id.startswith("worker-b:")
     assert not first_connection.complete_job("topic-1", "stale", first_claim[0].worker_id)

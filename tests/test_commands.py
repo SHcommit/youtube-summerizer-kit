@@ -23,9 +23,7 @@ class StubApplication:
     error: Exception | None = None
     resume_error: Exception | None = None
 
-    async def generate(
-        self, url: str, profile: str, destination: Path, depth: str | None = None
-    ) -> CommandResult:
+    async def generate(self, url: str, profile: str, destination: Path, depth: str | None = None) -> CommandResult:
         self.calls.append((url, profile))
         if self.error is not None:
             raise self.error
@@ -94,9 +92,7 @@ def test_authentication_failure_is_actionable(stub: StubApplication, tmp_path: P
     assert "codex login" in result.stdout
 
 
-def test_english_authentication_failure_is_in_english(
-    stub: StubApplication, tmp_path: Path
-) -> None:
+def test_english_authentication_failure_is_in_english(stub: StubApplication, tmp_path: Path) -> None:
     stub.error = AuthenticationRequired("codex", "codex login")
     result = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])
     assert result.exit_code == 2
@@ -104,9 +100,7 @@ def test_english_authentication_failure_is_in_english(
     assert "codex login" in result.stdout
 
 
-def test_configuration_errors_follow_the_invoked_command_language(
-    stub: StubApplication, tmp_path: Path
-) -> None:
+def test_configuration_errors_follow_the_invoked_command_language(stub: StubApplication, tmp_path: Path) -> None:
     stub.error = ConfigurationError("Invalid YAML front matter in YTSUM.md")
 
     english = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])
@@ -117,9 +111,7 @@ def test_configuration_errors_follow_the_invoked_command_language(
     assert "설정 오류" in korean.stdout
 
 
-def test_local_media_input_errors_follow_the_invoked_command_language(
-    stub: StubApplication, tmp_path: Path
-) -> None:
+def test_local_media_input_errors_follow_the_invoked_command_language(stub: StubApplication, tmp_path: Path) -> None:
     stub.error = SourceInputError("local media file not found")
 
     english = CliRunner().invoke(app, ["summarize", "missing.mp3", "--output", str(tmp_path)])
@@ -146,9 +138,7 @@ def test_missing_captions_explain_how_to_enable_local_audio_transcription(
     assert ".[youtube,whisper]" in english.stdout
 
 
-def test_missing_whisper_dependency_has_bilingual_install_guidance(
-    stub: StubApplication, tmp_path: Path
-) -> None:
+def test_missing_whisper_dependency_has_bilingual_install_guidance(stub: StubApplication, tmp_path: Path) -> None:
     stub.error = WhisperDependencyMissing("faster-whisper is not installed")
 
     english = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])
@@ -173,9 +163,7 @@ def test_local_media_transcription_errors_do_not_suggest_enabling_youtube_fallba
     assert "whisper_fallback" not in no_speech.stdout
 
     stub.error = WhisperDependencyMissing("faster-whisper is not installed")
-    missing_dependency = CliRunner().invoke(
-        app, ["summarize", local_source, "--output", str(tmp_path)]
-    )
+    missing_dependency = CliRunner().invoke(app, ["summarize", local_source, "--output", str(tmp_path)])
 
     assert missing_dependency.exit_code == 2
     assert "Local media transcription requires" in missing_dependency.stdout

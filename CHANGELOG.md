@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-08-17
+### Added
+- **20-Year Senior IT/Staff Engineer Technical & Operational Evaluation**:
+  - Comprehensive architectural and operational readiness assessment added to `IMPROVEMENTS.md` covering 8 core dimensions (Observability, Graceful Shutdown, Retry & Idempotency, Resource Management, Release Management, Getting Started UX, Harness Architecture, and Fault Injection Testing).
+  - Defined 11 actionable operational debt tasks (§9) including Structured Logging (`structlog`), Graceful Shutdown signal handling, SQLite connection caching, and Ollama HTTP session reuse.
+
 
 ### Added
 - **Multi-Channel Package Manager Support (`Homebrew`, `pipx`, `uv tool`, `pip`)**:

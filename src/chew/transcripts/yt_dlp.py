@@ -20,9 +20,7 @@ def _default_extract(url: str) -> Mapping[str, Any]:
     try:
         youtube_dl = import_module("yt_dlp").YoutubeDL
     except ImportError as error:
-        raise RuntimeError(
-            "yt-dlp가 필요합니다: pip install youtube-summarizer-kit[youtube]"
-        ) from error
+        raise RuntimeError("yt-dlp가 필요합니다: pip install youtube-summarizer-kit[youtube]") from error
     options = {"quiet": True, "no_warnings": True, "skip_download": True}
     with youtube_dl(options) as downloader:
         value = downloader.extract_info(url, download=False)
@@ -81,9 +79,7 @@ def _read_track(track: Mapping[str, Any]) -> str:
         return cast(bytes, response.read()).decode("utf-8")
 
 
-def _select_language(
-    captions: Mapping[str, Any], language: str
-) -> tuple[str, list[Mapping[str, Any]]]:
+def _select_language(captions: Mapping[str, Any], language: str) -> tuple[str, list[Mapping[str, Any]]]:
     base_lang = language.split("-", 1)[0]
     keys = (language, base_lang)
     for key in keys:
@@ -139,9 +135,7 @@ class YtDlpSubtitleProvider:
         self._attempt_metadata: ContextVar[tuple[str | None, tuple[Chapter, ...]]] = ContextVar(
             f"chew_metadata_{id(self)}", default=(None, ())
         )
-        self._attempt_failure: ContextVar[tuple[str, ...]] = ContextVar(
-            f"chew_failure_{id(self)}", default=()
-        )
+        self._attempt_failure: ContextVar[tuple[str, ...]] = ContextVar(f"chew_failure_{id(self)}", default=())
 
     def attempt_metadata(self) -> tuple[str | None, tuple[Chapter, ...]]:
         return self._attempt_metadata.get()

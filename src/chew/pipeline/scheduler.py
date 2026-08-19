@@ -84,9 +84,7 @@ class Scheduler:
         worker_id = f"worker-{uuid4()}"
         running: set[asyncio.Task[None]] = set()
         try:
-            while (
-                self.terminal_error is None and self.database.active_job_count(run_id)
-            ) or running:
+            while (self.terminal_error is None and self.database.active_job_count(run_id)) or running:
                 finished = {task for task in running if task.done()}
                 if finished:
                     await asyncio.gather(*finished)
@@ -136,9 +134,7 @@ class Scheduler:
         interval = max(0.1, self.lease_seconds / 3)
         while True:
             await asyncio.sleep(interval)
-            if not self.database.renew_lease(
-                job.job_id, job.worker_id, datetime.now(UTC), self.lease_seconds
-            ):
+            if not self.database.renew_lease(job.job_id, job.worker_id, datetime.now(UTC), self.lease_seconds):
                 return
 
     async def _execute(self, job: JobRecord) -> None:

@@ -34,9 +34,7 @@ from chew.transcripts.whisper import WhisperDependencyMissing
 
 
 class Application(Protocol):
-    async def generate(
-        self, url: str, profile: str, destination: Path, depth: str | None = None
-    ) -> CommandResult: ...
+    async def generate(self, url: str, profile: str, destination: Path, depth: str | None = None) -> CommandResult: ...
 
     def status(self, run_id: str | None = None) -> tuple[RunStatus, ...]: ...
 
@@ -47,10 +45,7 @@ class Application(Protocol):
 
 app = typer.Typer(
     name="chew",
-    help=(
-        "Turn YouTube videos and local audio and video files into reusable knowledge packs "
-        "and documents."
-    ),
+    help=("Turn YouTube videos and local audio and video files into reusable knowledge packs and documents."),
     no_args_is_help=True,
     rich_markup_mode=None,
 )
@@ -109,11 +104,7 @@ def _emit(data: Any, json_output: bool, *, korean: bool = False) -> None:
         typer.echo(json.dumps({"ok": True, "data": data}, ensure_ascii=False, sort_keys=True))
         return
     if isinstance(data, dict) and "run_id" in data:
-        reuse = (
-            (" · 기존 분석 재사용" if korean else " · reused analysis")
-            if data.get("reused")
-            else ""
-        )
+        reuse = (" · 기존 분석 재사용" if korean else " · reused analysis") if data.get("reused") else ""
         label = "완료" if korean else "Completed"
         typer.echo(f"{label}: {data['run_id']}{reuse}")
         for path in data.get("files", []):
@@ -160,9 +151,7 @@ def _emit_diagnostics(data: dict[str, object], json_output: bool, *, korean: boo
         auth_ready = runtime.get("auth_ready")
         if korean:
             state = "사용 가능" if available else "설치되지 않음"
-            auth = (
-                " · 인증됨" if auth_ready is True else " · 인증 필요" if auth_ready is False else ""
-            )
+            auth = " · 인증됨" if auth_ready is True else " · 인증 필요" if auth_ready is False else ""
         else:
             state = "available" if available else "not installed"
             auth = (
@@ -192,9 +181,7 @@ def _run_generation(
 ) -> None:
     korean = _is_korean(context)
     selected_source = source or typer.prompt(
-        "YouTube URL 또는 로컬 오디오/영상 경로"
-        if korean
-        else "YouTube URL or local audio/video path"
+        "YouTube URL 또는 로컬 오디오/영상 경로" if korean else "YouTube URL or local audio/video path"
     )
     local_media = looks_like_local_media_input(selected_source)
     try:
@@ -217,8 +204,7 @@ def _run_generation(
     except TranscriptUnavailable as error:
         if korean and local_media:
             typer.echo(
-                "사용 가능한 음성 transcript를 만들지 못했습니다. "
-                "파일에 음성이 있는지와 오디오 품질을 확인하세요."
+                "사용 가능한 음성 transcript를 만들지 못했습니다. 파일에 음성이 있는지와 오디오 품질을 확인하세요."
             )
         elif local_media:
             typer.echo(
@@ -271,9 +257,7 @@ def _run_generation(
 
 def summarize(
     context: typer.Context,
-    source: Annotated[
-        str | None, typer.Argument(help="YouTube URL or local audio/video path")
-    ] = None,
+    source: Annotated[str | None, typer.Argument(help="YouTube URL or local audio/video path")] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-output"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
@@ -287,9 +271,7 @@ def summarize(
 
 def blog(
     context: typer.Context,
-    source: Annotated[
-        str | None, typer.Argument(help="YouTube URL or local audio/video path")
-    ] = None,
+    source: Annotated[str | None, typer.Argument(help="YouTube URL or local audio/video path")] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-blog"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
@@ -303,9 +285,7 @@ def blog(
 
 def study(
     context: typer.Context,
-    source: Annotated[
-        str | None, typer.Argument(help="YouTube URL or local audio/video path")
-    ] = None,
+    source: Annotated[str | None, typer.Argument(help="YouTube URL or local audio/video path")] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-study"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
@@ -319,9 +299,7 @@ def study(
 
 def obsidian(
     context: typer.Context,
-    source: Annotated[
-        str | None, typer.Argument(help="YouTube URL or local audio/video path")
-    ] = None,
+    source: Annotated[str | None, typer.Argument(help="YouTube URL or local audio/video path")] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-vault"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
@@ -367,6 +345,7 @@ def trace_ui(
     typer.echo("Jaeger OpenTelemetry UI: http://localhost:16686")
     if open_browser:
         import webbrowser
+
         webbrowser.open("http://localhost:16686")
 
 
@@ -458,10 +437,7 @@ def _plan_data(plan: CleanupPlan) -> dict[str, object]:
         "policy": plan.policy,
         "created_at": plan.created_at.isoformat(),
         "run_ids": list(plan.run_ids),
-        "items": [
-            {"path": str(item.path), "reason": item.reason, "size": item.size}
-            for item in plan.items
-        ],
+        "items": [{"path": str(item.path), "reason": item.reason, "size": item.size} for item in plan.items],
     }
 
 
@@ -506,9 +482,7 @@ def delete(
     if not yes:
         typer.echo(json.dumps(_plan_data(plan), ensure_ascii=False))
         phrase = "삭제" if _is_korean(context) else "delete"
-        prompt = (
-            "삭제하려면 '삭제'를 입력하세요" if _is_korean(context) else "Type 'delete' to continue"
-        )
+        prompt = "삭제하려면 '삭제'를 입력하세요" if _is_korean(context) else "Type 'delete' to continue"
         if typer.prompt(prompt) != phrase:
             raise typer.Exit(1)
     _emit(asdict(planner.apply(plan)), json_output, korean=_is_korean(context))
@@ -557,18 +531,12 @@ benchmark_commands.command("목록", hidden=True)(benchmark_list)
 
 def benchmark_result(context: typer.Context, path: Annotated[Path, typer.Argument()]) -> None:
     if not path.is_file():
-        typer.echo(
-            f"결과 파일을 찾지 못했습니다: {path}"
-            if _is_korean(context)
-            else f"Result file not found: {path}"
-        )
+        typer.echo(f"결과 파일을 찾지 못했습니다: {path}" if _is_korean(context) else f"Result file not found: {path}")
         raise typer.Exit(1)
     typer.echo(path.read_text(encoding="utf-8"))
 
 
-benchmark_commands.command("results", help="Show a saved JSON or Markdown result.")(
-    benchmark_result
-)
+benchmark_commands.command("results", help="Show a saved JSON or Markdown result.")(benchmark_result)
 benchmark_commands.command("결과", hidden=True)(benchmark_result)
 
 

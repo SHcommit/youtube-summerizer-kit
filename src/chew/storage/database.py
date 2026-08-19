@@ -56,8 +56,7 @@ class Database:
             current_version = int(connection.execute("PRAGMA user_version").fetchone()[0])
             if current_version > self.SCHEMA_VERSION:
                 raise RuntimeError(
-                    f"database schema {current_version} is newer than supported "
-                    f"schema {self.SCHEMA_VERSION}"
+                    f"database schema {current_version} is newer than supported schema {self.SCHEMA_VERSION}"
                 )
             connection.execute("PRAGMA journal_mode = WAL")
             connection.executescript(
@@ -122,24 +121,15 @@ class Database:
                 );
                 """
             )
-            columns = {
-                str(row[1]) for row in connection.execute("PRAGMA table_info(runs)").fetchall()
-            }
+            columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(runs)").fetchall()}
             if "request_key" not in columns:
-                connection.execute(
-                    "ALTER TABLE runs ADD COLUMN request_key TEXT NOT NULL DEFAULT ''"
-                )
+                connection.execute("ALTER TABLE runs ADD COLUMN request_key TEXT NOT NULL DEFAULT ''")
             if "recipe_json" not in columns:
-                connection.execute(
-                    "ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''"
-                )
+                connection.execute("ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''")
             if "source_locator" not in columns:
-                connection.execute(
-                    "ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''"
-                )
+                connection.execute("ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''")
             connection.execute(
-                "CREATE INDEX IF NOT EXISTS runs_reuse_idx "
-                "ON runs(source_id, request_key, updated_at DESC)"
+                "CREATE INDEX IF NOT EXISTS runs_reuse_idx ON runs(source_id, request_key, updated_at DESC)"
             )
             connection.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
@@ -181,18 +171,14 @@ class Database:
 
     def get_run_source_locator(self, run_id: str) -> str | None:
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT source_locator FROM runs WHERE run_id = ?", (run_id,)
-            ).fetchone()
+            row = connection.execute("SELECT source_locator FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         if row is None or not row[0]:
             return None
         return str(row[0])
 
     def get_run_recipe(self, run_id: str) -> str | None:
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT recipe_json FROM runs WHERE run_id = ?", (run_id,)
-            ).fetchone()
+            row = connection.execute("SELECT recipe_json FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         if row is None or not row[0]:
             return None
         return str(row[0])
@@ -257,8 +243,7 @@ class Database:
     def find_compatible_run(self, source_id: str, analysis_key: str) -> str | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT run_id FROM runs WHERE source_id = ? AND analysis_key = ? "
-                "ORDER BY updated_at DESC LIMIT 1",
+                "SELECT run_id FROM runs WHERE source_id = ? AND analysis_key = ? ORDER BY updated_at DESC LIMIT 1",
                 (source_id, analysis_key),
             ).fetchone()
         return None if row is None else str(row["run_id"])
@@ -306,8 +291,7 @@ class Database:
                 ),
             )
             connection.executemany(
-                "INSERT INTO job_dependencies(job_id, depends_on) VALUES (?, ?) "
-                "ON CONFLICT DO NOTHING",
+                "INSERT INTO job_dependencies(job_id, depends_on) VALUES (?, ?) ON CONFLICT DO NOTHING",
                 ((spec.job_id, dependency) for dependency in spec.dependencies),
             )
             connection.commit()
@@ -362,9 +346,7 @@ class Database:
 
     def complete_job(self, job_id: str, result_hash: str, worker_id: str | None = None) -> bool:
         ownership = "" if worker_id is None else " AND worker_id = ?"
-        parameters: tuple[str, ...] = (
-            (result_hash, job_id) if worker_id is None else (result_hash, job_id, worker_id)
-        )
+        parameters: tuple[str, ...] = (result_hash, job_id) if worker_id is None else (result_hash, job_id, worker_id)
         with self._connect() as connection:
             cursor = connection.execute(
                 "UPDATE jobs SET status = 'completed', result_hash = ?, worker_id = NULL, "
@@ -375,13 +357,10 @@ class Database:
 
     def fail_job(self, job_id: str, status: str = "failed", worker_id: str | None = None) -> bool:
         ownership = "" if worker_id is None else " AND worker_id = ?"
-        parameters: tuple[str, ...] = (
-            (status, job_id) if worker_id is None else (status, job_id, worker_id)
-        )
+        parameters: tuple[str, ...] = (status, job_id) if worker_id is None else (status, job_id, worker_id)
         with self._connect() as connection:
             cursor = connection.execute(
-                "UPDATE jobs SET status = ?, worker_id = NULL, lease_expires_at = NULL "
-                f"WHERE job_id = ?{ownership}",
+                f"UPDATE jobs SET status = ?, worker_id = NULL, lease_expires_at = NULL WHERE job_id = ?{ownership}",
                 parameters,
             )
             if cursor.rowcount == 1:
@@ -440,8 +419,7 @@ class Database:
     def renew_lease(self, job_id: str, worker_id: str, now: datetime, lease_seconds: int) -> bool:
         with self._connect() as connection:
             cursor = connection.execute(
-                "UPDATE jobs SET lease_expires_at = ? WHERE job_id = ? "
-                "AND worker_id = ? AND status = 'running'",
+                "UPDATE jobs SET lease_expires_at = ? WHERE job_id = ? AND worker_id = ? AND status = 'running'",
                 (_timestamp(now + timedelta(seconds=lease_seconds)), job_id, worker_id),
             )
         return cursor.rowcount == 1
@@ -473,8 +451,7 @@ class Database:
     def note_runtime_success(self, runtime_id: str) -> int:
         with self._connect() as connection:
             connection.execute(
-                "UPDATE runtime_limits SET success_streak = success_streak + 1 "
-                "WHERE runtime_id = ?",
+                "UPDATE runtime_limits SET success_streak = success_streak + 1 WHERE runtime_id = ?",
                 (runtime_id,),
             )
             connection.execute(
@@ -516,8 +493,7 @@ class Database:
     def results_by_kind(self, run_id: str, kind: str) -> list[str]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT result_hash FROM jobs WHERE run_id = ? AND kind = ? "
-                "AND status = 'completed' ORDER BY job_id",
+                "SELECT result_hash FROM jobs WHERE run_id = ? AND kind = ? AND status = 'completed' ORDER BY job_id",
                 (run_id, kind),
             ).fetchall()
         return [str(row[0]) for row in rows if row[0] is not None]
@@ -525,16 +501,13 @@ class Database:
     def set_run_pack(self, run_id: str, digest: str) -> None:
         with self._connect() as connection:
             connection.execute(
-                "UPDATE runs SET status = 'completed', knowledge_pack_hash = ?, updated_at = ? "
-                "WHERE run_id = ?",
+                "UPDATE runs SET status = 'completed', knowledge_pack_hash = ?, updated_at = ? WHERE run_id = ?",
                 (digest, _timestamp(datetime.now(UTC)), run_id),
             )
 
     def get_run_pack(self, run_id: str) -> str | None:
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT knowledge_pack_hash FROM runs WHERE run_id = ?", (run_id,)
-            ).fetchone()
+            row = connection.execute("SELECT knowledge_pack_hash FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         if row is None or row[0] is None:
             return None
         return str(row[0])
@@ -544,8 +517,7 @@ class Database:
             raise FileNotFoundError(path)
         with self._connect() as connection:
             connection.execute(
-                "INSERT OR REPLACE INTO exports(run_id, path, verified, created_at) "
-                "VALUES (?, ?, 1, ?)",
+                "INSERT OR REPLACE INTO exports(run_id, path, verified, created_at) VALUES (?, ?, 1, ?)",
                 (run_id, str(path.resolve()), _timestamp(datetime.now(UTC))),
             )
 
@@ -569,12 +541,8 @@ class Database:
                     (*exclude_runs, *exclude_runs),
                 ).fetchall()
                 excluded_sources = tuple(str(row[0]) for row in source_rows)
-            pack_rows = connection.execute(
-                "SELECT knowledge_pack_hash FROM runs" + clause, parameters
-            ).fetchall()
-            job_rows = connection.execute(
-                "SELECT payload_hash, result_hash FROM jobs" + clause, parameters
-            ).fetchall()
+            pack_rows = connection.execute("SELECT knowledge_pack_hash FROM runs" + clause, parameters).fetchall()
+            job_rows = connection.execute("SELECT payload_hash, result_hash FROM jobs" + clause, parameters).fetchall()
             source_clause = ""
             source_parameters: tuple[str, ...] = ()
             if excluded_sources:

@@ -144,14 +144,10 @@ async def test_auth_block_is_actionable_and_explicit_resume_retries(tmp_path: Pa
 
     handler = AuthOnceHandler({})
     with pytest.raises(HarnessAuthenticationError, match="codex login"):
-        await Scheduler(database, handler, global_concurrency=1, runtime_limits={"codex": 1}).run(
-            "run-1"
-        )
+        await Scheduler(database, handler, global_concurrency=1, runtime_limits={"codex": 1}).run("run-1")
     assert database.list_run_statuses("run-1")[0][2] == "blocked_auth"
     database.prepare_resume("run-1")
-    summary = await Scheduler(
-        database, handler, global_concurrency=1, runtime_limits={"codex": 1}
-    ).run("run-1")
+    summary = await Scheduler(database, handler, global_concurrency=1, runtime_limits={"codex": 1}).run("run-1")
     assert summary.completed_jobs == 1
     assert handler.calls["topic"] == 2
 

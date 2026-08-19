@@ -223,9 +223,7 @@ class OfflineHarness:
             output = {"markdown": "# Blog\n\nbody"}
         else:
             output = {"markdown": request.input["markdown"], "valid": True}
-        return GenerationResult(
-            request_id=request.request_id, output=output, runtime_id=self.runtime_id
-        )
+        return GenerationResult(request_id=request.request_id, output=output, runtime_id=self.runtime_id)
 
 
 @pytest.mark.asyncio

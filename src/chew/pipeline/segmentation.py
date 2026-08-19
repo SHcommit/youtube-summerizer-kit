@@ -28,9 +28,7 @@ class SegmentManifest:
 
 
 class BoundaryDetector(Protocol):
-    def choose(
-        self, transcript: Transcript, start_ms: int, target_ms: int, limit_ms: int
-    ) -> int: ...
+    def choose(self, transcript: Transcript, start_ms: int, target_ms: int, limit_ms: int) -> int: ...
 
 
 class PausePunctuationBoundaryDetector:
@@ -44,9 +42,7 @@ class PausePunctuationBoundaryDetector:
             if not lower <= segment.end_ms <= upper:
                 continue
             next_start = (
-                transcript.segments[index + 1].start_ms
-                if index + 1 < len(transcript.segments)
-                else segment.end_ms
+                transcript.segments[index + 1].start_ms if index + 1 < len(transcript.segments) else segment.end_ms
             )
             pause = min(30_000, max(0, next_start - segment.end_ms))
             punctuation = 30_000 if segment.text.rstrip().endswith((".", "?", "!", "다.")) else 0
@@ -87,9 +83,7 @@ def _boundaries(
     return result
 
 
-def coalesce_chapters(
-    chapters: tuple[Chapter, ...], duration_ms: int, depth: str = "detailed"
-) -> tuple[Chapter, ...]:
+def coalesce_chapters(chapters: tuple[Chapter, ...], duration_ms: int, depth: str = "detailed") -> tuple[Chapter, ...]:
     if not chapters:
         return ()
     if depth in ("brief", "short", "quick", "simple", "concise", "초간단", "핵심", "간단"):
@@ -140,9 +134,7 @@ def segment_transcript(
     for chapter in selected_chapters:
         ranges = _boundaries(transcript, chapter, policy, selected_detector)
         for position, (start, end) in enumerate(ranges, start=1):
-            context_start = (
-                start if position == 1 else max(chapter.start_ms, start - policy.overlap_ms)
-            )
+            context_start = start if position == 1 else max(chapter.start_ms, start - policy.overlap_ms)
             indexes = tuple(
                 index
                 for index, segment in enumerate(transcript.segments)

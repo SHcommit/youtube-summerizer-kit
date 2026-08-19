@@ -62,9 +62,7 @@ def test_local_media_identity_uses_content_hash_and_resolved_locator(tmp_path: P
 
     assert first_identity.kind == SourceKind.LOCAL_MEDIA
     assert first_identity.source_id == second_identity.source_id
-    assert first_identity.source_id == (
-        "local:aafe9f6cb200b33109672a43c8ea1e40835484abeb0520632cdc9362ce1f58a1"
-    )
+    assert first_identity.source_id == ("local:aafe9f6cb200b33109672a43c8ea1e40835484abeb0520632cdc9362ce1f58a1")
     assert first_identity.local_path == str(first.resolve())
     assert first_identity.canonical_url == first.resolve().as_uri()
     assert first_identity.video_id is None

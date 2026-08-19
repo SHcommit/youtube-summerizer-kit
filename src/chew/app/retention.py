@@ -116,8 +116,5 @@ class RetentionPlanner:
 
     def purge(self) -> CleanupResult:
         run_ids = tuple(row[0] for row in self.database.list_run_statuses())
-        items = tuple(
-            self._item(path, "explicit_purge")
-            for path in self.artifacts.objects.rglob("*.json.zst")
-        )
+        items = tuple(self._item(path, "explicit_purge") for path in self.artifacts.objects.rglob("*.json.zst"))
         return self.apply(CleanupPlan("purge", datetime.now(UTC), items, run_ids, True))

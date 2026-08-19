@@ -243,9 +243,7 @@ async def test_analysis_requests_receive_language_and_common_instructions(tmp_pa
     analysis_requests = [request for request in harness.requests if request.task != "repair"]
     assert analysis_requests
     assert all(request.input["language"] == "en" for request in analysis_requests)
-    assert all(
-        request.input["user_instructions"] == "Use plain English." for request in analysis_requests
-    )
+    assert all(request.input["user_instructions"] == "Use plain English." for request in analysis_requests)
 
 
 @pytest.mark.asyncio

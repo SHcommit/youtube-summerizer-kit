@@ -46,9 +46,7 @@ async def test_process_drains_output_while_feeding_large_stdin() -> None:
         "sys.stdout.write('x' * 1000000); sys.stdout.flush(); "
         "data=sys.stdin.read(); print(len(data), file=sys.stderr)"
     )
-    result = await ProcessExecutor(maximum_output_bytes=32).run(
-        (sys.executable, "-c", code), "y" * 1_000_000, 3
-    )
+    result = await ProcessExecutor(maximum_output_bytes=32).run((sys.executable, "-c", code), "y" * 1_000_000, 3)
 
     assert len(result.stdout) == 32
     assert result.stderr.strip() == "1000000"
@@ -58,9 +56,7 @@ async def test_process_drains_output_while_feeding_large_stdin() -> None:
 async def test_early_exit_preserves_error_result_when_stdin_pipe_breaks() -> None:
     code = "import sys; print('Not logged in', file=sys.stderr); raise SystemExit(1)"
 
-    result = await ProcessExecutor().run(
-        (sys.executable, "-c", code), "large prompt" * 1_000_000, 3
-    )
+    result = await ProcessExecutor().run((sys.executable, "-c", code), "large prompt" * 1_000_000, 3)
 
     assert result.exit_code == 1
     assert "Not logged in" in result.stderr

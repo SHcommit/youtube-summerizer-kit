@@ -43,9 +43,7 @@ class CodexHarness(CliHarnessBase):
                 schema_path,
                 "-",
             )
-            result = await self.executor.run(
-                argv, request_prompt(request), request.timeout_ms / 1_000
-            )
+            result = await self.executor.run(argv, request_prompt(request), request.timeout_ms / 1_000)
         finally:
             if os.path.exists(schema_path):
                 os.unlink(schema_path)
