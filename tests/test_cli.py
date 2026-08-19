@@ -1,9 +1,11 @@
+import logging
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
 from chew.cli import app
+from chew.log import JsonFormatter
 
 
 def test_help_exposes_english_commands_as_the_public_default() -> None:
@@ -37,6 +39,18 @@ def test_benchmark_help_uses_english_subcommands_by_default() -> None:
     assert "list" in result.stdout
     assert "results" in result.stdout
     assert "run" in result.stdout
+
+
+def test_cli_configures_json_logging_on_startup() -> None:
+    # Remove any existing JsonFormatter handlers so the test is isolated
+    root = logging.getLogger()
+    root.handlers = [h for h in root.handlers if not isinstance(h.formatter, JsonFormatter)]
+
+    runner = CliRunner()
+    runner.invoke(app, ["doctor"])  # lightweight command that triggers callback
+
+    json_handlers = [h for h in logging.getLogger().handlers if isinstance(h.formatter, JsonFormatter)]
+    assert len(json_handlers) >= 1
 
 
 def test_config_init_creates_editable_markdown_without_overwriting(

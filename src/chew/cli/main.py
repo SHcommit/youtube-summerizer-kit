@@ -13,6 +13,7 @@ from typing import Annotated, Any, Protocol, cast
 
 import typer
 
+from chew.log import configure_logging
 from chew.app.config import ConfigurationError
 from chew.app.retention import CleanupPlan, RetentionPlanner
 from chew.app.service import AuthenticationRequired, CommandResult, RunStatus
@@ -49,6 +50,18 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode=None,
 )
+
+
+@app.callback()
+def _startup(
+    log_level: str = typer.Option(
+        "WARNING",
+        envvar="CHEW_LOG_LEVEL",
+        hidden=True,
+        help="Log level for structured JSON output (DEBUG/INFO/WARNING/ERROR).",
+    ),
+) -> None:
+    configure_logging(level=log_level)
 
 
 def _application_factory() -> Application:
