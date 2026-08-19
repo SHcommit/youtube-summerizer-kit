@@ -291,14 +291,13 @@ def live_benchmark_spec(
 ) -> BenchmarkSpec:
     """Build four explicit opt-in conditions; no process starts until the spec is run."""
 
-    from chew.app.config import Settings
     from chew.core.identity import normalize_youtube_url
     from chew.core.models import GenerationRequest
     from chew.core.prompts import PROMPT_FINGERPRINT
     from chew.harness.builtin import request_prompt
     from chew.harness.gemini import GeminiHarness
     from chew.harness.registry import default_registry
-    from chew.pipeline.engine import AnalysisPipeline
+    from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
     from chew.storage.artifacts import ArtifactStore
     from chew.storage.database import Database
     from chew.transcripts import TranscriptService, default_providers
@@ -366,7 +365,7 @@ def live_benchmark_spec(
                     harness=selected,
                     concurrency=capabilities.max_concurrency,
                 )
-                result = await pipeline.analyze(url, Settings(runtime=runtime_id, language=reference.language))
+                result = await pipeline.analyze(url, AnalysisConfig(language=reference.language, depth="detailed", instructions="", whisper_fallback=False, runtime=runtime_id, recipe_json="{}"))
             points = [
                 {
                     "text": claim.text,

@@ -17,6 +17,7 @@ from chew.domain import (
 )
 from chew.outputs import OutputCompiler, OutputManifest
 from chew.pipeline import AnalysisPipeline, AnalysisResult
+from chew.pipeline.engine import AnalysisConfig
 from chew.storage.artifacts import ArtifactStore
 from chew.storage.database import Database
 from chew.transcripts.service import TranscriptService
@@ -33,13 +34,13 @@ class Pipeline:
     def __init__(self, pack: KnowledgePack) -> None:
         self.harness = Harness()
         self.pack = pack
-        self.settings: list[Settings] = []
+        self.configs: list[AnalysisConfig] = []
         self.sources: list[str] = []
 
-    async def analyze(self, url: str, settings: Settings) -> AnalysisResult:
+    async def analyze(self, url: str, config: AnalysisConfig) -> AnalysisResult:
         self.sources.append(url)
-        self.settings.append(settings)
-        return AnalysisResult("run-1", self.pack, len(self.settings) > 1)
+        self.configs.append(config)
+        return AnalysisResult("run-1", self.pack, len(self.configs) > 1)
 
 
 class Compiler:
@@ -94,8 +95,8 @@ async def test_output_profile_does_not_change_analysis_settings(tmp_path: Path) 
     )
     await application.generate(source.canonical_url, "digest", tmp_path / "digest")
     await application.generate(source.canonical_url, "blog", tmp_path / "blog")
-    assert pipeline.settings[0].instructions == pipeline.settings[1].instructions
-    assert "블로그 전용 문체" not in pipeline.settings[1].instructions
+    assert pipeline.configs[0].instructions == pipeline.configs[1].instructions
+    assert "블로그 전용 문체" not in pipeline.configs[1].instructions
     assert "블로그 전용 문체" in compiler.settings[1].instructions
 
 
@@ -130,9 +131,9 @@ async def test_resume_uses_the_analysis_recipe_stored_with_the_run(tmp_path: Pat
 
     await application.resume("run-1")
 
-    assert pipeline.settings[0].runtime == "gemini"
-    assert pipeline.settings[0].depth == "deep"
-    assert pipeline.settings[0].instructions == "stored recipe"
+    assert pipeline.configs[0].runtime == "gemini"
+    assert pipeline.configs[0].depth == "deep"
+    assert pipeline.configs[0].instructions == "stored recipe"
 
 
 @pytest.mark.asyncio
@@ -280,3 +281,41 @@ async def test_profile_changes_reassemble_without_reanalyzing_and_output_cache_i
     assert restored.reused
     target_file = tmp_path / "blog-two" / restored.files[0].name
     assert restored.files[0].read_text() == target_file.read_text()
+
+
+@pytest.mark.asyncio
+async def test_service_converts_settings_to_analysis_config(tmp_path: Path) -> None:
+    (tmp_path / "YTSUM.md").write_text("---\nlanguage: en\n---\n지침")
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    pack = KnowledgePack(
+        source=source,
+        title="title",
+        language="en",
+        overview="overview",
+        transcript_fingerprint="a" * 64,
+        topics=(),
+        chapters=(),
+        further_study=(),
+        analysis_fingerprint="b" * 64,
+    )
+    pipeline = Pipeline(pack)
+    compiler = Compiler()
+    database = Database(tmp_path / "state.sqlite3")
+    database.initialize()
+    database.create_run("run-1", source.source_id, "key")
+    service = ApplicationService(
+        pipeline, compiler, database, working_directory=tmp_path  # type: ignore[arg-type]
+    )
+    await service.generate(
+        "https://www.youtube.com/watch?v=abcDEF_1234",
+        "digest",
+        tmp_path / "out",
+    )
+    assert len(pipeline.configs) == 1
+    config = pipeline.configs[0]
+    assert isinstance(config, AnalysisConfig)
+    assert config.language == "en"

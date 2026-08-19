@@ -8,7 +8,7 @@ from pathlib import Path
 from chew.app.config import Settings, load_settings
 from chew.harness.builtin import HarnessAuthenticationError
 from chew.harness.registry import HarnessRegistry
-from chew.pipeline.engine import AnalysisPipeline
+from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
 from chew.pipeline.outputs import OutputCompiler
 from chew.storage.database import Database
 
@@ -73,8 +73,16 @@ class ApplicationService:
         preference = getattr(self.pipeline.harness, "set_preference", None)
         if callable(preference):
             preference(analysis_settings.runtime)
+        config = AnalysisConfig(
+            language=analysis_settings.language,
+            depth=analysis_settings.depth,
+            instructions=analysis_settings.instructions,
+            whisper_fallback=analysis_settings.whisper_fallback,
+            runtime=analysis_settings.runtime,
+            recipe_json=analysis_settings.model_dump_json(),
+        )
         try:
-            result = await self.pipeline.analyze(url, analysis_settings)
+            result = await self.pipeline.analyze(url, config)
             output = await self.compiler.compile(result.pack, profile, output_settings, destination)
         except HarnessAuthenticationError as error:
             raise AuthenticationRequired(error.runtime_id, error.login_command) from error
