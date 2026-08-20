@@ -224,13 +224,12 @@ async def test_scheduler_logs_job_completed(tmp_path: Path, caplog: pytest.LogCa
 
 
 def test_backoff_sleep_increases_with_attempts() -> None:
-    """Higher attempt count → higher expected backoff ceiling."""
-    # With fixed seed, backoff at attempt=3 must be >= backoff at attempt=0
-    # We compare the ceiling: min(60, base * 2^attempts)
-    base = 1.0
-    ceiling_0 = min(60.0, base * (2**0))   # 1.0
-    ceiling_3 = min(60.0, base * (2**3))   # 8.0
-    assert ceiling_3 > ceiling_0
+    """Higher attempt count → higher maximum possible value returned."""
+    # At attempt=0 with base=1.0, max result is 1.0.
+    # At attempt=3 with base=1.0, max result is 8.0.
+    # Run many trials: at least one attempt=3 result must exceed 1.0.
+    results_3 = [_backoff_sleep(1.0, 3) for _ in range(100)]
+    assert max(results_3) > 1.0
 
 
 def test_backoff_sleep_respects_max_cap() -> None:
