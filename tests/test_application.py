@@ -354,3 +354,42 @@ async def test_service_converts_settings_to_analysis_config(tmp_path: Path) -> N
     config = pipeline.configs[0]
     assert isinstance(config, AnalysisConfig)
     assert config.language == "en"
+
+
+@pytest.mark.asyncio
+async def test_service_converts_harness_auth_error_to_authentication_required(tmp_path: Path) -> None:
+    """HarnessAuthenticationError from the pipeline layer is surfaced as AuthenticationRequired.
+
+    This closes the gap between scheduler-level tests (which verify HarnessAuthenticationError
+    propagates out of Scheduler.run()) and CLI-level tests (which verify AuthenticationRequired
+    gives exit code 2). The service.py conversion at lines 88-89 is the untested link.
+    """
+    from chew.application import AuthenticationRequired
+    from chew.harness.builtin import HarnessAuthenticationError
+
+    class AuthFailPipeline:
+        harness = None  # ApplicationService only probes harness when it's a HarnessRegistry
+
+        async def analyze(self, url: str, config: AnalysisConfig) -> object:
+            raise HarnessAuthenticationError("codex", "codex login")
+
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "key")
+
+    service = ApplicationService(
+        AuthFailPipeline(),  # type: ignore[arg-type]
+        Compiler(),
+        database,
+        working_directory=tmp_path,
+    )
+
+    with pytest.raises(AuthenticationRequired) as exc_info:
+        await service.generate(
+            "https://www.youtube.com/watch?v=abcDEF_1234",
+            "digest",
+            tmp_path / "out",
+        )
+
+    assert exc_info.value.runtime_id == "codex"
+    assert "codex login" in str(exc_info.value)
