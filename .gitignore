@@ -14,6 +14,10 @@ Thumbs.db
 .codex/
 .cursor/
 
+# Agent-local planning and visual brainstorming artifacts
+.superpowers/
+docs/superpowers/plans/
+
 # Environment files & secrets
 .env
 .env.local
