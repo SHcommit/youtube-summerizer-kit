@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import time
+from collections import deque
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -42,7 +43,7 @@ class TelemetryManager:
     """Manages OpenTelemetry tracing and local span collection for UI dashboard rendering."""
 
     def __init__(self) -> None:
-        self.spans: list[SpanRecord] = []
+        self.spans: deque[SpanRecord] = deque(maxlen=10_000)
         self._active_spans: list[SpanRecord] = []
         self.tracer = None
 
