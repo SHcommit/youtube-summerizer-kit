@@ -298,3 +298,48 @@ async def test_topic_failure_is_non_terminal_and_chapter_still_runs(tmp_path: Pa
     ).run("run-1")
     assert summary.failed_jobs >= 1
     assert handler.calls["chapter-1"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_partial_failure_with_forty_topics(tmp_path: Path) -> None:
+    """40-topic run with 3 permanently-failing topics completes without raising.
+
+    The chapter job must run despite the 3 failed topics (partial failure is
+    non-terminal per §7-3 / §9-11-4).
+    """
+    database = database_with_run(tmp_path)
+    FAILING = {"topic-5", "topic-15", "topic-30"}
+    for i in range(40):
+        database.upsert_job(JobSpec(f"topic-{i}", "run-1", "topic", 20, runtime_id="fake"))
+    database.upsert_job(
+        JobSpec(
+            "chapter-1",
+            "run-1",
+            "chapter",
+            10,
+            tuple(f"topic-{i}" for i in range(40)),
+            "fake",
+        )
+    )
+
+    class ScalePartialHandler(RecordingHandler):
+        async def handle(self, job: JobRecord) -> str:
+            if job.job_id in FAILING:
+                raise ValueError("permanent topic failure")
+            return await super().handle(job)
+
+    handler = ScalePartialHandler({})
+    # Must NOT raise — topic failures are non-terminal
+    summary = await Scheduler(
+        database,
+        handler,
+        global_concurrency=8,
+        runtime_limits={"fake": 8},
+    ).run("run-1")
+
+    # Each of the 3 bad topics is retried once then permanently failed → 3 failed jobs
+    assert summary.failed_jobs == 3
+    # Chapter must have run exactly once (it is not retried)
+    assert handler.calls["chapter-1"] == 1
+    # 37 good topics + 1 chapter = 38 completed
+    assert summary.completed_jobs == 38
