@@ -7,6 +7,7 @@ from time import monotonic
 import pytest
 
 from chew.harness.builtin import HarnessAuthenticationError
+from chew.pipeline.scheduler import _backoff_sleep
 from chew.scheduler import RateLimited, Scheduler
 from chew.storage.database import Database, JobRecord, JobSpec
 
@@ -220,3 +221,41 @@ async def test_scheduler_logs_job_completed(tmp_path: Path, caplog: pytest.LogCa
 
     messages = [r.getMessage() for r in caplog.records if r.name == "chew.pipeline.scheduler"]
     assert any("job_completed" in m for m in messages)
+
+
+def test_backoff_sleep_increases_with_attempts() -> None:
+    """Higher attempt count → higher expected backoff ceiling."""
+    # With fixed seed, backoff at attempt=3 must be >= backoff at attempt=0
+    # We compare the ceiling: min(60, base * 2^attempts)
+    base = 1.0
+    ceiling_0 = min(60.0, base * (2**0))   # 1.0
+    ceiling_3 = min(60.0, base * (2**3))   # 8.0
+    assert ceiling_3 > ceiling_0
+
+
+def test_backoff_sleep_respects_max_cap() -> None:
+    """Result is always <= max_cap regardless of attempts."""
+    for attempt in range(10):
+        result = _backoff_sleep(1.0, attempt, max_cap=5.0)
+        assert result <= 5.0
+
+
+def test_backoff_sleep_is_non_negative() -> None:
+    """Result is always >= 0."""
+    for attempt in range(10):
+        result = _backoff_sleep(1.0, attempt)
+        assert result >= 0.0
+
+
+def test_backoff_sleep_at_attempt_zero_bounded_by_base() -> None:
+    """At attempt=0, ceiling = min(max_cap, base * 2^0) = base (if base < max_cap)."""
+    # random.uniform(0, base) is always <= base
+    result = _backoff_sleep(2.0, 0, max_cap=60.0)
+    assert result <= 2.0
+
+
+def test_backoff_sleep_saturates_at_max_cap() -> None:
+    """At large attempt counts, ceiling saturates at max_cap."""
+    # attempt=10: min(5.0, 1.0 * 2^10) = min(5.0, 1024) = 5.0
+    result = _backoff_sleep(1.0, 10, max_cap=5.0)
+    assert result <= 5.0

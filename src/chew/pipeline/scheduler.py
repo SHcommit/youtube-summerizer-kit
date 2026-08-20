@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import time as _time
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -27,6 +28,12 @@ class RateLimited(RuntimeError):
     def __init__(self, retry_after: float = 1.0) -> None:
         super().__init__("runtime rate limited")
         self.retry_after = retry_after
+
+
+def _backoff_sleep(base: float, attempts: int, max_cap: float = 60.0) -> float:
+    """AWS Full-Jitter exponential backoff: uniform(0, min(max_cap, base * 2^attempts))."""
+    ceiling = min(max_cap, base * (2**attempts))
+    return random.uniform(0, ceiling)
 
 
 class AdaptiveLimiter:
@@ -174,7 +181,7 @@ class Scheduler:
                     "rate_limited",
                     extra={"runtime_id": job.runtime_id, "retry_after": error.retry_after, "new_limit": new_limit},
                 )
-                await asyncio.sleep(error.retry_after)
+                await asyncio.sleep(_backoff_sleep(error.retry_after, job.attempts))
                 return
             except HarnessAuthenticationError as error:
                 if self.database.fail_job(job.job_id, "blocked_auth", job.worker_id):
