@@ -7,6 +7,120 @@
 
 ---
 
+## 🔬 Spike: 전처리 전략 검증 — Phase 1 구현 전 필수 실측
+
+> **이 Spike는 Phase 1(자막 전처리 파이프라인) 구현 전에 반드시 완료해야 한다.**
+> "30~50% 토큰 절감"은 현재 추정치다. 실측 없이 구현하면 투자 가치를 증명할 수 없다.
+
+### 목적
+
+1. **현재 기준선 측정** — 전처리 전 raw transcript의 언어별·영상 길이별 토큰 수
+2. **언어별 필러 밀도 측정** — 한국어 vs 영어 자막의 노이즈 비율 차이 실증
+3. **Phase 1 완료 후 재측정** — 동일 영상으로 전/후 비교 → "X% 절감" 수치 확정
+4. **출력 품질 측정** — 전처리 전/후 최종 요약의 문장 응집도, 정보 밀도 비교
+
+### 고정 벤치마크 영상 (변경 금지 — 비교 기준점)
+
+> **실행 전 주의:** 아래 YouTube 영상 ID는 실행 전 반드시 `yt-dlp --get-duration URL`로 실제 길이를 검증할 것.
+> 영상이 삭제/비공개 전환된 경우 동일 길이의 대체 영상을 찾아 이 표를 업데이트하되, `benchmark-videos.lock.json`에 최초 선정 기록을 남길 것.
+
+| # | 언어 | 목표 길이 | 영상 | YouTube ID | 선정 이유 |
+|---|---|---|---|---|---|
+| 1 | 🇰🇷 한국어 | ~15분 | 슈카월드 — 부업 인구 역대 최대 기록 | `sc6ESId6ibo` | 한국어 구어체·필러 밀도 높음, 경제 주제 |
+| 2 | 🇰🇷 한국어 | ~30분 | [월간슈카] 요즘 한국경제 FULL | `MuH0WpeFaE4` | 한국어 설명형 장문, 전문 용어 포함 |
+| 3 | 🇺🇸 영어 | ~1시간 | Lex Fridman #18 — Elon Musk: Tesla Autopilot | `dEv99vxKjVI` | 영어 기술 인터뷰, 자동생성 자막 |
+| 4 | 🇺🇸 영어 | ~2시간 | Joe Rogan #1470 — Elon Musk | `RcYjXbSJBN8` | 영어 장시간 팟캐스트, 비구조적 대화 |
+| 5 | 🇺🇸 영어 | ~3시간 | Lex Fridman #252 — Elon Musk: SpaceX, Mars, Tesla | `DxREm3s1scA` | 영어 초장시간, 기술+철학 혼합 주제 |
+
+### 측정 항목
+
+```
+각 영상별로 측정할 것:
+
+[현재 기준선 — 전처리 없음]
+  raw_chars          : 원본 자막 총 문자 수
+  raw_tokens         : tiktoken cl100k_base 기준 토큰 수
+  filler_count       : 필러 단어/패턴 매칭 수 (예: "음", "어", "um", "uh")
+  filler_ratio       : filler_count / total_word_count (%)
+  segment_count      : 현재 segmentation.py가 생성한 세그먼트 수
+  transcript_source  : yt-dlp / YouTube API / Whisper 중 어느 것이 사용됐는지
+
+[Phase 1 완료 후 — 전처리 있음]
+  processed_chars    : 전처리 후 자막 총 문자 수
+  processed_tokens   : 전처리 후 tiktoken 토큰 수
+  token_reduction_pct: (raw_tokens - processed_tokens) / raw_tokens * 100
+  punctuation_added  : 문장부호 복원으로 추가된 마침표/쉼표 수
+  boundary_hints     : SemanticBoundaryStrategy가 생성한 경계 힌트 수
+
+[출력 품질 — Frontier 분석 후]
+  output_sentences   : 최종 요약 문장 수
+  avg_sentence_len   : 평균 문장 길이 (단어 수)
+  unique_info_ratio  : 중복 없는 정보 문장 비율 (TF-IDF 기반 단순 추정)
+```
+
+### 실행 스크립트 위치 및 명령
+
+```bash
+# 스크립트 작성 위치
+scripts/spike_token_baseline.py
+
+# 실행 방법 (전처리 없는 현재 기준선)
+uv run python scripts/spike_token_baseline.py --mode baseline
+
+# 실행 방법 (Phase 1 완료 후 비교)
+uv run python scripts/spike_token_baseline.py --mode compare
+
+# 결과 저장
+reports/token-baseline.md        ← 현재 기준선 표
+reports/token-comparison.md      ← 전/후 비교 표 (Phase 1 완료 후)
+reports/benchmark-videos.lock.json ← 고정 영상 ID + 실측 길이 잠금
+```
+
+### 스크립트 구현 요구사항 (`scripts/spike_token_baseline.py`)
+
+```python
+"""
+Token measurement spike — baseline before preprocessing.
+
+실행 전 필요 패키지:
+  uv add tiktoken yt-dlp --dev
+
+측정 흐름:
+  1. BENCHMARK_VIDEOS 딕셔너리에서 URL 읽기
+  2. yt-dlp로 자막 다운로드 (--write-auto-sub --skip-download)
+  3. .vtt/.srt 파싱하여 plain text 추출
+  4. tiktoken cl100k_base로 토큰 수 계산
+  5. 필러 패턴 (한국어/영어) 매칭으로 filler_ratio 계산
+  6. 결과를 Markdown 표로 reports/token-baseline.md에 저장
+
+BENCHMARK_VIDEOS (변경 금지):
+  "15m_ko": "https://www.youtube.com/watch?v=sc6ESId6ibo"
+  "30m_ko": "https://www.youtube.com/watch?v=MuH0WpeFaE4"
+  "1h_en":  "https://www.youtube.com/watch?v=dEv99vxKjVI"
+  "2h_en":  "https://www.youtube.com/watch?v=RcYjXbSJBN8"
+  "3h_en":  "https://www.youtube.com/watch?v=DxREm3s1scA"
+
+한국어 필러 패턴: ["음+", "어+", "그+", "뭐지", "있잖아", "그러니까", "아~", "에~"]
+영어 필러 패턴:  ["\\bum+\\b", "\\buh+\\b", "\\byou know\\b", "\\blike\\b", "\\bactually\\b"]
+"""
+```
+
+### 결과 기대치 (가설 — Spike로 검증할 것)
+
+| 영상 유형 | 예상 필러 비율 | 예상 토큰 절감 (Phase 1 후) |
+|---|---|---|
+| 한국어 브이로그/대화형 | 15~25% | 25~40% |
+| 한국어 설명/강의형 | 8~15% | 15~25% |
+| 영어 기술 인터뷰 | 5~10% | 10~18% |
+| 영어 장시간 팟캐스트 | 10~20% | 18~30% |
+
+> **가설이 틀릴 경우 대응:**
+> - 절감률 < 10% → Phase 1 우선순위 하향, Phase 2(Knowledge Graph) 먼저 진행
+> - 절감률 > 35% → Phase 1 즉시 구현, 마케팅 포인트로 활용
+> - 한국어 > 영어 절감 → 한국어 특화 전략 강화 (Korean-specific NLP 모델 검토)
+
+---
+
 ## ✅ 완료된 작업 (Steps 1~9)
 
 | Step | 내용 | 완료일 |
