@@ -114,3 +114,22 @@ def test_task_layers_routing_table_covers_all_engine_tasks() -> None:
     engine_tasks = {"topic_summary", "chapter_summary", "compose", "repair",
                     "output_outline", "output_compose", "output_verify"}
     assert engine_tasks.issubset(set(TASK_LAYERS.keys()))
+
+
+def test_pinned_model_constants_use_quantized_tags() -> None:
+    from chew.harness.layered_ollama import LAYER1_MODEL, LAYER2_MODEL, LAYER3_MODEL
+
+    assert LAYER1_MODEL == "qwen2.5:1.5b-instruct-q4_K_M"
+    assert LAYER2_MODEL == "qwen2.5:7b-instruct-q4_K_M"
+    assert LAYER3_MODEL == "qwen2.5:14b-instruct-q4_K_M"
+
+
+def test_layered_ollama_harness_defaults_to_pinned_tags() -> None:
+    import inspect
+
+    from chew.harness.layered_ollama import LAYER1_MODEL, LAYER2_MODEL, LAYER3_MODEL, LayeredOllamaHarness
+
+    sig = inspect.signature(LayeredOllamaHarness.__init__)
+    assert sig.parameters["layer1_model"].default == LAYER1_MODEL
+    assert sig.parameters["layer2_model"].default == LAYER2_MODEL
+    assert sig.parameters["layer3_model"].default == LAYER3_MODEL

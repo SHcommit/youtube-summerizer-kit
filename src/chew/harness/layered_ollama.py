@@ -18,6 +18,12 @@ TASK_LAYERS: dict[str, str] = {
     "compose": "layer3",
 }
 
+# Pinned quantized model tags for reproducibility (§7-7).
+# Override by passing model= explicitly or subclassing.
+LAYER1_MODEL = "qwen2.5:1.5b-instruct-q4_K_M"
+LAYER2_MODEL = "qwen2.5:7b-instruct-q4_K_M"
+LAYER3_MODEL = "qwen2.5:14b-instruct-q4_K_M"
+
 
 class LayeredOllamaHarness:
     """Routes each pipeline task to the appropriate Ollama model tier.
@@ -31,9 +37,9 @@ class LayeredOllamaHarness:
 
     def __init__(
         self,
-        layer1_model: str = "qwen2.5:1.5b",
-        layer2_model: str = "qwen2.5:7b",
-        layer3_model: str = "qwen2.5:14b",
+        layer1_model: str = LAYER1_MODEL,
+        layer2_model: str = LAYER2_MODEL,
+        layer3_model: str = LAYER3_MODEL,
         *,
         endpoint: str = "http://127.0.0.1:11434",
         transport: Transport | None = None,
