@@ -182,6 +182,7 @@ def test_json_output_has_stable_envelope(stub: StubApplication, tmp_path: Path) 
             "profile": "digest",
             "reused": True,
             "run_id": "run-1",
+            "usage": None,
         },
         "ok": True,
     }

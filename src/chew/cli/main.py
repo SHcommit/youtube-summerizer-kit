@@ -128,6 +128,14 @@ def _emit(data: Any, json_output: bool, *, korean: bool = False) -> None:
         typer.echo(f"{label}: {data['run_id']}{reuse}")
         for path in data.get("files", []):
             typer.echo(path)
+        usage = data.get("usage")
+        if isinstance(usage, dict) and not data.get("reused"):
+            input_tokens = usage.get("input_tokens", 0)
+            output_tokens = usage.get("output_tokens", 0)
+            if korean:
+                typer.echo(f"토큰 사용량: 입력 {input_tokens:,} / 출력 {output_tokens:,}")
+            else:
+                typer.echo(f"Token usage: {input_tokens:,} input / {output_tokens:,} output")
     else:
         typer.echo(data if isinstance(data, str) else json.dumps(data, ensure_ascii=False))
 
@@ -138,6 +146,7 @@ def _result_data(result: CommandResult) -> dict[str, object]:
         "profile": result.profile,
         "reused": result.reused,
         "files": [str(path) for path in result.files],
+        "usage": result.usage,
     }
 
 

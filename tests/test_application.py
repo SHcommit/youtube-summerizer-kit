@@ -31,16 +31,17 @@ class Harness:
 
 
 class Pipeline:
-    def __init__(self, pack: KnowledgePack) -> None:
+    def __init__(self, pack: KnowledgePack, usage: dict[str, int] | None = None) -> None:
         self.harness = Harness()
         self.pack = pack
+        self.usage = usage
         self.configs: list[AnalysisConfig] = []
         self.sources: list[str] = []
 
     async def analyze(self, url: str, config: AnalysisConfig) -> AnalysisResult:
         self.sources.append(url)
         self.configs.append(config)
-        return AnalysisResult("run-1", self.pack, len(self.configs) > 1)
+        return AnalysisResult("run-1", self.pack, len(self.configs) > 1, usage=self.usage)
 
 
 class Compiler:
@@ -281,6 +282,40 @@ async def test_profile_changes_reassemble_without_reanalyzing_and_output_cache_i
     assert restored.reused
     target_file = tmp_path / "blog-two" / restored.files[0].name
     assert restored.files[0].read_text() == target_file.read_text()
+
+
+@pytest.mark.asyncio
+async def test_service_forwards_usage_to_command_result(tmp_path: Path) -> None:
+    """CommandResult.usage is populated from AnalysisResult.usage."""
+    (tmp_path / "YTSUM.md").write_text("---\nlanguage: en\n---\n")
+    source = SourceIdentity(
+        source_id="youtube:abc1234567",
+        video_id="abc1234567",
+        canonical_url="https://www.youtube.com/watch?v=abc1234567",
+    )
+    pack = KnowledgePack(
+        source=source,
+        title="t",
+        language="en",
+        overview="o",
+        transcript_fingerprint="a" * 64,
+        topics=(),
+        chapters=(),
+        further_study=(),
+        analysis_fingerprint="b" * 64,
+    )
+    pipeline = Pipeline(pack, usage={"input_tokens": 100, "output_tokens": 50})
+    compiler = Compiler()
+    database = Database(tmp_path / "state.sqlite3")
+    database.initialize()
+    database.create_run("run-1", source.source_id, "key")
+    service = ApplicationService(pipeline, compiler, database, working_directory=tmp_path)
+    result = await service.generate(
+        "https://www.youtube.com/watch?v=abc1234567",
+        "digest",
+        tmp_path / "out",
+    )
+    assert result.usage == {"input_tokens": 100, "output_tokens": 50}
 
 
 @pytest.mark.asyncio

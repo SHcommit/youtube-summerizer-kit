@@ -27,6 +27,7 @@ class CommandResult:
     profile: str
     reused: bool
     files: tuple[Path, ...]
+    usage: dict[str, int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,7 +89,7 @@ class ApplicationService:
             raise AuthenticationRequired(error.runtime_id, error.login_command) from error
         for path in output.files:
             self.database.register_export(result.run_id, path)
-        return CommandResult(result.run_id, profile, result.reused, output.files)
+        return CommandResult(result.run_id, profile, result.reused, output.files, result.usage)
 
     def status(self, run_id: str | None = None) -> tuple[RunStatus, ...]:
         return tuple(RunStatus(*row) for row in self.database.list_run_statuses(run_id))

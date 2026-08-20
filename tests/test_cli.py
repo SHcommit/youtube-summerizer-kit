@@ -78,3 +78,38 @@ def test_sigterm_handler_is_registered_on_startup() -> None:
     runner.invoke(cli_app, ["doctor"])
     current_handler = signal.getsignal(signal.SIGTERM)
     assert current_handler not in (signal.SIG_DFL, None)
+
+
+def test_result_data_includes_usage() -> None:
+    """_result_data() includes the usage dict when present."""
+    from pathlib import Path
+
+    from chew.app.service import CommandResult
+    from chew.cli.main import _result_data
+
+    result = CommandResult(
+        run_id="run-1",
+        profile="digest",
+        reused=False,
+        files=(Path("/tmp/out.md"),),
+        usage={"input_tokens": 100, "output_tokens": 50},
+    )
+    data = _result_data(result)
+    assert data["usage"] == {"input_tokens": 100, "output_tokens": 50}
+
+
+def test_result_data_usage_none_when_not_set() -> None:
+    """_result_data() usage is None when CommandResult.usage is None."""
+    from pathlib import Path
+
+    from chew.app.service import CommandResult
+    from chew.cli.main import _result_data
+
+    result = CommandResult(
+        run_id="run-1",
+        profile="digest",
+        reused=False,
+        files=(Path("/tmp/out.md"),),
+    )
+    data = _result_data(result)
+    assert data["usage"] is None
