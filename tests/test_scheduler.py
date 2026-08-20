@@ -258,3 +258,19 @@ def test_backoff_sleep_saturates_at_max_cap() -> None:
     # attempt=10: min(5.0, 1.0 * 2^10) = min(5.0, 1024) = 5.0
     result = _backoff_sleep(1.0, 10, max_cap=5.0)
     assert result <= 5.0
+
+
+@pytest.mark.asyncio
+async def test_scheduler_run_does_not_call_asyncio_wait(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """After the Event refactor, run() uses asyncio.wait_for+Event instead of asyncio.wait."""
+    import asyncio as _asyncio
+
+    async def _fail(*args: object, **kwargs: object) -> object:
+        raise AssertionError("asyncio.wait must not be called after Event refactor")
+
+    monkeypatch.setattr(_asyncio, "wait", _fail)
+
+    database = database_with_run(tmp_path)
+    database.upsert_job(JobSpec("topic-fast", "run-1", "topic", 20, runtime_id="fake"))
+    handler = RecordingHandler({"topic-fast": 0.01})
+    await Scheduler(database, handler, global_concurrency=1, runtime_limits={"fake": 1}).run("run-1")

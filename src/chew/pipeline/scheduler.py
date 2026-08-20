@@ -97,12 +97,21 @@ class Scheduler:
     async def run(self, run_id: str) -> RunSummary:
         worker_id = f"worker-{uuid4()}"
         running: set[asyncio.Task[None]] = set()
+        _notify = asyncio.Event()
+
+        async def _tracked(job: JobRecord) -> None:
+            try:
+                await self._execute(job)
+            finally:
+                _notify.set()
+
         try:
             while (
                 self.terminal_error is None
                 and (self.shutdown_event is None or not self.shutdown_event.is_set())
                 and self.database.active_job_count(run_id)
             ) or running:
+                _notify.clear()
                 finished = {task for task in running if task.done()}
                 if finished:
                     await asyncio.gather(*finished)
@@ -127,16 +136,13 @@ class Scheduler:
                         self.lease_seconds,
                         capacity,
                     )
-                    running.update(asyncio.create_task(self._execute(job)) for job in claimed)
+                    running.update(asyncio.create_task(_tracked(job)) for job in claimed)
 
                 if running:
-                    await asyncio.wait(
-                        running,
-                        timeout=self.poll_interval,
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
+                    with suppress(TimeoutError):
+                        await asyncio.wait_for(_notify.wait(), timeout=1.0)
                 elif self.database.active_job_count(run_id):
-                    await asyncio.sleep(self.poll_interval)
+                    await asyncio.sleep(0.05)
         finally:
             for task in running:
                 if not task.done():
