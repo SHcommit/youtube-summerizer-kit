@@ -231,3 +231,56 @@ def test_resume_authentication_guidance_follows_the_invoked_command_language(
     assert "Authentication required" in english.stdout
     assert "로그인이 필요" in korean.stdout
     assert "codex login" in english.stdout + korean.stdout
+
+
+def test_doctor_shows_install_hint_for_unavailable_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When a runtime is not installed, doctor prints a hint on the next line."""
+    class UnavailableStub(StubApplication):
+        def diagnostics(self) -> dict[str, object]:
+            return {"runtimes": [{"id": "ollama", "available": False}]}
+
+    monkeypatch.setattr("chew.cli._application_factory", lambda: UnavailableStub())
+    result = CliRunner().invoke(app, ["doctor"])
+    assert result.exit_code == 0
+    assert "not installed" in result.stdout
+    assert "Install:" in result.stdout
+    assert "ollama.com/install.sh" in result.stdout
+
+
+def test_doctor_no_hint_when_runtime_is_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When a runtime is available, no install hint is printed."""
+    class AvailableStub(StubApplication):
+        def diagnostics(self) -> dict[str, object]:
+            return {"runtimes": [{"id": "ollama", "available": True}]}
+
+    monkeypatch.setattr("chew.cli._application_factory", lambda: AvailableStub())
+    result = CliRunner().invoke(app, ["doctor"])
+    assert result.exit_code == 0
+    assert "Install:" not in result.stdout
+
+
+def test_doctor_json_output_unchanged_by_hint_logic(monkeypatch: pytest.MonkeyPatch) -> None:
+    """JSON mode passes diagnostics dict through without hint lines."""
+    class UnavailableStub(StubApplication):
+        def diagnostics(self) -> dict[str, object]:
+            return {"runtimes": [{"id": "ollama", "available": False}]}
+
+    monkeypatch.setattr("chew.cli._application_factory", lambda: UnavailableStub())
+    result = CliRunner().invoke(app, ["doctor", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["ok"] is True
+    assert "Install:" not in result.stdout
+
+
+def test_doctor_unknown_runtime_has_no_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unknown runtime IDs silently skip the hint (no KeyError)."""
+    class UnknownStub(StubApplication):
+        def diagnostics(self) -> dict[str, object]:
+            return {"runtimes": [{"id": "mystery_runtime", "available": False}]}
+
+    monkeypatch.setattr("chew.cli._application_factory", lambda: UnknownStub())
+    result = CliRunner().invoke(app, ["doctor"])
+    assert result.exit_code == 0
+    assert "mystery_runtime: not installed" in result.stdout
+    assert "Install:" not in result.stdout

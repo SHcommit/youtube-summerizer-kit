@@ -163,6 +163,17 @@ def _emit_status(values: list[dict[str, object]], json_output: bool, *, korean: 
         typer.echo(f"{value['run_id']}  {value['status']}  {jobs} {suffix}  {value['source_id']}")
 
 
+_INSTALL_HINTS: dict[str, str] = {
+    "codex": "npm install -g @openai/codex",
+    "gemini": "pip install google-generativeai",
+    "ollama": "curl -fsSL https://ollama.com/install.sh | sh",
+    "layered_ollama": "curl -fsSL https://ollama.com/install.sh | sh",
+    "huggingface": "pip install 'huggingface-hub>=0.23'",
+    "antigravity": "pip install antigravity-cli",
+    "claude": "pip install anthropic",
+}
+
+
 def _emit_diagnostics(data: dict[str, object], json_output: bool, *, korean: bool) -> None:
     if json_output:
         _emit(data, True)
@@ -190,6 +201,8 @@ def _emit_diagnostics(data: dict[str, object], json_output: bool, *, korean: boo
                 else ""
             )
         typer.echo(f"{runtime_id}: {state}{auth}")
+        if not available and runtime_id in _INSTALL_HINTS:
+            typer.echo(f"  → Install: {_INSTALL_HINTS[runtime_id]}")
 
 
 def _emit_authentication_error(error: AuthenticationRequired, *, korean: bool) -> None:
