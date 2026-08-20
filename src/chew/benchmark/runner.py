@@ -114,8 +114,7 @@ class BenchmarkReport:
             )
             for metric in sorted(result.median_metrics):
                 lines.append(
-                    f"| {metric} | {result.median_metrics[metric]:.4f} | "
-                    f"{result.variance_metrics[metric]:.4f} |"
+                    f"| {metric} | {result.median_metrics[metric]:.4f} | {result.variance_metrics[metric]:.4f} |"
                 )
             lines.append("")
             for key, value in sorted(result.metadata.items()):
@@ -156,18 +155,12 @@ class BenchmarkRunner:
             raise ValueError("benchmark repeats must be positive")
         ordered = sorted(
             spec.conditions,
-            key=lambda condition: hashlib.sha256(
-                f"{spec.source_id}:{condition.condition_id}".encode()
-            ).digest(),
+            key=lambda condition: hashlib.sha256(f"{spec.source_id}:{condition.condition_id}".encode()).digest(),
         )
         results: list[ConditionResult] = []
         for index, condition in enumerate(ordered):
-            observations = [
-                await self._observe(condition, spec.source_id) for _ in range(spec.repeats)
-            ]
-            metric_names = sorted(
-                set().union(*(observation.metrics.keys() for observation in observations))
-            )
+            observations = [await self._observe(condition, spec.source_id) for _ in range(spec.repeats)]
+            metric_names = sorted(set().union(*(observation.metrics.keys() for observation in observations)))
             medians: dict[str, float] = {}
             variances: dict[str, float] = {}
             for metric in metric_names:
@@ -183,13 +176,9 @@ class BenchmarkRunner:
                     repeats=spec.repeats,
                     median_metrics=medians,
                     variance_metrics=variances,
-                    median_latency_seconds=float(
-                        statistics.median(item.latency_seconds for item in observations)
-                    ),
+                    median_latency_seconds=float(statistics.median(item.latency_seconds for item in observations)),
                     median_usage=float(statistics.median(item.usage for item in observations)),
-                    unsupported_claims=round(
-                        statistics.median(item.unsupported_claims for item in observations)
-                    ),
+                    unsupported_claims=round(statistics.median(item.unsupported_claims for item in observations)),
                     metadata=observations[-1].metadata,
                 )
             )
@@ -260,15 +249,9 @@ def _similarity(left: object, right: object) -> float:
     return SequenceMatcher(None, normalized_left, normalized_right).ratio()
 
 
-def _score_output(
-    output: dict[str, object], reference: BenchmarkReference
-) -> tuple[dict[str, float], int]:
+def _score_output(output: dict[str, object], reference: BenchmarkReference) -> tuple[dict[str, float], int]:
     key_points = output.get("key_points")
-    points = (
-        [point for point in key_points if isinstance(point, dict)]
-        if isinstance(key_points, list)
-        else []
-    )
+    points = [point for point in key_points if isinstance(point, dict)] if isinstance(key_points, list) else []
     matches: list[tuple[ReferenceClaim, dict[str, object]]] = []
     unmatched = list(points)
     for claim in reference.claims:
@@ -282,17 +265,13 @@ def _score_output(
             matches.append((claim, point))
             unmatched.remove(point)
     expected = max(1, len(reference.claims))
-    evidence_matches = sum(
-        _similarity(point.get("evidence"), claim.evidence) >= 0.45 for claim, point in matches
-    )
+    evidence_matches = sum(_similarity(point.get("evidence"), claim.evidence) >= 0.45 for claim, point in matches)
     timestamp_matches = 0
     for claim, point in matches:
         timestamp = point.get("timestamp_ms")
         if isinstance(timestamp, int) and abs(timestamp - claim.timestamp_ms) <= claim.tolerance_ms:
             timestamp_matches += 1
-    covered_quarters = {
-        min(3, claim.timestamp_ms * 4 // max(1, reference.duration_ms)) for claim, _ in matches
-    }
+    covered_quarters = {min(3, claim.timestamp_ms * 4 // max(1, reference.duration_ms)) for claim, _ in matches}
     metrics = {
         "key_point_recall": len(matches) / expected,
         "evidence_coverage": evidence_matches / expected,
@@ -312,14 +291,13 @@ def live_benchmark_spec(
 ) -> BenchmarkSpec:
     """Build four explicit opt-in conditions; no process starts until the spec is run."""
 
-    from chew.app.config import Settings
     from chew.core.identity import normalize_youtube_url
     from chew.core.models import GenerationRequest
     from chew.core.prompts import PROMPT_FINGERPRINT
     from chew.harness.builtin import request_prompt
     from chew.harness.gemini import GeminiHarness
     from chew.harness.registry import default_registry
-    from chew.pipeline.engine import AnalysisPipeline
+    from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
     from chew.storage.artifacts import ArtifactStore
     from chew.storage.database import Database
     from chew.transcripts import TranscriptService, default_providers
@@ -387,9 +365,7 @@ def live_benchmark_spec(
                     harness=selected,
                     concurrency=capabilities.max_concurrency,
                 )
-                result = await pipeline.analyze(
-                    url, Settings(runtime=runtime_id, language=reference.language)
-                )
+                result = await pipeline.analyze(url, AnalysisConfig(language=reference.language, depth="detailed", instructions="", whisper_fallback=False, runtime=runtime_id, recipe_json="{}"))
             points = [
                 {
                     "text": claim.text,
@@ -437,9 +413,7 @@ def live_benchmark_spec(
                 direct("schema"),
                 True,
             ),
-            BenchmarkCondition(
-                "kit-gemini", "Hierarchical / Gemini", "transcript", hierarchical("gemini"), True
-            ),
+            BenchmarkCondition("kit-gemini", "Hierarchical / Gemini", "transcript", hierarchical("gemini"), True),
             BenchmarkCondition(
                 "kit-configured",
                 "Hierarchical / configured",

@@ -7,7 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-08-17
+### Added
+- **`HuggingFaceHarness` and `LayeredOllamaHarness`** (§7-6, §7-7):
+  - `HuggingFaceHarness`: free-tier hosted inference via HuggingFace Inference API (`huggingface_hub`); authenticates with `HF_TOKEN` env var.
+  - `LayeredOllamaHarness`: routes pipeline tasks across three quantized Ollama model tiers (1.5B / 7B / 14B) based on task type (`topic_summary` → layer1, `chapter_summary` → layer2, `output_compose` → layer3).
+- **Exponential Backoff with Full Jitter** (§6-1):
+  - `_backoff_sleep()` in `scheduler.py` applies Full Jitter (random uniform between 0 and cap) so concurrent retrying workers do not retry in lock-step.
+- **CLI Token Usage Display** (§6-2):
+  - `CommandResult.usage` captures prompt and completion token counts from structured harness output.
+  - Synthesis commands print a token-usage summary line after each run.
+- **asyncio.Event-Driven Scheduler Polling** (§2-3):
+  - Replaced busy-wait polling loop with `asyncio.Event` push notification, eliminating redundant wake-cycles and reducing CPU usage at idle.
+- **Partial Failure: Topic Jobs Are Non-Terminal** (§7-3):
+  - A topic job that exhausts its retry budget is marked `failed_runtime` instead of aborting the entire run. Chapter synthesis proceeds with the remaining completed topics.
+- **SpanRecord Memory Cap** (§9-5):
+  - `SpanRecord` accumulator in `telemetry.py` switched from an unbounded list to `collections.deque(maxlen=10_000)`, preventing memory growth on long-running pipelines.
+- **Quantized Model Tag Pinning for `LayeredOllamaHarness`** (§7-7):
+  - Module-level constants `LAYER1_MODEL`, `LAYER2_MODEL`, `LAYER3_MODEL` pin reproducible `q4_K_M` quantized tags (`qwen2.5:1.5b-instruct-q4_K_M`, `qwen2.5:7b-instruct-q4_K_M`, `qwen2.5:14b-instruct-q4_K_M`).
+- **`chew doctor` Install Hints** (§9-10):
+  - When a runtime is unavailable, `chew doctor` now prints a `→ Install: <command>` hint for all 7 supported runtimes (codex, gemini, ollama, layered_ollama, huggingface, antigravity, claude).
+- **FastAPI Health & Readiness Server + `chew serve`** (§7-5):
+  - New `src/chew/server.py` module exposes `/health` (always 200) and `/readiness` (200/503 with database `checks` dict) HTTP endpoints via FastAPI/uvicorn.
+  - New `chew serve [--host HOST] [--port PORT]` CLI command starts the health server.
+  - Optional extras group: `pip install 'chew[server]'` installs `fastapi>=0.111` and `uvicorn[standard]>=0.29`.
+- **Fault Injection Test Suite** (§9-11):
+  - `test_rate_limit_recovery_after_10_consecutive_successes`: verifies two halving events collapse the limit to 1 and 10 consecutive successes restore it.
+  - `test_concurrent_db_writers_wal_integrity`: 10 threads writing via separate `Database` instances simultaneously do not corrupt the SQLite WAL database.
+  - `test_partial_failure_with_forty_topics`: 40-topic run with 3 permanently failing topics completes without raising; chapter still runs.
+  - `test_service_converts_harness_auth_error_to_authentication_required`: verifies `ApplicationService.generate()` converts `HarnessAuthenticationError` to `AuthenticationRequired`.
+- **Agent Documentation Index** (`docs/agent-index.md`):
+  - Lightweight LLM-readable wiki indexing project structure, key interfaces, runtime adapters, CLI commands, and sync rules for AI agents.
+
+### Added
+- **AI Agent Context Hygiene & Task Compacting Guidelines**:
+  - Added Rule 10 to `AGENTS.md` (and symlinked `CLAUDE.md`, `GEMINI.md`) specifying plan-driven context hygiene and task compacting for independent sub-tasks to improve token efficiency and execution focus.
+
+### Added
+- **20-Year Senior IT/Staff Engineer Technical & Operational Evaluation**:
+  - Comprehensive architectural and operational readiness assessment added to `IMPROVEMENTS.md` covering 8 core dimensions (Observability, Graceful Shutdown, Retry & Idempotency, Resource Management, Release Management, Getting Started UX, Harness Architecture, and Fault Injection Testing).
+  - Defined 11 actionable operational debt tasks (§9) including Structured Logging (`structlog`), Graceful Shutdown signal handling, SQLite connection caching, and Ollama HTTP session reuse.
+
 
 ### Added
 - **Multi-Channel Package Manager Support (`Homebrew`, `pipx`, `uv tool`, `pip`)**:

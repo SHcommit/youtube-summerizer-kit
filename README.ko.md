@@ -144,9 +144,23 @@ chew 진단 --json
 | Claude Code / Claude CLI (`claude`) | 예 | `claude auth status`로 사전 확인 | 필요하면 `claude`에서 로그인 |
 | Gemini CLI (`gemini`) | 예 | 공식 비소모성 상태 명령이 없어 첫 생성 때 확인 | 필요하면 `gemini`에서 로그인 |
 | Ollama (`ollama`) | 예 | 로그인 불필요 | 로컬 Ollama 서버 실행 |
+| 계층형 Ollama (`layered_ollama`) | 예 | 로그인 불필요 | 1.5B / 7B / 14B 모델 티어(`qwen2.5:*-instruct-q4_K_M`) 설치 후 Ollama 실행 |
+| HuggingFace (`huggingface`) | 예 | `HF_TOKEN` 환경 변수 | `HF_TOKEN` 설정 후 `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | 예 | 첫 생성 때 확인 / 기존 로컬 세션 사용 | `agy` CLI 설치 및 세션 사용 |
 
-기본값 `runtime: auto`에서는 설치되어 있고 로그인이 확인된 실행기를 Codex → Gemini → Claude → Ollama → Antigravity 순서의 후보군에서 선택합니다. 로그인 여부를 사전에 확정할 수 없는 Gemini는 확인된 실행기가 하나도 없을 때 후보가 되고, 첫 생성 요청에서 실제 인증을 검증합니다.
+**로컬 LLM은 완전히 선택 사항입니다.** 기본값 `runtime: auto`에서는 설치되어 있고 로그인이 확인된 실행기를 Codex → Gemini → Claude → Ollama → Antigravity 순서로 선택하며, Ollama가 설치되어 있지 않으면 자동으로 건너뜁니다. 대부분의 사용자는 클라우드 CLI(Codex, Gemini, Claude)만으로 사용하며 Ollama를 설치할 필요가 없습니다.
+
+완전한 오프라인·로컬 환경을 원한다면 Ollama만 로컬 모델 다운로드가 필요합니다.
+
+| 구성 | 추가 디스크 용량 |
+|---|---|
+| Codex / Gemini / Claude / Antigravity / HuggingFace | 추가 없음 |
+| `ollama` 단일 모델 | ~1–5 GB |
+| `layered_ollama` 3개 티어 전체 | 약 15 GB (`q4_K_M` 양자화 기준) |
+
+`chew doctor`를 실행하면 현재 사용 가능한 실행기를 확인하고, 미설치 항목에 대한 설치 안내를 확인할 수 있습니다.
+
+로그인 여부를 사전에 확정할 수 없는 Gemini는 확인된 실행기가 하나도 없을 때 후보가 되고, 첫 생성 요청에서 실제 인증을 검증합니다.
 
 Codex나 Claude처럼 인증 상태를 확인할 수 있는 실행기가 로그아웃 상태라면 다른 준비된 실행기로 넘어갑니다. 특정 실행기를 설정으로 고정했는데 로그인되어 있지 않다면 로그인 명령을 안내하고 실행을 `blocked_auth` 상태로 보존합니다. 로그인 후 `chew 이어하기`를 실행하면 완료된 구간을 다시 처리하지 않고 계속합니다.
 
@@ -278,7 +292,8 @@ chew 블로그 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
 | `옵시디언` | `obsidian` | `[[위키링크]]`가 있는 인덱스와 소주제 노트 생성 |
 | `상태 [RUN_ID]` | `status` | 실행 및 작업 진행률 확인 |
 | `이어하기 [RUN_ID]` | `resume` | 최신 또는 지정한 미완료 실행 재개 |
-| `진단` | `doctor` | 실행기 설치·인증·지원 기능 확인 |
+| `진단` | `doctor` | 실행기 설치·인증·지원 기능 확인 및 미설치 실행기 설치 안내 |
+| `서버` | `serve` | FastAPI `/health` 및 `/readiness` HTTP 서버 시작 (`pip install 'chew[server]'`) |
 | `저장소` | `storage` | 내부 파일 수와 용량 확인 |
 | `정리` | `cleanup` | 보존 정책에 따른 삭제 후보 미리보기·적용 |
 

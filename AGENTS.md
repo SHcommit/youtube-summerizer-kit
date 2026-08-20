@@ -28,7 +28,7 @@ src/chew/
 │
 ├── harness/           # Layer 4: AI Runtime Adapters (LLM Execution Engines)
 │   ├── base.py / builtin.py / registry.py
-│   └── [codex, gemini, claude, ollama, antigravity].py
+│   └── [codex, gemini, claude, ollama, layered_ollama, huggingface, antigravity].py
 │
 ├── transcripts/       # Layer 5: Data Input Adapters (Transcripts & Speech-to-Text)
 │   ├── base.py / service.py / validation.py
@@ -100,5 +100,12 @@ reports/               # Central Benchmarking & Performance Observability Report
    - Use `chew benchmark-dashboard` or `chew benchmark-ui` to generate `reports/trace_report.md` and inspect real-time OpenTelemetry trace graphs in Jaeger UI at `http://localhost:16686`.
    - Before tagging a new production release, AI Agents MUST record and update the best benchmark scores table in `reports/BENCHMARK.md` (symlinked at `BENCHMARK.md`) and synchronize the latest performance reports to [GitHub Wiki](https://github.com/SHcommit/youtube-summerizer-kit/wiki).
 
+10. **Plan-Driven Context Hygiene & Task Compacting**:
+    - When executing multi-step implementation plans or sequential tasks, if subsequent sub-tasks do NOT have direct dependencies on preceding conversational context (e.g., intermediate debug logs, verbose tool outputs), AI Agents SHOULD compact or clear unnecessary context or checkpoint progress in structured artifacts (`implementation_plan.md` / `walkthrough.md`) before proceeding with independent sub-tasks to ensure token efficiency, focus, and clean execution state.
+
+11. **Agent Documentation Index — Read First, Keep in Sync**:
+    - Before exploring the codebase, read `docs/agent-index.md`. It provides a layer map, key file pointers, harness table, CLI command table, protocol signatures, and a sync checklist — all in one place.
+    - Whenever you add a harness, CLI command, new layer, optional extras group, or make a schema/protocol change, you MUST update the relevant section(s) of `docs/agent-index.md` in the same commit. The sync checklist in §10 of that doc tells you exactly what to update for each change type.
+    - Also keep `CHANGELOG.md` (under `## [Unreleased]`), `README.md`, and `README.ko.md` in sync as required by Rule 4.
 
 

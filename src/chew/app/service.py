@@ -6,9 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from chew.app.config import Settings, load_settings
+from chew.harness.base import ConfigurableHarness
 from chew.harness.builtin import HarnessAuthenticationError
 from chew.harness.registry import HarnessRegistry
-from chew.pipeline.engine import AnalysisPipeline
+from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
 from chew.pipeline.outputs import OutputCompiler
 from chew.storage.database import Database
 
@@ -26,6 +27,7 @@ class CommandResult:
     profile: str
     reused: bool
     files: tuple[Path, ...]
+    usage: dict[str, int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,9 +55,7 @@ class ApplicationService:
         self.working_directory = working_directory or Path.cwd()
         self.registry = registry
 
-    async def generate(
-        self, url: str, profile: str, destination: Path, depth: str | None = None
-    ) -> CommandResult:
+    async def generate(self, url: str, profile: str, destination: Path, depth: str | None = None) -> CommandResult:
         analysis_settings = load_settings(self.working_directory, None)
         if depth:
             analysis_settings = analysis_settings.model_copy(update={"depth": depth})
@@ -72,17 +72,24 @@ class ApplicationService:
         analysis_settings: Settings,
         output_settings: Settings,
     ) -> CommandResult:
-        preference = getattr(self.pipeline.harness, "set_preference", None)
-        if callable(preference):
-            preference(analysis_settings.runtime)
+        if isinstance(self.pipeline.harness, ConfigurableHarness):
+            self.pipeline.harness.set_preference(analysis_settings.runtime)
+        config = AnalysisConfig(
+            language=analysis_settings.language,
+            depth=analysis_settings.depth,
+            instructions=analysis_settings.instructions,
+            whisper_fallback=analysis_settings.whisper_fallback,
+            runtime=analysis_settings.runtime,
+            recipe_json=analysis_settings.model_dump_json(),
+        )
         try:
-            result = await self.pipeline.analyze(url, analysis_settings)
+            result = await self.pipeline.analyze(url, config)
             output = await self.compiler.compile(result.pack, profile, output_settings, destination)
         except HarnessAuthenticationError as error:
             raise AuthenticationRequired(error.runtime_id, error.login_command) from error
         for path in output.files:
             self.database.register_export(result.run_id, path)
-        return CommandResult(result.run_id, profile, result.reused, output.files)
+        return CommandResult(result.run_id, profile, result.reused, output.files, result.usage)
 
     def status(self, run_id: str | None = None) -> tuple[RunStatus, ...]:
         return tuple(RunStatus(*row) for row in self.database.list_run_statuses(run_id))

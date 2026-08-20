@@ -29,9 +29,7 @@ class Executor:
         self.calls: list[tuple[tuple[str, ...], str]] = []
         self.schema: dict[str, object] | None = None
 
-    async def run(
-        self, argv: tuple[str, ...], stdin: str, timeout: float, environment: object = None
-    ) -> ProcessResult:
+    async def run(self, argv: tuple[str, ...], stdin: str, timeout: float, environment: object = None) -> ProcessResult:
         self.calls.append((argv, stdin))
         if "--output-schema" in argv:
             self.schema = json.loads(Path(argv[argv.index("--output-schema") + 1]).read_text())
@@ -57,9 +55,7 @@ async def test_codex_extracts_final_jsonl_message_and_usage() -> None:
 
 @pytest.mark.asyncio
 async def test_gemini_extracts_response_and_stats() -> None:
-    executor = Executor(
-        ProcessResult(0, '{"response":"{\\"answer\\":\\"gemini\\"}","stats":{"tokens":3}}', "")
-    )
+    executor = Executor(ProcessResult(0, '{"response":"{\\"answer\\":\\"gemini\\"}","stats":{"tokens":3}}', ""))
     result = await GeminiHarness(executable="gemini", executor=executor).generate(REQUEST)
     assert result.output == {"answer": "gemini"}
     assert result.usage == {"tokens": 3}

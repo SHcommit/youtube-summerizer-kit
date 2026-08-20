@@ -8,11 +8,13 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from chew.app.config import Settings
+if TYPE_CHECKING:
+    from chew.app.config import Settings
 from chew.core.identity import fingerprint
 from chew.core.models import GenerationRequest, KnowledgePack, Provenance
-from chew.harness.base import Harness
+from chew.harness.base import ConfigurableHarness, Harness
 from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 from chew.storage.database import Database
 
@@ -106,9 +108,8 @@ class OutputCompiler:
             )
             files = (path,)
         elif profile in {"blog", "study"} and self.harness is not None:
-            preference = getattr(self.harness, "set_preference", None)
-            if callable(preference):
-                preference(settings.runtime)
+            if isinstance(self.harness, ConfigurableHarness):
+                self.harness.set_preference(settings.runtime)
             path = (
                 destination
                 if destination.suffix.lower() == ".md"
@@ -180,7 +181,8 @@ class OutputCompiler:
     async def _compose(
         self, pack: KnowledgePack, profile: str, settings: Settings, trace_id: str
     ) -> str:
-        assert self.harness is not None
+        if self.harness is None:
+            raise RuntimeError("OutputCompiler.harness is None; cannot generate composed output")
         source = pack.model_dump(mode="json")
         outline = await self.harness.generate(
             GenerationRequest(

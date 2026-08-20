@@ -50,9 +50,7 @@ class TranscriptService:
         if source.kind == SourceKind.LOCAL_MEDIA:
             providers = self.local_providers
         else:
-            providers = (
-                (*self.providers, *self.optional_providers) if include_optional else self.providers
-            )
+            providers = (*self.providers, *self.optional_providers) if include_optional else self.providers
         for provider in providers:
             candidate = await provider.fetch(source, language)
             if candidate is None:

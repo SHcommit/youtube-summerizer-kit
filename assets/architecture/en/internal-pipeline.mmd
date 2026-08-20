@@ -15,8 +15,10 @@ flowchart TB
     REUSE --> ASSEMBLY["5 · Output Assembly & Validation"]
     ASSEMBLY --> OUTPUT["OUTPUT<br/>Digest · Tech Blog · Study Notes · Obsidian Vault"]
 
-    RUNTIMES["AI Runtime Adapters<br/>Codex · Gemini · Claude · Ollama · Antigravity (agy)"] -.-> SYNTHESIS
-    RUNTIMES -.-> ASSEMBLY
+    CLOUD["Cloud Runtimes (0 GB extra)<br/>Codex · Gemini · Claude<br/>HuggingFace (HF_TOKEN) · Antigravity (agy)"] -.-> SYNTHESIS
+    CLOUD -.-> ASSEMBLY
+    LOCAL_LLM["Local LLM Runtimes<br/>Ollama (single model · 1–5 GB)<br/>LayeredOllama (1.5B / 7B / 14B · q4_K_M · ~15 GB)"] -.-> SYNTHESIS
+    LOCAL_LLM -.-> ASSEMBLY
 
     LOCAL["Local State & Cache (SQLite WAL & zstd)<br/>Intermediate Persistence · Crash Recovery · Hash Reuse"] -.-> IDENTITY
     LOCAL -.-> SYNTHESIS
@@ -37,5 +39,5 @@ flowchart TB
     class IDENTITY,CACHE,ACQUIRE,SEGMENT,SYNTHESIS,REUSE,ASSEMBLY process;
     class PACK knowledge;
     class OUTPUT output;
-    class RUNTIMES,LOCAL,TELEMETRY support;
+    class CLOUD,LOCAL_LLM,LOCAL,TELEMETRY support;
     class RECOVERY recovery;

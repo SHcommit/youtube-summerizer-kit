@@ -97,9 +97,7 @@ def normalize_source(value: str, *, base_directory: Path | None = None) -> Sourc
 def looks_like_local_media_input(value: str) -> bool:
     """Return whether a CLI token has a supported local media extension."""
 
-    return urlparse(value).scheme not in {"http", "https"} and (
-        Path(value).suffix.lower() in _LOCAL_MEDIA_SUFFIXES
-    )
+    return urlparse(value).scheme not in {"http", "https"} and (Path(value).suffix.lower() in _LOCAL_MEDIA_SUFFIXES)
 
 
 def _canonical_bytes(value: BaseModel | Mapping[str, object] | bytes) -> bytes:

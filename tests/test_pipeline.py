@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-from chew.config import Settings
 from chew.domain import (
     Chapter,
     GenerationRequest,
@@ -15,10 +14,25 @@ from chew.domain import (
 )
 from chew.identity import normalize_source
 from chew.pipeline import AnalysisPipeline, build_analysis_job_graph
+from chew.pipeline.engine import AnalysisConfig
 from chew.segmentation import SegmentationPolicy, segment_transcript
 from chew.storage.artifacts import ArtifactStore
 from chew.storage.database import Database
 from chew.transcripts.service import TranscriptResolution, TranscriptService
+
+
+def test_analysis_config_is_defined() -> None:
+    config = AnalysisConfig(
+        language="ko",
+        depth="detailed",
+        instructions="",
+        whisper_fallback=False,
+        runtime="auto",
+        recipe_json='{"language":"ko"}',
+    )
+    assert config.language == "ko"
+    assert config.depth == "detailed"
+    assert config.recipe_json == '{"language":"ko"}'
 
 
 def test_analysis_graph_has_topic_chapter_and_final_dependencies() -> None:
@@ -170,9 +184,9 @@ async def test_pipeline_reuses_completed_pack_for_same_url(tmp_path: Path) -> No
         concurrency=2,
     )
 
-    first = await pipeline.analyze(source.canonical_url, Settings(), title="테스트 영상")
+    first = await pipeline.analyze(source.canonical_url, AnalysisConfig(language="ko", depth="detailed", instructions="", whisper_fallback=False, runtime="auto", recipe_json="{}"), title="테스트 영상")
     call_count = len(harness.calls)
-    second = await pipeline.analyze(source.canonical_url, Settings(), title="테스트 영상")
+    second = await pipeline.analyze(source.canonical_url, AnalysisConfig(language="ko", depth="detailed", instructions="", whisper_fallback=False, runtime="auto", recipe_json="{}"), title="테스트 영상")
 
     assert first.pack.overview == "전체 요약"
     assert first.run_id == second.run_id
@@ -206,7 +220,7 @@ async def test_pipeline_enables_optional_transcript_provider_from_settings(tmp_p
         harness=StructuredFakeHarness(),
     )
 
-    await pipeline.analyze(source.canonical_url, Settings(whisper_fallback=True))
+    await pipeline.analyze(source.canonical_url, AnalysisConfig(language="ko", depth="detailed", instructions="", whisper_fallback=True, runtime="auto", recipe_json="{}"))
 
     assert transcripts.include_optional is True
 
@@ -237,15 +251,13 @@ async def test_analysis_requests_receive_language_and_common_instructions(tmp_pa
 
     await pipeline.analyze(
         source.canonical_url,
-        Settings(language="en", instructions="Use plain English."),
+        AnalysisConfig(language="en", depth="detailed", instructions="Use plain English.", whisper_fallback=False, runtime="auto", recipe_json="{}"),
     )
 
     analysis_requests = [request for request in harness.requests if request.task != "repair"]
     assert analysis_requests
     assert all(request.input["language"] == "en" for request in analysis_requests)
-    assert all(
-        request.input["user_instructions"] == "Use plain English." for request in analysis_requests
-    )
+    assert all(request.input["user_instructions"] == "Use plain English." for request in analysis_requests)
 
 
 @pytest.mark.asyncio
@@ -276,8 +288,8 @@ async def test_pipeline_analyzes_local_media_and_reuses_same_content_after_move(
         harness=StructuredFakeHarness(),
     )
 
-    first_result = await pipeline.analyze(str(first), Settings(language="en"))
-    moved_result = await pipeline.analyze(str(moved), Settings(language="en"))
+    first_result = await pipeline.analyze(str(first), AnalysisConfig(language="en", depth="detailed", instructions="", whisper_fallback=False, runtime="auto", recipe_json="{}"))
+    moved_result = await pipeline.analyze(str(moved), AnalysisConfig(language="en", depth="detailed", instructions="", whisper_fallback=False, runtime="auto", recipe_json="{}"))
 
     assert first_result.pack.source.kind == SourceKind.LOCAL_MEDIA
     assert first_result.pack.title == "meeting"

@@ -17,6 +17,7 @@ from chew.domain import (
 )
 from chew.outputs import OutputCompiler, OutputManifest
 from chew.pipeline import AnalysisPipeline, AnalysisResult
+from chew.pipeline.engine import AnalysisConfig
 from chew.storage.artifacts import ArtifactStore
 from chew.storage.database import Database
 from chew.transcripts.service import TranscriptService
@@ -30,16 +31,17 @@ class Harness:
 
 
 class Pipeline:
-    def __init__(self, pack: KnowledgePack) -> None:
+    def __init__(self, pack: KnowledgePack, usage: dict[str, int] | None = None) -> None:
         self.harness = Harness()
         self.pack = pack
-        self.settings: list[Settings] = []
+        self.usage = usage
+        self.configs: list[AnalysisConfig] = []
         self.sources: list[str] = []
 
-    async def analyze(self, url: str, settings: Settings) -> AnalysisResult:
+    async def analyze(self, url: str, config: AnalysisConfig) -> AnalysisResult:
         self.sources.append(url)
-        self.settings.append(settings)
-        return AnalysisResult("run-1", self.pack, len(self.settings) > 1)
+        self.configs.append(config)
+        return AnalysisResult("run-1", self.pack, len(self.configs) > 1, usage=self.usage)
 
 
 class Compiler:
@@ -94,8 +96,8 @@ async def test_output_profile_does_not_change_analysis_settings(tmp_path: Path) 
     )
     await application.generate(source.canonical_url, "digest", tmp_path / "digest")
     await application.generate(source.canonical_url, "blog", tmp_path / "blog")
-    assert pipeline.settings[0].instructions == pipeline.settings[1].instructions
-    assert "블로그 전용 문체" not in pipeline.settings[1].instructions
+    assert pipeline.configs[0].instructions == pipeline.configs[1].instructions
+    assert "블로그 전용 문체" not in pipeline.configs[1].instructions
     assert "블로그 전용 문체" in compiler.settings[1].instructions
 
 
@@ -130,9 +132,9 @@ async def test_resume_uses_the_analysis_recipe_stored_with_the_run(tmp_path: Pat
 
     await application.resume("run-1")
 
-    assert pipeline.settings[0].runtime == "gemini"
-    assert pipeline.settings[0].depth == "deep"
-    assert pipeline.settings[0].instructions == "stored recipe"
+    assert pipeline.configs[0].runtime == "gemini"
+    assert pipeline.configs[0].depth == "deep"
+    assert pipeline.configs[0].instructions == "stored recipe"
 
 
 @pytest.mark.asyncio
@@ -223,9 +225,7 @@ class OfflineHarness:
             output = {"markdown": "# Blog\n\nbody"}
         else:
             output = {"markdown": request.input["markdown"], "valid": True}
-        return GenerationResult(
-            request_id=request.request_id, output=output, runtime_id=self.runtime_id
-        )
+        return GenerationResult(request_id=request.request_id, output=output, runtime_id=self.runtime_id)
 
 
 @pytest.mark.asyncio
@@ -282,3 +282,114 @@ async def test_profile_changes_reassemble_without_reanalyzing_and_output_cache_i
     assert restored.reused
     target_file = tmp_path / "blog-two" / restored.files[0].name
     assert restored.files[0].read_text() == target_file.read_text()
+
+
+@pytest.mark.asyncio
+async def test_service_forwards_usage_to_command_result(tmp_path: Path) -> None:
+    """CommandResult.usage is populated from AnalysisResult.usage."""
+    (tmp_path / "YTSUM.md").write_text("---\nlanguage: en\n---\n")
+    source = SourceIdentity(
+        source_id="youtube:abc1234567",
+        video_id="abc1234567",
+        canonical_url="https://www.youtube.com/watch?v=abc1234567",
+    )
+    pack = KnowledgePack(
+        source=source,
+        title="t",
+        language="en",
+        overview="o",
+        transcript_fingerprint="a" * 64,
+        topics=(),
+        chapters=(),
+        further_study=(),
+        analysis_fingerprint="b" * 64,
+    )
+    pipeline = Pipeline(pack, usage={"input_tokens": 100, "output_tokens": 50})
+    compiler = Compiler()
+    database = Database(tmp_path / "state.sqlite3")
+    database.initialize()
+    database.create_run("run-1", source.source_id, "key")
+    service = ApplicationService(pipeline, compiler, database, working_directory=tmp_path)
+    result = await service.generate(
+        "https://www.youtube.com/watch?v=abc1234567",
+        "digest",
+        tmp_path / "out",
+    )
+    assert result.usage == {"input_tokens": 100, "output_tokens": 50}
+
+
+@pytest.mark.asyncio
+async def test_service_converts_settings_to_analysis_config(tmp_path: Path) -> None:
+    (tmp_path / "YTSUM.md").write_text("---\nlanguage: en\n---\n지침")
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    pack = KnowledgePack(
+        source=source,
+        title="title",
+        language="en",
+        overview="overview",
+        transcript_fingerprint="a" * 64,
+        topics=(),
+        chapters=(),
+        further_study=(),
+        analysis_fingerprint="b" * 64,
+    )
+    pipeline = Pipeline(pack)
+    compiler = Compiler()
+    database = Database(tmp_path / "state.sqlite3")
+    database.initialize()
+    database.create_run("run-1", source.source_id, "key")
+    service = ApplicationService(
+        pipeline, compiler, database, working_directory=tmp_path  # type: ignore[arg-type]
+    )
+    await service.generate(
+        "https://www.youtube.com/watch?v=abcDEF_1234",
+        "digest",
+        tmp_path / "out",
+    )
+    assert len(pipeline.configs) == 1
+    config = pipeline.configs[0]
+    assert isinstance(config, AnalysisConfig)
+    assert config.language == "en"
+
+
+@pytest.mark.asyncio
+async def test_service_converts_harness_auth_error_to_authentication_required(tmp_path: Path) -> None:
+    """HarnessAuthenticationError from the pipeline layer is surfaced as AuthenticationRequired.
+
+    This closes the gap between scheduler-level tests (which verify HarnessAuthenticationError
+    propagates out of Scheduler.run()) and CLI-level tests (which verify AuthenticationRequired
+    gives exit code 2). The service.py conversion at lines 88-89 is the untested link.
+    """
+    from chew.application import AuthenticationRequired
+    from chew.harness.builtin import HarnessAuthenticationError
+
+    class AuthFailPipeline:
+        harness = None  # ApplicationService only probes harness when it's a HarnessRegistry
+
+        async def analyze(self, url: str, config: AnalysisConfig) -> object:
+            raise HarnessAuthenticationError("codex", "codex login")
+
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "key")
+
+    service = ApplicationService(
+        AuthFailPipeline(),  # type: ignore[arg-type]
+        Compiler(),
+        database,
+        working_directory=tmp_path,
+    )
+
+    with pytest.raises(AuthenticationRequired) as exc_info:
+        await service.generate(
+            "https://www.youtube.com/watch?v=abcDEF_1234",
+            "digest",
+            tmp_path / "out",
+        )
+
+    assert exc_info.value.runtime_id == "codex"
+    assert "codex login" in str(exc_info.value)

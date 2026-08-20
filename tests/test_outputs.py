@@ -132,9 +132,7 @@ async def test_blog_uses_plan_compose_verify_and_profile_changes_cache_key(tmp_p
 @pytest.mark.asyncio
 async def test_uncached_ai_output_honors_profile_runtime(tmp_path: Path) -> None:
     harness = OutputHarness()
-    await OutputCompiler(harness).compile(
-        pack(), "blog", Settings(runtime="gemini"), tmp_path / "blog"
-    )
+    await OutputCompiler(harness).compile(pack(), "blog", Settings(runtime="gemini"), tmp_path / "blog")
 
     assert harness.preferences == ["gemini"]
 
@@ -147,14 +145,10 @@ async def test_same_output_cache_key_restores_without_model_calls(tmp_path: Path
     harness = OutputHarness()
     database = Database(tmp_path / "state.db")
     database.initialize()
-    compiler = OutputCompiler(
-        harness, database=database, artifacts=ArtifactStore(tmp_path / "data")
-    )
+    compiler = OutputCompiler(harness, database=database, artifacts=ArtifactStore(tmp_path / "data"))
     settings = Settings(instructions="고정 문체")
     await compiler.compile(pack(), "blog", settings, tmp_path / "first")
     await compiler.compile(pack(), "blog", settings, tmp_path / "second")
     assert harness.tasks == ["output_outline", "output_compose", "output_verify"]
     filename = f"{_safe_name(pack().title)}.md"
-    assert (tmp_path / "second" / filename).read_text() == (
-        tmp_path / "first" / filename
-    ).read_text()
+    assert (tmp_path / "second" / filename).read_text() == (tmp_path / "first" / filename).read_text()

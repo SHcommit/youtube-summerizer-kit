@@ -32,20 +32,14 @@ class GeminiHarness(CliHarnessBase):
         )
 
     async def generate(self, request: GenerationRequest) -> GenerationResult:
-        return await self._generate_prompt(
-            request_prompt(request), request.request_id, request.timeout_ms
-        )
+        return await self._generate_prompt(request_prompt(request), request.request_id, request.timeout_ms)
 
-    async def generate_prompt(
-        self, prompt: str, *, request_id: str, timeout_ms: int = 120_000
-    ) -> GenerationResult:
+    async def generate_prompt(self, prompt: str, *, request_id: str, timeout_ms: int = 120_000) -> GenerationResult:
         """Run a raw headless prompt for the direct-video benchmark baseline."""
 
         return await self._generate_prompt(prompt, request_id, timeout_ms)
 
-    async def _generate_prompt(
-        self, prompt: str, request_id: str, timeout_ms: int
-    ) -> GenerationResult:
+    async def _generate_prompt(self, prompt: str, request_id: str, timeout_ms: int) -> GenerationResult:
         if self.executable is None:
             raise HarnessExecutionError("gemini 실행 파일을 찾지 못했습니다")
         result = await self.executor.run(

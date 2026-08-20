@@ -56,17 +56,13 @@ def validate_transcript(transcript: Transcript, minimum_coverage: float = 0.6) -
         cursor = max(cursor, segment.end_ms)
     coverage = occupied / transcript.duration_ms
     reasons: list[str] = []
-    if any(
-        current.start_ms < previous.start_ms for previous, current in pairwise(transcript.segments)
-    ):
+    if any(current.start_ms < previous.start_ms for previous, current in pairwise(transcript.segments)):
         reasons.append("timestamps_not_monotonic")
     if coverage < minimum_coverage:
         reasons.append("coverage")
     if not any(segment.text.strip() for segment in transcript.segments):
         reasons.append("empty_text")
-    meaningful = [
-        segment.text.strip().casefold() for segment in transcript.segments if segment.text.strip()
-    ]
+    meaningful = [segment.text.strip().casefold() for segment in transcript.segments if segment.text.strip()]
     repeated = max(Counter(meaningful).values(), default=0)
     if len(meaningful) >= 4 and repeated / len(meaningful) > 0.5:
         reasons.append("excessive_repetition")

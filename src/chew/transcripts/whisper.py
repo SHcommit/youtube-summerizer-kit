@@ -96,12 +96,11 @@ class WhisperProvider:
             )
 
         if source.kind == SourceKind.LOCAL_MEDIA:
-            assert source.local_path is not None
+            if source.local_path is None:
+                raise RuntimeError("Expected local_path for LOCAL_MEDIA source but got None")
             return await transcribe_audio(Path(source.local_path))
 
         with tempfile.TemporaryDirectory(dir=self.temporary_root, prefix="chew-audio-") as raw:
             destination = Path(raw)
-            audio = await asyncio.to_thread(
-                self.audio_downloader, source.canonical_url, destination
-            )
+            audio = await asyncio.to_thread(self.audio_downloader, source.canonical_url, destination)
             return await transcribe_audio(audio)

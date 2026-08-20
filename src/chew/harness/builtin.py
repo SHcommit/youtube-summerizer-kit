@@ -71,9 +71,7 @@ def ensure_success(runtime_id: str, result: ProcessResult) -> None:
     normalized = detail.lower()
     auth_tokens = ("not logged", "authentication", "unauthorized", "401")
     if any(token in normalized for token in auth_tokens):
-        login = {"codex": "codex login", "gemini": "gemini", "claude": "claude"}.get(
-            runtime_id, runtime_id
-        )
+        login = {"codex": "codex login", "gemini": "gemini", "claude": "claude"}.get(runtime_id, runtime_id)
         raise HarnessAuthenticationError(runtime_id, login)
     if "429" in normalized or "rate limit" in normalized or "usage limit" in normalized:
         raise HarnessRateLimitError(f"{runtime_id} 요청 한도에 도달했습니다")

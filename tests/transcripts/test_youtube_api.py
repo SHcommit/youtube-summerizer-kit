@@ -43,8 +43,6 @@ async def test_api_failure_reason_is_available_to_fallback_service() -> None:
 
     source = normalize_youtube_url("https://youtu.be/abcDEF_1234")
     with pytest.raises(TranscriptUnavailable) as captured:
-        await TranscriptService([YouTubeApiTranscriptProvider(api_factory=BrokenApi)]).resolve(
-            source, "ko"
-        )
+        await TranscriptService([YouTubeApiTranscriptProvider(api_factory=BrokenApi)]).resolve(source, "ko")
 
     assert captured.value.attempts[0].reasons == ("provider_error:ConnectionError",)

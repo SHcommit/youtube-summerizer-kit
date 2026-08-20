@@ -41,9 +41,7 @@ async def test_provider_failure_reason_is_recorded_by_fallback_service() -> None
         raise RuntimeError("network")
 
     with pytest.raises(TranscriptUnavailable) as captured:
-        await TranscriptService(
-            [YtDlpSubtitleProvider(extractor=broken, caption_kind="manual")]
-        ).resolve(SOURCE, "ko")
+        await TranscriptService([YtDlpSubtitleProvider(extractor=broken, caption_kind="manual")]).resolve(SOURCE, "ko")
 
     assert captured.value.attempts[0].reasons == ("provider_error:RuntimeError",)
 
@@ -52,9 +50,7 @@ async def test_manual_and_automatic_can_be_independent_fallback_candidates() -> 
     info = {
         "duration": 10.0,
         "subtitles": {"ko": [{"data": "WEBVTT\n\n00:00.000 --> 00:01.000\n짧음"}]},
-        "automatic_captions": {
-            "ko": [{"data": "WEBVTT\n\n00:00.000 --> 00:10.000\n전체 자동 자막"}]
-        },
+        "automatic_captions": {"ko": [{"data": "WEBVTT\n\n00:00.000 --> 00:10.000\n전체 자동 자막"}]},
     }
     from chew.transcripts.service import TranscriptService
 
@@ -90,9 +86,9 @@ async def test_metadata_survives_when_yt_dlp_has_no_usable_subtitle() -> None:
                 segments=(TranscriptSegment(start_ms=0, end_ms=10_000, text="API 자막"),),
             )
 
-    resolution = await TranscriptService(
-        [YtDlpSubtitleProvider(extractor=lambda _: info), ApiProvider()]
-    ).resolve(SOURCE, "ko")
+    resolution = await TranscriptService([YtDlpSubtitleProvider(extractor=lambda _: info), ApiProvider()]).resolve(
+        SOURCE, "ko"
+    )
 
     assert resolution.transcript.title == "보존할 제목"
     assert resolution.transcript.chapters[0].title == "도입"
