@@ -51,7 +51,14 @@ src/chew/
 reports/               # Central Benchmarking & Performance Observability Reports
 ├── BENCHMARK.md       (Release performance history & OpenTelemetry Jaeger setup)
 ├── performance_analysis.md (Baseline vs optimized commit diff comparisons)
-└── trace_report.md    (Generated OpenTelemetry span execution report)
+├── trace_report.md    (Generated OpenTelemetry span execution report)
+└── performance-comparisons/transcript-preprocessing/
+                        (Immutable preprocessing benchmark runs + latest summary)
+
+benchmarks/            # Maintainer-only post-feature validation scripts
+├── benchmark.sh       (Friendly wrapper: report allInOne, baseline, quality, render)
+├── videos.lock.json   (Canonical five-video preprocessing fixture)
+└── *.py               (Metrics, quality validation, and Markdown/HTML report rendering)
 ```
 
 ---
@@ -107,5 +114,4 @@ reports/               # Central Benchmarking & Performance Observability Report
     - Before exploring the codebase, read `docs/agent-index.md`. It provides a layer map, key file pointers, harness table, CLI command table, protocol signatures, and a sync checklist — all in one place.
     - Whenever you add a harness, CLI command, new layer, optional extras group, or make a schema/protocol change, you MUST update the relevant section(s) of `docs/agent-index.md` in the same commit. The sync checklist in §10 of that doc tells you exactly what to update for each change type.
     - Also keep `CHANGELOG.md` (under `## [Unreleased]`), `README.md`, and `README.ko.md` in sync as required by Rule 4.
-
 

@@ -175,6 +175,8 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | `README.md` / `README.ko.md` | User-facing documentation (en/ko) |
 | `reports/BENCHMARK.md` | Performance baseline and release benchmark scores |
 | `reports/performance_analysis.md` | Baseline vs optimized commit comparisons |
+| `reports/performance-comparisons/transcript-preprocessing/` | Maintainer preprocessing comparison reports and immutable run artifacts |
+| `benchmarks/` | Maintainer-only benchmark scripts, `benchmark.sh report allInOne`, and locked transcript-preprocessing video fixture |
 | `assets/architecture/en/` | English Mermaid diagrams + PNGs |
 | `assets/architecture/ko/` | Korean Mermaid diagrams + PNGs |
 

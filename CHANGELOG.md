@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Maintainer Transcript Preprocessing Benchmark Foundation**:
+  - Added `benchmarks/videos.lock.json` as the canonical five-video fixture for baseline/candidate preprocessing comparisons.
+  - Added maintainer-only scripts for metrics collection, quality-gate validation, and Markdown/Plotly report rendering under `benchmarks/`.
+  - Added `benchmarks/benchmark.sh report allInOne` as the short wrapper for current-run measurement plus final Markdown/HTML report generation.
+  - Added post-feature validation report improvements: aggregate token/latency summary, stage token funnel, stage latency metrics, release metadata in HTML, and no-effect warnings when a candidate path records no measurable token or segmentation change.
+  - Added immutable report location scaffolding under `reports/performance-comparisons/transcript-preprocessing/`.
 - **`HuggingFaceHarness` and `LayeredOllamaHarness`** (§7-6, §7-7):
   - `HuggingFaceHarness`: free-tier hosted inference via HuggingFace Inference API (`huggingface_hub`); authenticates with `HF_TOKEN` env var.
   - `LayeredOllamaHarness`: routes pipeline tasks across three quantized Ollama model tiers (1.5B / 7B / 14B) based on task type (`topic_summary` → layer1, `chapter_summary` → layer2, `output_compose` → layer3).

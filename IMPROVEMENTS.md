@@ -22,7 +22,7 @@
 ### 고정 벤치마크 영상 (변경 금지 — 비교 기준점)
 
 > **실행 전 주의:** 아래 YouTube 영상 ID는 실행 전 반드시 `yt-dlp --get-duration URL`로 실제 길이를 검증할 것.
-> 영상이 삭제/비공개 전환된 경우 동일 길이의 대체 영상을 찾아 이 표를 업데이트하되, `benchmark-videos.lock.json`에 최초 선정 기록을 남길 것.
+> 영상이 삭제/비공개 전환된 경우 동일 길이의 대체 영상을 찾아 이 표를 업데이트하되, `benchmarks/videos.lock.json`에 최초 선정 기록을 남길 것.
 
 | # | 언어 | 실측 길이 | 영상 | YouTube ID | 선정 이유 | 상태 |
 |---|---|---|---|---|---|---|
@@ -62,43 +62,43 @@
 
 ```bash
 # 스크립트 작성 위치
-scripts/spike_token_baseline.py
+benchmarks/run_preprocessing.py
+benchmarks/evaluate_quality.py
+benchmarks/render_report.py
 
 # 실행 방법 (전처리 없는 현재 기준선)
-uv run python scripts/spike_token_baseline.py --mode baseline
+benchmarks/benchmark.sh baseline --preprocessing none --concurrency 5
 
-# 실행 방법 (Phase 1 완료 후 비교)
-uv run python scripts/spike_token_baseline.py --mode compare
+# 실행 방법 (Phase 1 완료 후 비교 + 최종 보고서)
+benchmarks/benchmark.sh report allInOne --baseline <baseline-run-id> --target-release v0.2.0
 
 # 결과 저장
-reports/token-baseline.md        ← 현재 기준선 표
-reports/token-comparison.md      ← 전/후 비교 표 (Phase 1 완료 후)
-reports/benchmark-videos.lock.json ← 고정 영상 ID + 실측 길이 잠금
+benchmarks/videos.lock.json      ← 고정 영상 ID + 실측 길이 잠금
+reports/performance-comparisons/transcript-preprocessing/<run-id>/metrics.json
+reports/performance-comparisons/transcript-preprocessing/<run-id>/report.md
+reports/performance-comparisons/transcript-preprocessing/<run-id>/report.html
+reports/performance-comparisons/transcript-preprocessing/latest.md
 ```
 
-### 스크립트 구현 요구사항 (`scripts/spike_token_baseline.py`)
+### 스크립트 구현 요구사항 (`benchmarks/run_preprocessing.py`)
 
 ```python
 """
-Token measurement spike — baseline before preprocessing.
+Transcript preprocessing benchmark — baseline before preprocessing.
 
 실행 전 필요 패키지:
-  uv add tiktoken yt-dlp --dev
+  uv run --isolated --with tiktoken --with yt-dlp
 
 측정 흐름:
-  1. BENCHMARK_VIDEOS 딕셔너리에서 URL 읽기
-  2. yt-dlp로 자막 다운로드 (--write-auto-sub --skip-download)
-  3. .vtt/.srt 파싱하여 plain text 추출
-  4. tiktoken cl100k_base로 토큰 수 계산
-  5. 필러 패턴 (한국어/영어) 매칭으로 filler_ratio 계산
-  6. 결과를 Markdown 표로 reports/token-baseline.md에 저장
-
-BENCHMARK_VIDEOS (변경 금지):
-  "5m_en":  "https://www.youtube.com/watch?v=c4GaJKprGEs"
-  "39m_en": "https://www.youtube.com/watch?v=ZIaOBAjvc38"
-  "1h_en":  "https://www.youtube.com/watch?v=XDB5beon4DY"
-  "2h_en":  "https://www.youtube.com/watch?v=RcYjXbSJBN8"
-  "2h50m_en":  "https://www.youtube.com/watch?v=BYXbuik3dgA"
+  1. benchmarks/videos.lock.json에서 URL 읽기
+  2. 기존 TranscriptService provider 체인으로 자막 수집
+  3. tiktoken cl100k_base로 raw/processed 토큰 수 계산
+  4. 필러 패턴 매칭으로 filler_ratio 계산
+  5. 현재 segmentation.py 기준 topic 수 계산
+  6. fetch/preprocessing/segmentation 단계별 latency 기록
+  7. 불변 run directory에 metrics.json 저장
+  8. 후보 기능 경로에서 측정 가능한 변화가 없으면 최종 보고서에 경고 표시
+  9. Phase 1 구현 후 `chew.pipeline.preprocessing.preprocess_transcript(transcript, mode=...)` hook으로 실제 product preprocessing 경로 연결
 
 한국어 필러 패턴: ["음+", "어+", "그+", "뭐지", "있잖아", "그러니까", "아~", "에~"]
 영어 필러 패턴:  ["\\bum+\\b", "\\buh+\\b", "\\byou know\\b", "\\blike\\b", "\\bactually\\b"]

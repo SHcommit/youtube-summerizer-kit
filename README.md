@@ -454,6 +454,19 @@ The benchmark compares direct Gemini URL analysis using a minimal prompt and sha
 
 Live benchmarks require both `--live` and an explicit reference file because they use real login sessions and quota. Reports are written atomically to `benchmark-results/run-*/report.json` and `report.md`. The project does not yet publish a multilingual, multi-duration benchmark corpus or claim that it always outperforms Gemini.
 
+Maintainer-only transcript preprocessing comparisons use the locked fixture and scripts in `benchmarks/`.
+Run the baseline before the feature or from the previous release, then run the
+final report after the candidate feature is implemented:
+
+```bash
+benchmarks/benchmark.sh baseline --preprocessing none --concurrency 5
+benchmarks/benchmark.sh report allInOne \
+  --baseline <baseline-run-id> \
+  --target-release v0.2.0
+```
+
+The saved evidence lives under `reports/performance-comparisons/transcript-preprocessing/`. These scripts never call an LLM during metrics collection and do not add benchmark-only dependencies to the normal package install. The generated report shows aggregate token reduction, per-video graphs, a stage token funnel, quality/reliability/reproducibility gates, release metadata, and a warning when the candidate path shows no measurable effect.
+
 ---
 
 ## Development and Verification
