@@ -194,3 +194,89 @@ Full Jitter (0 to cap) prevents synchronized retries ("thundering herd") when mu
 ---
 
 *Last updated: 2026-08-20 — covers Steps 5–9 (§7-3, §7-5, §7-6, §7-7, §2-3, §6-1, §9-5, §9-10, §9-11)*
+
+---
+
+## Strategy 패턴 도입 배경 및 개선점 (2026-08-20)
+
+### 계기
+
+전처리 파이프라인(Phase 1)을 설계하면서 핵심 질문이 나왔다:
+
+> "지금 설계가 더 나은 방식으로 바뀔 수 있잖아 — 그걸 쉽게 갈아낄 수 있는 구조로 하고 싶어."
+
+이미 코드베이스 전체가 Strategy 패턴으로 설계되어 있었다:
+- `Harness Protocol` → AI 런타임을 갈아낄 수 있는 구조
+- `TranscriptProvider` → 자막 수집 방식을 갈아낄 수 있는 구조
+- `BoundaryDetector` → 경계 탐지 알고리즘을 갈아낄 수 있는 구조
+
+전처리도 같은 원칙을 따라야 일관된 아키텍처가 된다.
+
+### 기존 방식 (하드코딩)
+
+```python
+# 변경 전 — 단계가 고정, 추가·교체 시 함수 내부를 직접 수정해야 함
+def preprocess_transcript(transcript):
+    transcript = _remove_fillers(transcript)
+    transcript = _restore_punctuation(transcript)   # 항상 호출됨
+    transcript = _detect_boundaries(transcript)     # 항상 호출됨
+    return transcript
+```
+
+문제:
+- 새 전처리 방법이 생기면 함수 내부를 수정해야 함 (Open/Closed Principle 위반)
+- 의존성 없이는 단계가 실패하거나 try/except로 감싸야 함
+- 테스트 시 특정 단계만 격리하기 어려움
+- 순서 변경, A/B 테스트, 사용자 설정이 어려움
+
+### Strategy 패턴 적용 후
+
+```python
+class PreprocessingStrategy(Protocol):
+    def available(self) -> bool: ...   # 의존성 체크
+    def process(self, t: Transcript) -> Transcript: ...
+
+class TranscriptPreprocessor:
+    def __init__(self, strategies: list[PreprocessingStrategy] | None = None):
+        self.strategies = strategies or [
+            FillerRemovalStrategy(),    # 항상 available
+            PunctuationStrategy(),      # deepmultilingualpunctuation 설치 시
+            SemanticBoundaryStrategy(), # sentence-transformers 설치 시
+        ]
+```
+
+### 개선된 점
+
+| 항목 | 기존 | Strategy 패턴 |
+|---|---|---|
+| 새 전처리 추가 | 함수 내부 수정 | 새 클래스 작성 후 목록에 추가 |
+| 의존성 미설치 | try/except 산재 | `available()` 한 곳에서 관리 |
+| 단계 순서 변경 | 코드 수정 | 목록 순서만 바꾸면 됨 |
+| 특정 단계 테스트 | 전체 실행 | 전략 인스턴스 하나만 테스트 |
+| CHEW.md 설정 | 불가 | 전략 목록을 설정으로 주입 가능 |
+| A/B 테스트 | 불가 | 다른 전략 목록으로 `TranscriptPreprocessor` 생성 |
+
+### 미래에 갈아낄 수 있는 것들
+
+```python
+# 지금
+TranscriptPreprocessor([
+    FillerRemovalStrategy(),
+    PunctuationStrategy(),
+    SemanticBoundaryStrategy(),
+])
+
+# 나중에 — 더 좋은 방식이 나오면 목록만 교체
+TranscriptPreprocessor([
+    FillerRemovalStrategy(),
+    WhisperPunctuationStrategy(),      # Whisper 기반 더 정확한 복원
+    SpeakerDiarizationStrategy(),      # 화자 분리 추가
+    TopicShiftDetectionStrategy(),     # GPT-4o mini 기반 토픽 전환 탐지
+])
+```
+
+기존 코드를 건드리지 않고 새 전략 클래스만 작성하면 된다.
+
+### 결론
+
+Strategy 패턴은 단순히 코드를 정리하는 게 아니라 **"설계가 바뀌어도 비용이 최소화되는 구조"** 를 만드는 것이다. `chew`의 핵심 가치인 느슨한 결합(Ports & Adapters)과 완전히 일치하는 방향이다.

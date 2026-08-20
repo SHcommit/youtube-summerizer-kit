@@ -13,7 +13,110 @@ Frontier LLM에 전달되는 자막 토큰 수를 30~50% 줄여 BYOK 비용을 �
 
 ---
 
-## 2. 현재 파이프라인과 변경 위치
+## 2. 설계 철학 — Strategy 패턴
+
+기존 코드베이스 전체가 Strategy 패턴으로 설계되어 있다:
+
+```
+Harness Protocol        → AI 런타임별 전략 (codex, claude, ollama, huggingface...)
+TranscriptProvider      → 자막 수집별 전략 (youtube_api, yt_dlp, whisper...)
+BoundaryDetector        → 경계 탐지별 전략 (segmentation.py)
+```
+
+전처리도 동일한 패턴을 따른다. 각 단계는 독립적인 `PreprocessingStrategy`이며, `TranscriptPreprocessor`가 이를 조합한다.
+
+**장점:**
+- 미설치 의존성은 `available() → False`로 자동 skip — 기존 동작 보장
+- 새 전략 추가 시 기존 코드 수정 없음 (Open/Closed Principle)
+- 각 전략 독립 단위 테스트 가능
+- `CHEW.md`에서 전략 on/off 설정 가능 (추후 확장)
+- 아키텍처 일관성 유지
+
+### Protocol 정의
+
+```python
+# src/chew/pipeline/preprocessing.py
+
+from typing import Protocol
+from chew.core.models import Transcript
+
+class PreprocessingStrategy(Protocol):
+    """전처리 전략 인터페이스. 각 구현체는 독립적으로 적용 가능하다."""
+
+    @property
+    def name(self) -> str:
+        """전략 식별자 — CLI 통계 출력에 사용."""
+        ...
+
+    def available(self) -> bool:
+        """필요한 의존성이 설치되어 있는지 확인."""
+        ...
+
+    def process(self, transcript: Transcript) -> Transcript:
+        """Transcript를 받아 처리된 새 Transcript를 반환한다.
+        Transcript는 frozen이므로 반드시 새 인스턴스를 반환해야 한다."""
+        ...
+```
+
+### 조합기 (Composer)
+
+```python
+@dataclass
+class PreprocessingStats:
+    original_segment_count: int
+    processed_segment_count: int
+    original_token_estimate: int
+    processed_token_estimate: int
+    applied_strategies: list[str]  # 실제 적용된 전략 이름 목록
+
+    @property
+    def token_reduction_pct(self) -> float:
+        if self.original_token_estimate == 0:
+            return 0.0
+        return (1 - self.processed_token_estimate / self.original_token_estimate) * 100
+
+
+class TranscriptPreprocessor:
+    """전처리 전략들을 순서대로 적용하는 조합기.
+
+    strategies를 명시하지 않으면 기본 3단계 전략을 사용한다.
+    각 전략은 available() 검사 후 적용되므로 선택적 의존성이 없어도 동작한다.
+    """
+
+    def __init__(self, strategies: list[PreprocessingStrategy] | None = None) -> None:
+        self.strategies: list[PreprocessingStrategy] = strategies or [
+            FillerRemovalStrategy(),       # 항상 available
+            PunctuationStrategy(),         # deepmultilingualpunctuation 설치 시
+            SemanticBoundaryStrategy(),    # sentence-transformers 설치 시
+        ]
+
+    def process(self, transcript: Transcript) -> tuple[Transcript, PreprocessingStats]:
+        original_tokens = _estimate_tokens(transcript)
+        original_count = len(transcript.segments)
+        applied: list[str] = []
+
+        for strategy in self.strategies:
+            if strategy.available():
+                transcript = strategy.process(transcript)
+                applied.append(strategy.name)
+
+        return transcript, PreprocessingStats(
+            original_segment_count=original_count,
+            processed_segment_count=len(transcript.segments),
+            original_token_estimate=original_tokens,
+            processed_token_estimate=_estimate_tokens(transcript),
+            applied_strategies=applied,
+        )
+
+
+def _estimate_tokens(transcript: Transcript) -> int:
+    """단어 수 기반 토큰 추정 (실제 토크나이저 없이 근사값)."""
+    return sum(len(seg.text.split()) for seg in transcript.segments)
+```
+
+---
+
+## 3. 현재 파이프라인과 변경 위치
 
 ### 현재
 
@@ -50,92 +153,115 @@ SegmentManifest → topic jobs → Frontier LLM
 
 ---
 
-## 3. 전처리 3단계
+## 4. 전처리 전략 구현체 (3단계)
 
-### Stage 1: 규칙 기반 필터 (Rule-Based Filter)
+### Strategy 1: `FillerRemovalStrategy` — 규칙 기반 필러 제거
 
-**의존성:** 없음 (표준 라이브러리만)
+**`available()` → 항상 `True`** (표준 라이브러리만 사용)
 
-**처리 내용:**
-
-| 대상 | 처리 방법 | 예시 |
+| 대상 | 처리 | 예시 |
 |---|---|---|
 | 한국어 필러 | 정규식 제거 | `"음~"`, `"어~"`, `"그~"`, `"뭐~"` |
 | 영어 필러 | 정규식 제거 | `"um"`, `"uh"`, `"like"`, `"you know"` |
 | 말 더듬 반복 | 정규식 축약 | `"이이이이게"` → `"이게"` |
 | 연속 공백 | collapse | `"hello   world"` → `"hello world"` |
 | 빈 세그먼트 | 제거 | `text=""` 또는 공백만 있는 세그먼트 |
-| 과도한 줄바꿈 | 정리 | `"\n\n\n"` → `"\n"` |
-
-**구현:**
 
 ```python
-# src/chew/pipeline/preprocessing.py
-
 import re
-from chew.core.models import Transcript, TranscriptSegment
+from chew.core.models import Transcript
 
-_KO_FILLERS = re.compile(
-    r'\b(음+~?|어+~?|그+~?|뭐+~?|아+~?|네+~?|예+~?)\b', re.IGNORECASE
-)
+_KO_FILLERS = re.compile(r'\b(음+~?|어+~?|그+~?|뭐+~?|아+~?|네+~?|예+~?)\b')
 _EN_FILLERS = re.compile(
     r'\b(um+|uh+|like|you know|i mean|basically|literally|actually)\b',
     re.IGNORECASE,
 )
-_STUTTER = re.compile(r'\b(\w+)\1{2,}\b')  # 3회 이상 반복 단어
+_STUTTER = re.compile(r'\b(\w)\1{2,}\b')
 _MULTI_SPACE = re.compile(r' {2,}')
 
-def _clean_text(text: str) -> str:
-    text = _KO_FILLERS.sub('', text)
-    text = _EN_FILLERS.sub('', text)
-    text = _STUTTER.sub(r'\1', text)
-    text = _MULTI_SPACE.sub(' ', text)
-    return text.strip()
+
+class FillerRemovalStrategy:
+    name = "filler-removal"
+
+    def available(self) -> bool:
+        return True
+
+    def process(self, transcript: Transcript) -> Transcript:
+        cleaned = []
+        for seg in transcript.segments:
+            text = _KO_FILLERS.sub('', seg.text)
+            text = _EN_FILLERS.sub('', text)
+            text = _STUTTER.sub(r'\1', text)
+            text = _MULTI_SPACE.sub(' ', text).strip()
+            if text:  # 빈 세그먼트 제거
+                cleaned.append(seg.model_copy(update={"text": text}))
+        return transcript.model_copy(update={"segments": tuple(cleaned)})
 ```
 
-### Stage 2: 문장부호 복원 (Punctuation Restoration)
+---
 
-**의존성:** `deepmultilingualpunctuation` (선택적 — `[preprocess]` extras)
+### Strategy 2: `PunctuationStrategy` — 문장부호 복원
 
-**왜 필요한가:** 유튜브 자동생성 자막은 마침표, 쉼표가 없다. 현재 `PausePunctuationBoundaryDetector`가 문장부호를 단서로 경계를 탐지하는데, 자막에 문장부호가 없으면 세그멘테이션 품질이 떨어진다. 복원 후 Frontier 입력 품질도 올라간다.
+**`available()` → `deepmultilingualpunctuation` 설치 여부**
+
+유튜브 자동생성 자막은 마침표·쉼표가 없다. 복원하면 `PausePunctuationBoundaryDetector`의 경계 탐지 품질이 올라가고, Frontier 입력 가독성도 높아진다.
 
 ```python
-def _restore_punctuation(segments: list[TranscriptSegment]) -> list[TranscriptSegment]:
-    try:
+import importlib.util
+
+
+class PunctuationStrategy:
+    name = "punctuation-restoration"
+
+    def available(self) -> bool:
+        return importlib.util.find_spec("deepmultilingualpunctuation") is not None
+
+    def process(self, transcript: Transcript) -> Transcript:
         from deepmultilingualpunctuation import PunctuationModel  # type: ignore[import]
-    except ImportError:
-        return segments  # 미설치 시 skip
-
-    model = PunctuationModel()
-    restored = []
-    for seg in segments:
-        cleaned = model.restore_punctuation(seg.text)
-        restored.append(seg.model_copy(update={"text": cleaned}))
-    return restored
+        model = PunctuationModel()
+        restored = [
+            seg.model_copy(update={"text": model.restore_punctuation(seg.text)})
+            for seg in transcript.segments
+        ]
+        return transcript.model_copy(update={"segments": tuple(restored)})
 ```
 
-**지원 언어:** 영어, 한국어, 독일어, 프랑스어, 중국어 등 다국어 지원.
+**지원 언어:** 영어, 한국어, 독일어, 프랑스어, 중국어 등.
 
-### Stage 3: 의미 경계 탐지 (Semantic Boundary Detection)
+---
 
-**의존성:** `sentence-transformers` (선택적 — `[preprocess]` extras)
+### Strategy 3: `SemanticBoundaryStrategy` — 의미 경계 탐지
 
-**왜 필요한가:** 현재 `segmentation.py`는 타임스탬프 + 문장부호 기반으로 분절한다. 같은 주제가 이어지는 구간을 임의로 잘라내거나, 다른 주제가 하나의 토픽으로 묶이는 문제가 있다. 임베딩 유사도 변곡점을 `BoundaryDetector`에 힌트로 전달하면 더 자연스러운 토픽 경계를 찾을 수 있다.
+**`available()` → `sentence-transformers` 설치 여부**
 
-**설계:**
+타임스탬프 기반 분절의 한계를 보완한다. 인접 세그먼트 간 임베딩 코사인 유사도가 임계값 아래로 떨어지는 지점을 `segmentation.py`의 `BoundaryDetector`에 힌트로 전달한다.
 
 ```python
-class SemanticBoundaryDetector:
-    """sentence-transformers 기반 의미 경계 탐지기.
+class SemanticBoundaryStrategy:
+    """sentence-transformers 기반 의미 경계 탐지.
 
-    segmentation.py의 BoundaryDetector 프로토콜을 구현한다.
-    인접 세그먼트 쌍의 임베딩 코사인 유사도가 임계값(threshold) 아래로
-    떨어지는 지점을 토픽 경계 후보로 표시한다.
+    Transcript 자체를 변경하지 않는다.
+    대신 segmentation.py에 주입할 SemanticBoundaryDetector 인스턴스를 생성한다.
+    (engine.py에서 별도로 주입 — 아래 통합 진입점 참고)
     """
+    name = "semantic-boundary"
+
+    def available(self) -> bool:
+        return importlib.util.find_spec("sentence_transformers") is not None
+
+    def process(self, transcript: Transcript) -> Transcript:
+        return transcript  # Transcript 수정 없음 — detector 주입으로 효과 발현
+
+    def make_detector(self, threshold: float = 0.5) -> "SemanticBoundaryDetector":
+        return SemanticBoundaryDetector(threshold=threshold)
+
+
+class SemanticBoundaryDetector:
+    """segmentation.py BoundaryDetector 프로토콜 구현체."""
 
     def __init__(self, threshold: float = 0.5) -> None:
         self.threshold = threshold
-        self._model: object | None = None  # lazy init
+        self._model: object | None = None
 
     def _get_model(self) -> object:
         if self._model is None:
@@ -143,8 +269,7 @@ class SemanticBoundaryDetector:
             self._model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
         return self._model
 
-    def detect(self, segments: list[TranscriptSegment]) -> list[int]:
-        """경계로 판단된 segment index 목록을 반환한다."""
+    def detect(self, segments: list) -> list[int]:
         if len(segments) < 3:
             return []
         model = self._get_model()
@@ -152,67 +277,51 @@ class SemanticBoundaryDetector:
         embeddings = model.encode(texts, convert_to_tensor=True)  # type: ignore[union-attr]
         boundaries = []
         for i in range(len(embeddings) - 1):
-            sim = float(
-                (embeddings[i] * embeddings[i + 1]).sum()
-                / (embeddings[i].norm() * embeddings[i + 1].norm())
-            )
+            a, b = embeddings[i], embeddings[i + 1]
+            sim = float((a * b).sum() / (a.norm() * b.norm()))
             if sim < self.threshold:
                 boundaries.append(i + 1)
         return boundaries
 ```
 
-**사용 모델:** `paraphrase-multilingual-MiniLM-L12-v2`
-- 크기: ~120MB
-- 다국어 지원 (한국어 포함)
-- CPU에서 실시간 처리 가능
+**사용 모델:** `paraphrase-multilingual-MiniLM-L12-v2` (~120MB, 한국어 포함 다국어, CPU 실시간 처리 가능)
 
 ---
 
-## 4. 통합 진입점
+## 5. 통합 진입점
+
+**engine.py 변경 (최소 — 두 줄 추가):**
 
 ```python
-# src/chew/pipeline/preprocessing.py
+# engine.py — line ~178 (transcript fetch 직후, segment_transcript 직전)
+from chew.pipeline.preprocessing import TranscriptPreprocessor, SemanticBoundaryStrategy
 
-def preprocess_transcript(transcript: Transcript) -> Transcript:
-    """자막 전처리 파이프라인.
+preprocessor = TranscriptPreprocessor()          # 기본 3전략
+transcript, prep_stats = preprocessor.process(transcript)
 
-    Transcript는 frozen이므로 새 인스턴스를 반환한다.
-    각 단계는 독립적으로 skip 가능 (의존성 미설치 시 자동 bypass).
+# SemanticBoundaryStrategy가 available하면 detector 주입
+_semantic = SemanticBoundaryStrategy()
+detector = _semantic.make_detector() if _semantic.available() else None
 
-    Stage 1: 규칙 기반 필러/반복 제거 (항상 실행)
-    Stage 2: 문장부호 복원 (deepmultilingualpunctuation 설치 시)
-    Stage 3: 의미 경계 탐지는 segmentation.py에 SemanticBoundaryDetector 주입
-    """
-    segments = list(transcript.segments)
-
-    # Stage 1: 항상 실행
-    segments = [
-        seg.model_copy(update={"text": _clean_text(seg.text)})
-        for seg in segments
-        if _clean_text(seg.text)  # 빈 세그먼트 제거
-    ]
-
-    # Stage 2: 선택적
-    segments = _restore_punctuation(segments)
-
-    return transcript.model_copy(update={"segments": tuple(segments)})
+manifest = segment_transcript(
+    transcript, selected_chapters, policy, detector=detector, depth=config.depth
+)
 ```
 
-**engine.py 변경 (최소):**
+**`preprocess_transcript()` 공개 함수 (편의 래퍼):**
 
 ```python
-# engine.py — segment_transcript() 호출 앞에 삽입
-from chew.pipeline.preprocessing import preprocess_transcript, SemanticBoundaryDetector
-
-# line ~180
-transcript = preprocess_transcript(transcript)
-detector = SemanticBoundaryDetector() if _semantic_available() else None
-manifest = segment_transcript(transcript, selected_chapters, policy, detector=detector, depth=config.depth)
+def preprocess_transcript(
+    transcript: Transcript,
+    strategies: list[PreprocessingStrategy] | None = None,
+) -> tuple[Transcript, PreprocessingStats]:
+    """기본 TranscriptPreprocessor로 전처리. engine.py에서 호출."""
+    return TranscriptPreprocessor(strategies).process(transcript)
 ```
 
 ---
 
-## 5. 새 extras 그룹
+## 6. 새 extras 그룹
 
 ```toml
 # pyproject.toml
@@ -231,7 +340,7 @@ pip install 'chew[preprocess]'
 
 ---
 
-## 6. Token 절감 측정
+## 7. Token 절감 측정
 
 전처리 전후 토큰 수를 `PreprocessingStats`로 기록하고 CLI에 출력한다.
 
@@ -261,7 +370,7 @@ CLI 출력 예시:
 
 ---
 
-## 7. 테스트 계획
+## 8. 테스트 계획
 
 `tests/test_preprocessing.py`:
 
@@ -304,7 +413,7 @@ def test_semantic_detector_returns_boundary_indexes():
 
 ---
 
-## 8. 완료 기준
+## 9. 완료 기준
 
 - [ ] `preprocessing.py` 구현 및 unit test 통과
 - [ ] `engine.py` 통합 — 기존 테스트 전부 통과 (regression 없음)
@@ -317,7 +426,7 @@ def test_semantic_detector_returns_boundary_indexes():
 
 ---
 
-## 9. 미래 확장 (이번 구현 범위 밖)
+## 10. 미래 확장 (이번 구현 범위 밖)
 
 - **Notion 연동** — `chew notion` 명령어 (추후)
 - **Knowledge Graph** — 영상 간 임베딩 유사도 기반 연결 (추후)
