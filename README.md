@@ -147,7 +147,19 @@ The yellow Knowledge Pack is the reuse boundary. Once created, the system can pr
 | HuggingFace (`huggingface`) | Yes | `HF_TOKEN` env var | Set `HF_TOKEN`; `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | Yes | Verified on invocation / persistent session | Install `agy` CLI |
 
-With the default `runtime: auto`, the kit selects an installed, authenticated runtime from the Codex → Gemini → Claude → Ollama → Antigravity candidate set. Because Gemini does not expose a reliable non-consuming authentication-status command, it is probed by the first actual generation request when no already-verified runtime is available.
+**Local LLMs are completely optional.** With the default `runtime: auto`, the kit selects an installed, authenticated runtime from the Codex → Gemini → Claude → Ollama → Antigravity candidate set — Ollama is skipped automatically if it is not installed. Most users run entirely on cloud CLIs (Codex, Gemini, Claude) and never install Ollama at all.
+
+If you do want a fully local, offline setup, Ollama is the only runtime that requires a local model download:
+
+| Setup | Disk required |
+|---|---|
+| Codex / Gemini / Claude / Antigravity / HuggingFace | 0 GB extra |
+| `ollama` with a single model | ~1–5 GB |
+| `layered_ollama` with all three tiers | ~15 GB total (`q4_K_M` quantized) |
+
+Run `chew doctor` to see which runtimes are available on your machine and get install hints for any that are missing.
+
+Because Gemini does not expose a reliable non-consuming authentication-status command, it is probed by the first actual generation request when no already-verified runtime is available.
 
 If a runtime with a preflight authentication check is signed out, automatic selection moves to another ready runtime. If you explicitly select a signed-out runtime, the run is saved as `blocked_auth` and the CLI prints the login command. Sign in, then run `chew resume`; completed segments are preserved.
 

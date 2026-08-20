@@ -148,7 +148,19 @@ chew 진단 --json
 | HuggingFace (`huggingface`) | 예 | `HF_TOKEN` 환경 변수 | `HF_TOKEN` 설정 후 `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | 예 | 첫 생성 때 확인 / 기존 로컬 세션 사용 | `agy` CLI 설치 및 세션 사용 |
 
-기본값 `runtime: auto`에서는 설치되어 있고 로그인이 확인된 실행기를 Codex → Gemini → Claude → Ollama → Antigravity 순서의 후보군에서 선택합니다. 로그인 여부를 사전에 확정할 수 없는 Gemini는 확인된 실행기가 하나도 없을 때 후보가 되고, 첫 생성 요청에서 실제 인증을 검증합니다.
+**로컬 LLM은 완전히 선택 사항입니다.** 기본값 `runtime: auto`에서는 설치되어 있고 로그인이 확인된 실행기를 Codex → Gemini → Claude → Ollama → Antigravity 순서로 선택하며, Ollama가 설치되어 있지 않으면 자동으로 건너뜁니다. 대부분의 사용자는 클라우드 CLI(Codex, Gemini, Claude)만으로 사용하며 Ollama를 설치할 필요가 없습니다.
+
+완전한 오프라인·로컬 환경을 원한다면 Ollama만 로컬 모델 다운로드가 필요합니다.
+
+| 구성 | 추가 디스크 용량 |
+|---|---|
+| Codex / Gemini / Claude / Antigravity / HuggingFace | 추가 없음 |
+| `ollama` 단일 모델 | ~1–5 GB |
+| `layered_ollama` 3개 티어 전체 | 약 15 GB (`q4_K_M` 양자화 기준) |
+
+`chew doctor`를 실행하면 현재 사용 가능한 실행기를 확인하고, 미설치 항목에 대한 설치 안내를 확인할 수 있습니다.
+
+로그인 여부를 사전에 확정할 수 없는 Gemini는 확인된 실행기가 하나도 없을 때 후보가 되고, 첫 생성 요청에서 실제 인증을 검증합니다.
 
 Codex나 Claude처럼 인증 상태를 확인할 수 있는 실행기가 로그아웃 상태라면 다른 준비된 실행기로 넘어갑니다. 특정 실행기를 설정으로 고정했는데 로그인되어 있지 않다면 로그인 명령을 안내하고 실행을 `blocked_auth` 상태로 보존합니다. 로그인 후 `chew 이어하기`를 실행하면 완료된 구간을 다시 처리하지 않고 계속합니다.
 
