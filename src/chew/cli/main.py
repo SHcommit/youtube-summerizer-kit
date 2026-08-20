@@ -287,12 +287,6 @@ def _run_generation(
                 "Run `pip install -e '.[youtube,whisper]'`."
             )
         raise typer.Exit(2) from error
-    try:
-        exported_report = telemetry.export_markdown_report("reports/trace_report.md")
-        if not json_output:
-            typer.echo(f"OpenTelemetry Trace Report: file://{exported_report.resolve()}")
-    except Exception:
-        pass
     _emit(_result_data(result), json_output, korean=korean)
 
 

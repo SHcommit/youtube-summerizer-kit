@@ -1,5 +1,6 @@
 import logging
 import signal
+from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -113,3 +114,28 @@ def test_result_data_usage_none_when_not_set() -> None:
     )
     data = _result_data(result)
     assert data["usage"] is None
+
+
+def test_summarize_does_not_write_a_trace_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Normal user generation must not create maintainer trace artifacts."""
+    from chew.app.service import CommandResult
+
+    class FakeApplication:
+        async def generate(self, *_: object, **__: object) -> CommandResult:
+            return CommandResult(
+                run_id="run-1",
+                profile="digest",
+                reused=False,
+                files=(tmp_path / "output.md",),
+            )
+
+    cli_module = import_module("chew.cli.main")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli_module, "_application_factory", lambda: FakeApplication())
+
+    result = CliRunner().invoke(app, ["summarize", "https://youtu.be/example"])
+
+    assert result.exit_code == 0
+    assert not (tmp_path / "reports" / "trace_report.md").exists()
