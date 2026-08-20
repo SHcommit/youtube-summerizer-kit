@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import signal as _signal
+import subprocess
 import sys
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -136,18 +138,34 @@ def _emit(data: Any, json_output: bool, *, korean: bool = False) -> None:
                 typer.echo(f"토큰 사용량: 입력 {input_tokens:,} / 출력 {output_tokens:,}")
             else:
                 typer.echo(f"Token usage: {input_tokens:,} input / {output_tokens:,} output")
+        preprocessing = data.get("preprocessing")
+        if isinstance(preprocessing, dict) and not data.get("reused"):
+            before = preprocessing.get("original_token_estimate", 0)
+            after = preprocessing.get("processed_token_estimate", 0)
+            reduction = preprocessing.get("token_reduction_pct", 0.0)
+            stages = ", ".join(preprocessing.get("applied_strategies", []))
+            if korean:
+                typer.echo(f"자막 전처리: {before:,} → {after:,} 추정 토큰 ({reduction:.1f}% 절감; {stages})")
+            else:
+                typer.echo(f"Transcript preprocessing: {before:,} → {after:,} estimated tokens ({reduction:.1f}% saved; {stages})")
     else:
         typer.echo(data if isinstance(data, str) else json.dumps(data, ensure_ascii=False))
 
 
 def _result_data(result: CommandResult) -> dict[str, object]:
-    return {
+    data: dict[str, object] = {
         "run_id": result.run_id,
         "profile": result.profile,
         "reused": result.reused,
         "files": [str(path) for path in result.files],
         "usage": result.usage,
     }
+    if result.preprocessing_stats is not None:
+        data["preprocessing"] = {
+            **asdict(result.preprocessing_stats),
+            "token_reduction_pct": result.preprocessing_stats.token_reduction_pct,
+        }
+    return data
 
 
 def _emit_status(values: list[dict[str, object]], json_output: bool, *, korean: bool) -> None:
@@ -438,6 +456,8 @@ def config(
         if created:
             label = "생성" if _is_korean(context) else "Created"
             typer.echo(f"{label}: " + ", ".join(str(path) for path in created))
+        if Path("CHEW.md") in created and sys.stdin.isatty():
+            _offer_ollama_model_setup(korean=_is_korean(context))
         else:
             typer.echo(
                 "기존 설정 파일을 유지했습니다."
@@ -454,6 +474,36 @@ def config(
 
 app.command("config", help="Show or initialize Markdown configuration.")(config)
 app.command("설정", hidden=True)(config)
+
+
+def _offer_ollama_model_setup(*, korean: bool) -> None:
+    prompt = (
+        "로컬 모델 선택 [1=빠르게 시작 Qwen3 4B (약 2.5GB), 2=권장 Qwen3 8B (약 5.2GB), 3=나중에]"
+        if korean
+        else "Local model [1=Qwen3 4B (~2.5GB), 2=Qwen3 8B (~5.2GB), 3=configure later]"
+    )
+    choice = typer.prompt(prompt, default="3")
+    model = {"1": "qwen3:4b", "2": "qwen3:8b"}.get(choice)
+    if model is None:
+        return
+    config_path = Path("CHEW.md")
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        .replace("runtime: auto", "runtime: ollama")
+        .replace("ollama_model: null", f"ollama_model: {model}"),
+        encoding="utf-8",
+    )
+    if shutil.which("ollama") is None:
+        typer.echo(
+            "Ollama 앱을 설치한 뒤 `chew config --init`을 다시 실행하세요: https://ollama.com/download"
+            if korean
+            else "Install Ollama, then run `chew config --init` again: https://ollama.com/download"
+        )
+        return
+    if typer.confirm(
+        (f"{model}을 지금 다운로드할까요?" if korean else f"Download {model} now?"), default=True
+    ):
+        subprocess.run(["ollama", "pull", model], check=False)
 
 
 def doctor(

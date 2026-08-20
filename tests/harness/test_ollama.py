@@ -52,3 +52,36 @@ async def test_ollama_harness_aclose_closes_client() -> None:
     _ = harness._get_client()  # create client
     await harness.aclose()
     assert harness._client is None
+
+
+@pytest.mark.asyncio
+async def test_ollama_harness_preserves_provider_usage_and_durations() -> None:
+    async def fake_transport(payload: dict) -> dict:
+        return {
+            "response": '{"key": "value"}',
+            "prompt_eval_count": 10,
+            "eval_count": 20,
+            "total_duration": 300,
+            "load_duration": 40,
+            "prompt_eval_duration": 100,
+            "eval_duration": 160,
+        }
+
+    result = await OllamaHarness(transport=fake_transport).generate(
+        GenerationRequest(
+            request_id="req-usage",
+            task="topic_summary",
+            input={"topic_id": "t1"},
+            output_schema={"type": "object"},
+            trace_id="run-1",
+        )
+    )
+
+    assert result.usage == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_duration_ns": 300,
+        "load_duration_ns": 40,
+        "prompt_eval_duration_ns": 100,
+        "eval_duration_ns": 160,
+    }

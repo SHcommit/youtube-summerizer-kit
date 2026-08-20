@@ -66,7 +66,12 @@ class LayeredOllamaHarness:
         )
 
     async def generate(self, request: GenerationRequest) -> GenerationResult:
-        return await self._select_layer(request.task).generate(request)
+        task = request.task
+        if task == "repair":
+            target_task = request.input.get("target_task")
+            if isinstance(target_task, str):
+                task = target_task
+        return await self._select_layer(task).generate(request)
 
     async def aclose(self) -> None:
         """Close all layer HTTP clients."""

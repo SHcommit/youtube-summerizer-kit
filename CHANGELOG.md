@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Reproducible preprocessing token-baseline spike**:
+  - Adds `scripts/spike_token_baseline.py`, a maintainer-only raw-caption measurement tool backed by the locked benchmark video set.
+  - It records `cl100k_base` token counts, bilingual filler density, source provenance, duration verification, and current topic-segmentation counts without invoking an LLM.
+- **Opt-in transcript preprocessing pipeline**:
+  - Adds composable local preprocessing strategies: conservative filler removal, optional punctuation restoration, and optional semantic boundary detection.
+  - `preprocess_transcript: true` preserves the preprocessed artifact separately, exposes estimated token savings in CLI output, and includes the preprocessing recipe in analysis cache identity.
+- **Expanded generation-attempt profiling**:
+  - SQLite schema v6 records each request's input characters, segment count, output-schema characters, repair flag, and retry flag alongside provider usage and duration fields.
+  - Adds `scripts/report_job_measurements.py` to render per-run, read-only profiling reports without treating structural estimates as billing tokens.
+- **Explicit opt-in task runtime routing**:
+  - `task_runtimes` routes only explicitly named tasks to a user-selected BYOK runtime; all other tasks retain the configured default runtime and no provider is auto-switched.
+- **Local LLM Runtime Decision Record**:
+  - Documents that local Open LLM and Ollama are optional user choices, not a required product dependency.
+- **Ollama request measurements and opt-in token-budget segmentation**:
+  - Persists each generation attempt, including JSON repairs, against its SQLite job with runtime, model, provider-reported token counts, and available Ollama duration fields.
+  - Adds `max_input_tokens` and `reserved_output_tokens` to `CHEW.md`; when configured, topic segmentation preserves the time boundary while preventing overlap from exceeding the explicit input budget.
+  - Adds selected single-model identity to the analysis cache key so changing an Ollama model does not reuse an incompatible Knowledge Pack.
+  - Marks Knowledge Packs with failed topic IDs and missing timestamp ranges; digest output visibly labels partial results.
+  - Adds opt-in `output_verify: false` for blog/study output compilation; the default still performs outline, compose, and verification.
+  - Adds opt-in `normalize_transcript: true`, preserving the raw transcript while analyzing a separately stored normalized artifact.
+  - Routes layered-Ollama repairs to the failed task's tier rather than always downgrading to the smallest model.
+  - `chew config --init` now offers an interactive Qwen3 4B / 8B / later choice and downloads a model only after confirmation.
 - **`HuggingFaceHarness` and `LayeredOllamaHarness`** (§7-6, §7-7):
   - `HuggingFaceHarness`: free-tier hosted inference via HuggingFace Inference API (`huggingface_hub`); authenticates with `HF_TOKEN` env var.
   - `LayeredOllamaHarness`: routes pipeline tasks across three quantized Ollama model tiers (1.5B / 7B / 14B) based on task type (`topic_summary` → layer1, `chapter_summary` → layer2, `output_compose` → layer3).

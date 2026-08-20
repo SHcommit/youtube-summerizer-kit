@@ -175,6 +175,8 @@ Initialize editable configuration once per project:
 chew config --init
 ```
 
+In an interactive terminal, this first-run command offers a local-model choice: Qwen3 4B (about 2.5GB), Qwen3 8B (about 5.2GB), or configure later. It only runs `ollama pull` after explicit confirmation.
+
 The command creates these files without overwriting existing ones:
 
 ```text
@@ -194,7 +196,15 @@ language: en
 default_profile: digest
 depth: detailed
 runtime: auto
+task_runtimes: {} # Optional explicit task routing, e.g. {topic_summary: ollama, compose: gemini}
+ollama_model: null
 whisper_fallback: false
+# Optional Ollama input ceiling. Leave unset to retain time-only segmentation.
+max_input_tokens: 4096
+reserved_output_tokens: 512
+output_verify: true
+normalize_transcript: false
+preprocess_transcript: false
 storage_policy: compact
 ---
 
@@ -221,6 +231,18 @@ chew 'VIDEO_URL' --depth deep
 The Markdown body becomes an LLM instruction. Purpose-specific files such as `.chew/profiles/blog.md` can define voice, audience level, and document structure. Configuration discovery walks up through parent directories; packaged defaults are used when no file exists.
 
 Analysis settings and output settings are fingerprinted separately. Changing only the blog voice does not repeat transcript and topic analysis—it generates a new document from the existing Knowledge Pack. A profile may also choose a different `runtime` for uncached output reassembly.
+
+For a local model, `max_input_tokens` and `reserved_output_tokens` opt in to a conservative per-topic input ceiling. They are not provider billing figures; tune them to the selected model's context window and leave both unset to preserve the default time-based segmentation.
+
+For `blog` and `study`, `output_verify: false` skips the final LLM verification call. Keep the default enabled until fixture measurements show that the cost saving does not reduce output quality.
+
+`normalize_transcript: true` only normalizes whitespace and collapses adjacent duplicate captions. The raw transcript remains the evidence source and is retained separately.
+
+`preprocess_transcript: true` additionally applies conservative local filler removal. With `pip install 'chew[preprocess]'`, punctuation restoration and semantic boundary hints are added when their optional dependencies are present. This is opt-in until the locked fixture comparison confirms the quality and cost tradeoff.
+
+`task_runtimes` is opt-in BYOK routing. It never chooses another provider automatically: tasks omitted from the map keep `runtime`. Runtime-specific model selection remains limited to the existing global `ollama_model`; cloud model selectors are not accepted until each adapter can apply and verify them.
+
+The current locked English fixture comparison found only `1.92%–4.94%` `cl100k_base` reduction from conservative filler removal. It is a tokenizer comparison, not a provider billing claim, and remains below the 10% default-adoption gate.
 
 ---
 

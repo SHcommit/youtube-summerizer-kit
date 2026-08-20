@@ -91,6 +91,15 @@ class OllamaHarness:
             "input_tokens": prompt_count if isinstance(prompt_count, int) else 0,
             "output_tokens": output_count if isinstance(output_count, int) else 0,
         }
+        for response_key, usage_key in (
+            ("total_duration", "total_duration_ns"),
+            ("load_duration", "load_duration_ns"),
+            ("prompt_eval_duration", "prompt_eval_duration_ns"),
+            ("eval_duration", "eval_duration_ns"),
+        ):
+            value = envelope.get(response_key)
+            if isinstance(value, int):
+                usage[usage_key] = value
         return GenerationResult(
             request_id=request.request_id,
             output=parse_json_object(response),

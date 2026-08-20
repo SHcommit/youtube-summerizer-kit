@@ -88,6 +88,7 @@ class OutputCompiler:
                 "language": settings.language,
                 "depth": settings.depth,
                 "runtime": settings.runtime,
+                "output_verify": settings.output_verify,
                 "recipe": OUTPUT_RECIPE_FINGERPRINT,
                 "renderer": 1,
             }
@@ -210,6 +211,8 @@ class OutputCompiler:
         markdown = composition.output.get("markdown")
         if not isinstance(markdown, str):
             raise ValueError("output composer did not return markdown")
+        if not settings.output_verify:
+            return markdown.rstrip() + "\n"
         verification = await self.harness.generate(
             GenerationRequest(
                 request_id=f"{trace_id}:verify",
@@ -227,6 +230,12 @@ class OutputCompiler:
     @staticmethod
     def _render_digest(pack: KnowledgePack) -> str:
         lines = [f"# {pack.title}", "", pack.overview, ""]
+        if pack.completion_status == "partial":
+            missing = ", ".join(
+                f"{_timestamp(item.start_ms)}-{_timestamp(item.end_ms)}"
+                for item in pack.missing_ranges
+            )
+            lines.extend(("## Partial result", "", f"Missing source ranges: {missing or 'unknown'}", ""))
         for chapter in pack.chapters:
             lines.extend((f"## {chapter.title}", "", chapter.summary, ""))
             chapter_topics = [topic for topic in pack.topics if topic.topic_id in chapter.topic_ids]

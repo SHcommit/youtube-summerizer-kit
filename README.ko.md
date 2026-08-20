@@ -195,13 +195,35 @@ language: ko
 default_profile: digest
 depth: detailed
 runtime: auto
+task_runtimes: {} # 선택: task별 명시 runtime. 예: {topic_summary: ollama, compose: gemini}
+ollama_model: null
 whisper_fallback: false
+# 선택 사항: Ollama 입력 상한. 설정하지 않으면 기존 시간 기반 분절을 유지한다.
+max_input_tokens: 4096
+reserved_output_tokens: 512
+output_verify: true
+normalize_transcript: false
+preprocess_transcript: false
 storage_policy: compact
 ---
 
 사실과 AI의 추가 설명을 구분한다.
 기술 용어는 첫 등장에 짧게 정의하고, 모든 핵심 주장에 영상 근거를 연결한다.
 ```
+
+로컬 모델에서는 `max_input_tokens`와 `reserved_output_tokens`로 topic별 보수적 입력 상한을 opt-in할 수 있습니다. 이 값은 provider 청구 토큰이 아니므로 선택한 모델의 context window에 맞춰 설정하고, 기존 시간 기반 분절을 유지하려면 둘 다 설정하지 않습니다.
+
+`blog`와 `study`에서는 `output_verify: false`로 마지막 LLM 검증 호출을 생략할 수 있습니다. fixture 측정으로 품질 저하가 없음을 확인하기 전까지 기본값 `true`를 유지합니다.
+
+`normalize_transcript: true`는 공백을 정리하고 인접한 중복 자막만 병합합니다. 원문 자막은 근거 source로 별도 보존합니다.
+
+`preprocess_transcript: true`는 여기에 보수적인 로컬 필러 제거를 추가합니다. `pip install 'chew[preprocess]'`를 설치하면 문장부호 복원과 의미 경계 힌트도 선택적으로 적용됩니다. 고정 fixture의 품질·비용 비교가 끝날 때까지 기본값은 꺼져 있습니다.
+
+`task_runtimes`는 opt-in BYOK routing입니다. map에 없는 task는 기존 `runtime`을 그대로 쓰며, 다른 provider로 자동 전환하지 않습니다. 모델 선택은 현재 전역 `ollama_model`만 지원합니다. cloud provider별 모델 선택은 adapter가 실제 적용·검증할 수 있을 때 추가합니다.
+
+현재 고정 영어 fixture 비교에서 보수적 필러 제거의 `cl100k_base` 절감은 `1.92%~4.94%`였습니다. 이는 provider 청구 비용이 아닌 tokenizer 비교이며, 기본 활성화 기준 10%에 미달하므로 opt-in을 유지합니다.
+
+대화형 터미널에서 처음 `chew config --init`을 실행하면 Qwen3 4B(약 2.5GB), Qwen3 8B(약 5.2GB), 나중에 설정 중 하나를 선택할 수 있습니다. 확인한 경우에만 `ollama pull` 다운로드가 시작됩니다.
 
 ### 요약 강도 및 깊이 설정 (`depth`)
 

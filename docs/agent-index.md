@@ -42,9 +42,10 @@ The codebase follows Ports & Adapters (Hexagonal) architecture. Layers may only 
 | Question | File |
 |---|---|
 | How does URL normalization / source identity work? | `src/chew/core/identity.py` |
-| What fields does a Knowledge Pack have? | `src/chew/core/models.py` — `KnowledgePack` |
+| What fields does a Knowledge Pack have? | `src/chew/core/models.py` — `KnowledgePack` (`completion_status`, missing ranges, runtime/model provenance) |
 | How are jobs scheduled and retried? | `src/chew/pipeline/scheduler.py` |
 | How does chapter/topic segmentation work? | `src/chew/pipeline/segmentation.py` |
+| How does optional local preprocessing work? | `src/chew/pipeline/preprocessing.py` — Strategy composer, conservative filler removal, optional punctuation and semantic boundaries |
 | How does the pipeline stitch topics → chapters → pack? | `src/chew/pipeline/engine.py` |
 | What does the SQLite schema look like? | `src/chew/storage/database.py` — `initialize()` |
 | How do I add a new AI runtime? | `src/chew/harness/base.py` — implement `Harness` protocol |
@@ -65,7 +66,7 @@ All harnesses live in `src/chew/harness/`. Each implements the `Harness` protoco
 | `codex` | `codex.py` | `codex login` | Preflight: `codex login status` |
 | `gemini` | `gemini.py` | `gemini` login | Verified on first generation |
 | `claude` | `claude.py` | `claude auth` | Preflight: `claude auth status` |
-| `ollama` | `ollama.py` | None | Local Ollama server required |
+| `ollama` | `ollama.py` | None | Local Ollama server required; `CHEW.md` can select `ollama_model` |
 | `layered_ollama` | `layered_ollama.py` | None | Routes by task type across 3 model tiers (1.5B / 7B / 14B `q4_K_M`) |
 | `huggingface` | `huggingface.py` | `HF_TOKEN` env var | Free-tier HuggingFace Inference API; `pip install 'chew[huggingface]'` |
 | `antigravity` | `antigravity.py` | `agy` session | Verified on invocation |
@@ -125,7 +126,7 @@ class GenerationRequest:
 @dataclass
 class GenerationResult:
     content: str       # raw LLM output
-    usage: CommandResult.usage | None   # token counts when available
+    usage: dict[str, int]               # provider counts/durations when available
 ```
 
 ### `ApplicationService.generate()` (`app/service.py`)
@@ -145,7 +146,9 @@ pending → claimed → completed
 blocked_auth      (authentication failure — resumable after login)
 ```
 
-Key tables: `runs`, `jobs`, `artifacts`, `runtime_limits`
+Key tables: `runs`, `jobs`, `job_measurements`, `artifacts`, `runtime_limits`
+
+`job_measurements` stores every generation attempt for a durable job, including repairs. For Ollama it records provider-reported input/output counts and available duration fields, plus request input/schema sizes and repair/retry flags. It does not infer provider billing.
 
 Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive successes via `note_runtime_success()` restore it by 1.
 
@@ -157,6 +160,7 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 |---|---|---|
 | `[youtube]` | `yt-dlp`, `youtube-transcript-api` | YouTube transcript fetching |
 | `[whisper]` | `faster-whisper` | Local audio/video transcription |
+| `[preprocess]` | `deepmultilingualpunctuation`, `sentence-transformers` | Optional punctuation restoration and semantic boundaries |
 | `[telemetry]` | `opentelemetry-*` | OpenTelemetry Jaeger tracing |
 | `[server]` | `fastapi>=0.111`, `uvicorn[standard]>=0.29` | `chew serve` health endpoints |
 | `[huggingface]` | `huggingface_hub` | HuggingFace Inference API harness |
@@ -171,6 +175,9 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | `AGENTS.md` (= `CLAUDE.md` = `GEMINI.md`) | Core rules for AI agents; architecture layout; development guidelines |
 | `docs/agent-index.md` | **This file** — LLM wiki; start here when orienting |
 | `IMPROVEMENTS.md` | Operational roadmap — 11 improvement areas (§1–§9-11) |
+| `scripts/spike_token_baseline.py` / `src/chew/benchmark/metrics.py` | Maintainer-only raw-caption token baseline and pure measurement helpers; uses the locked videos and requires `yt-dlp` + `tiktoken` |
+| `scripts/report_job_measurements.py` | Read-only SQLite run profiler for provider usage, request shape, repairs, and retries |
+| `docs/decisions/local-llm-runtime.md` | Product decision: local LLM/Ollama is optional, with adoption criteria |
 | `CHANGELOG.md` | Feature history by version |
 | `README.md` / `README.ko.md` | User-facing documentation (en/ko) |
 | `reports/BENCHMARK.md` | Performance baseline and release benchmark scores |

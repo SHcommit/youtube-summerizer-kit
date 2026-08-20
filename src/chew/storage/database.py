@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from dataclasses import dataclass
@@ -39,7 +40,7 @@ def _timestamp(value: datetime) -> str:
 
 
 class Database:
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 6
     _local: threading.local  # class-level annotation; one per Database instance via __init__
 
     def __init__(self, path: Path) -> None:
@@ -132,6 +133,17 @@ class Database:
                     artifact_hash TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS job_measurements (
+                    measurement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT NOT NULL REFERENCES jobs(job_id) ON DELETE CASCADE,
+                    request_id TEXT NOT NULL,
+                    task TEXT NOT NULL,
+                    runtime_id TEXT NOT NULL,
+                    model TEXT,
+                    usage_json TEXT NOT NULL,
+                    details_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL
+                );
                 """
             )
             columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(runs)").fetchall()}
@@ -141,8 +153,17 @@ class Database:
                 connection.execute("ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''")
             if "source_locator" not in columns:
                 connection.execute("ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''")
+            measurement_columns = {
+                str(row[1]) for row in connection.execute("PRAGMA table_info(job_measurements)").fetchall()
+            }
+            if "details_json" not in measurement_columns:
+                connection.execute("ALTER TABLE job_measurements ADD COLUMN details_json TEXT NOT NULL DEFAULT '{}'")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS runs_reuse_idx ON runs(source_id, request_key, updated_at DESC)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS job_measurements_job_idx "
+                "ON job_measurements(job_id, measurement_id)"
             )
             connection.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
@@ -257,6 +278,58 @@ class Database:
                 "SELECT artifact_hash FROM output_cache WHERE cache_key = ?", (cache_key,)
             ).fetchone()
         return None if row is None else str(row[0])
+
+    def record_job_measurement(
+        self,
+        *,
+        job_id: str,
+        request_id: str,
+        task: str,
+        runtime_id: str,
+        model: str | None,
+        usage: dict[str, int],
+        details: dict[str, int | bool],
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO job_measurements(job_id, request_id, task, runtime_id, model, usage_json, "
+                "details_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    job_id,
+                    request_id,
+                    task,
+                    runtime_id,
+                    model,
+                    json.dumps(usage, sort_keys=True),
+                    json.dumps(details, sort_keys=True),
+                    _timestamp(datetime.now(UTC)),
+                ),
+            )
+
+    def list_job_measurements(
+        self, job_id: str
+    ) -> list[tuple[str, str, str, str | None, dict[str, int], dict[str, int | bool]]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT request_id, task, runtime_id, model, usage_json, details_json FROM job_measurements "
+                "WHERE job_id = ? ORDER BY measurement_id",
+                (job_id,),
+            ).fetchall()
+        return [
+            (
+                str(row["request_id"]),
+                str(row["task"]),
+                str(row["runtime_id"]),
+                None if row["model"] is None else str(row["model"]),
+                {str(key): int(value) for key, value in json.loads(str(row["usage_json"])).items()},
+                {
+                    str(key): value
+                    for key, value in json.loads(str(row["details_json"])).items()
+                    if isinstance(value, (int, bool))
+                },
+            )
+            for row in rows
+        ]
 
     def find_compatible_run(self, source_id: str, analysis_key: str) -> str | None:
         with self._connect() as connection:
@@ -515,6 +588,14 @@ class Database:
                 (run_id, kind),
             ).fetchall()
         return [str(row[0]) for row in rows if row[0] is not None]
+
+    def failed_job_ids(self, run_id: str, kind: str) -> list[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT job_id FROM jobs WHERE run_id = ? AND kind = ? AND status = 'failed_runtime' ORDER BY job_id",
+                (run_id, kind),
+            ).fetchall()
+        return [str(row[0]) for row in rows]
 
     def set_run_pack(self, run_id: str, digest: str) -> None:
         with self._connect() as connection:

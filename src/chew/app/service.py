@@ -11,6 +11,7 @@ from chew.harness.builtin import HarnessAuthenticationError
 from chew.harness.registry import HarnessRegistry
 from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
 from chew.pipeline.outputs import OutputCompiler
+from chew.pipeline.preprocessing import PreprocessingStats
 from chew.storage.database import Database
 
 
@@ -28,6 +29,7 @@ class CommandResult:
     reused: bool
     files: tuple[Path, ...]
     usage: dict[str, int] | None = None
+    preprocessing_stats: PreprocessingStats | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +76,9 @@ class ApplicationService:
     ) -> CommandResult:
         if isinstance(self.pipeline.harness, ConfigurableHarness):
             self.pipeline.harness.set_preference(analysis_settings.runtime)
+        set_task_preferences = getattr(self.pipeline.harness, "set_task_preferences", None)
+        if callable(set_task_preferences):
+            set_task_preferences(analysis_settings.task_runtimes)
         config = AnalysisConfig(
             language=analysis_settings.language,
             depth=analysis_settings.depth,
@@ -81,6 +86,11 @@ class ApplicationService:
             whisper_fallback=analysis_settings.whisper_fallback,
             runtime=analysis_settings.runtime,
             recipe_json=analysis_settings.model_dump_json(),
+            task_runtimes=analysis_settings.task_runtimes,
+            max_input_tokens=analysis_settings.max_input_tokens,
+            reserved_output_tokens=analysis_settings.reserved_output_tokens,
+            normalize_transcript=analysis_settings.normalize_transcript,
+            preprocess_transcript=analysis_settings.preprocess_transcript,
         )
         try:
             result = await self.pipeline.analyze(url, config)
@@ -89,7 +99,14 @@ class ApplicationService:
             raise AuthenticationRequired(error.runtime_id, error.login_command) from error
         for path in output.files:
             self.database.register_export(result.run_id, path)
-        return CommandResult(result.run_id, profile, result.reused, output.files, result.usage)
+        return CommandResult(
+            result.run_id,
+            profile,
+            result.reused,
+            output.files,
+            result.usage,
+            result.preprocessing_stats,
+        )
 
     def status(self, run_id: str | None = None) -> tuple[RunStatus, ...]:
         return tuple(RunStatus(*row) for row in self.database.list_run_statuses(run_id))

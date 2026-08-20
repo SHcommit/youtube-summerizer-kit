@@ -66,6 +66,24 @@ async def test_digest_renderer_preserves_source_labels_and_timestamps(tmp_path: 
 
 
 @pytest.mark.asyncio
+async def test_digest_marks_partial_pack_missing_ranges(tmp_path: Path) -> None:
+    partial = KnowledgePack.model_validate(
+        {
+            **pack().model_dump(mode="json"),
+            "completion_status": "partial",
+            "failed_topic_ids": ["intro-topic-001"],
+            "missing_ranges": [{"start_ms": 65_000, "end_ms": 70_000}],
+        }
+    )
+
+    manifest = await OutputCompiler().compile(partial, "digest", Settings(), tmp_path / "digest")
+
+    text = manifest.files[0].read_text(encoding="utf-8")
+    assert "Partial result" in text
+    assert "01:05-01:10" in text
+
+
+@pytest.mark.asyncio
 async def test_obsidian_only_links_generated_topic_notes(tmp_path: Path) -> None:
     manifest = await OutputCompiler().compile(pack(), "obsidian", Settings(), tmp_path / "vault")
 
@@ -127,6 +145,19 @@ async def test_blog_uses_plan_compose_verify_and_profile_changes_cache_key(tmp_p
     assert harness.tasks[:3] == ["output_outline", "output_compose", "output_verify"]
     assert "사용자 톤 블로그" in first.files[0].read_text(encoding="utf-8")
     assert first.cache_key != second.cache_key
+
+
+@pytest.mark.asyncio
+async def test_blog_can_skip_verification_when_explicitly_disabled(tmp_path: Path) -> None:
+    harness = OutputHarness()
+    await OutputCompiler(harness).compile(
+        pack(),
+        "blog",
+        Settings(output_verify=False),
+        tmp_path / "blog",
+    )
+
+    assert harness.tasks == ["output_outline", "output_compose"]
 
 
 @pytest.mark.asyncio

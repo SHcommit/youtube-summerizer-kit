@@ -94,6 +94,51 @@ def test_database_checkpoint_runs_without_error(tmp_path: Path) -> None:
     db.checkpoint()  # must not raise
 
 
+def test_database_records_each_generation_attempt_for_a_job(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    database.upsert_job(JobSpec("topic-1", "run-1", "topic", 20))
+
+    database.record_job_measurement(
+        job_id="topic-1",
+        request_id="topic-1",
+        task="topic_summary",
+        runtime_id="ollama",
+        model="qwen3:8b",
+        usage={"input_tokens": 12, "total_duration_ns": 40},
+        details={"input_chars": 120, "input_segment_count": 2, "is_repair": False},
+    )
+    database.record_job_measurement(
+        job_id="topic-1",
+        request_id="topic-1:repair",
+        task="repair",
+        runtime_id="ollama",
+        model="qwen3:8b",
+        usage={"input_tokens": 4},
+        details={"input_chars": 44, "input_segment_count": 0, "is_repair": True},
+    )
+
+    assert database.list_job_measurements("topic-1") == [
+        (
+            "topic-1",
+            "topic_summary",
+            "ollama",
+            "qwen3:8b",
+            {"input_tokens": 12, "total_duration_ns": 40},
+            {"input_chars": 120, "input_segment_count": 2, "is_repair": False},
+        ),
+        (
+            "topic-1:repair",
+            "repair",
+            "ollama",
+            "qwen3:8b",
+            {"input_tokens": 4},
+            {"input_chars": 44, "input_segment_count": 0, "is_repair": True},
+        ),
+    ]
+
+
 def test_initialize_rejects_newer_database_schema(tmp_path: Path) -> None:
     path = tmp_path / "future.db"
     with sqlite3.connect(path) as connection:

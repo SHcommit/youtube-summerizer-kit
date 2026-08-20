@@ -49,13 +49,13 @@ class HarnessRegistry:
         raise RuntimeError(f"사용 가능한 AI 실행기가 없습니다: {runtime_id}")
 
 
-def default_registry() -> HarnessRegistry:
+def default_registry(*, ollama_model: str | None = None) -> HarnessRegistry:
     return HarnessRegistry(
         (
             CodexHarness(),
             GeminiHarness(),
             ClaudeHarness(),
-            OllamaHarness(),
+            OllamaHarness(model=ollama_model or "qwen3:8b"),
             HuggingFaceHarness(),
             LayeredOllamaHarness(),
             AntigravityHarness(),

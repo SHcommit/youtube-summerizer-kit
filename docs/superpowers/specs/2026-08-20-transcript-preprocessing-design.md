@@ -162,7 +162,7 @@ SegmentManifest → topic jobs → Frontier LLM
 | 대상 | 처리 | 예시 |
 |---|---|---|
 | 한국어 필러 | 정규식 제거 | `"음~"`, `"어~"`, `"그~"`, `"뭐~"` |
-| 영어 필러 | 정규식 제거 | `"um"`, `"uh"`, `"like"`, `"you know"` |
+| 영어 필러 | 보수적 정규식 제거 | `"um"`, `"uh"`, `"you know"`, `"i mean"` |
 | 말 더듬 반복 | 정규식 축약 | `"이이이이게"` → `"이게"` |
 | 연속 공백 | collapse | `"hello   world"` → `"hello world"` |
 | 빈 세그먼트 | 제거 | `text=""` 또는 공백만 있는 세그먼트 |
@@ -171,9 +171,9 @@ SegmentManifest → topic jobs → Frontier LLM
 import re
 from chew.core.models import Transcript
 
-_KO_FILLERS = re.compile(r'\b(음+~?|어+~?|그+~?|뭐+~?|아+~?|네+~?|예+~?)\b')
+_KO_FILLERS = re.compile(r'(?<!\S)(음+~?|어+~?)(?!\S)')
 _EN_FILLERS = re.compile(
-    r'\b(um+|uh+|like|you know|i mean|basically|literally|actually)\b',
+    r'\b(um+|uh+|you know|i mean)\b',
     re.IGNORECASE,
 )
 _STUTTER = re.compile(r'\b(\w)\1{2,}\b')

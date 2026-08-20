@@ -124,6 +124,11 @@ class ChapterSummary(FrozenModel):
     topic_ids: tuple[str, ...]
 
 
+class MissingRange(FrozenModel):
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+
+
 class KnowledgePack(FrozenModel):
     source: SourceIdentity
     title: str
@@ -133,6 +138,11 @@ class KnowledgePack(FrozenModel):
     topics: tuple[TopicSummary, ...]
     chapters: tuple[ChapterSummary, ...]
     further_study: tuple[str, ...] = ()
+    completion_status: str = "complete"
+    failed_topic_ids: tuple[str, ...] = ()
+    missing_ranges: tuple[MissingRange, ...] = ()
+    runtime_id: str | None = None
+    model: str | None = None
     analysis_fingerprint: str
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass, replace
 from typing import Any
@@ -16,6 +17,7 @@ from chew.core.models import (
     GenerationRequest,
     GenerationResult,
     KnowledgePack,
+    MissingRange,
     SourceIdentity,
     TopicSummary,
     Transcript,
@@ -29,12 +31,14 @@ from chew.core.prompts import (
 )
 from chew.harness.base import Harness
 from chew.pipeline.knowledge import build_knowledge_pack
+from chew.pipeline.preprocessing import PreprocessingStats, TranscriptPreprocessor
 from chew.pipeline.scheduler import Scheduler
 from chew.pipeline.segmentation import SegmentationPolicy, SegmentManifest, segment_transcript
 from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 from chew.storage.database import Database, JobRecord, JobSpec
 from chew.telemetry import telemetry
 from chew.transcripts.service import TranscriptService
+from chew.transcripts.validation import normalize_transcript
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,10 +49,21 @@ class AnalysisConfig:
     whisper_fallback: bool
     runtime: str
     recipe_json: str
+    task_runtimes: dict[str, str] | None = None
+    max_input_tokens: int | None = None
+    reserved_output_tokens: int = 0
+    normalize_transcript: bool = False
+    preprocess_transcript: bool = False
 
 
 class PipelineExecutionError(RuntimeError):
     pass
+
+
+def _harness_cache_identity(harness: Harness) -> str:
+    """Return a stable model selector when an adapter exposes one."""
+    model = getattr(harness, "model", None)
+    return model if isinstance(model, str) and model else harness.runtime_id
 
 
 def build_analysis_job_graph(
@@ -97,6 +112,7 @@ class AnalysisResult:
     reused: bool
     usage: dict[str, int] | None = None
     models: tuple[str, ...] = ()
+    preprocessing_stats: PreprocessingStats | None = None
 
 
 class AnalysisPipeline:
@@ -129,9 +145,16 @@ class AnalysisPipeline:
                 "segmentation": 1,
                 "prompt": PROMPT_FINGERPRINT,
                 "runtime": config.runtime,
+                "task_runtimes": config.task_runtimes or {},
+                "model": _harness_cache_identity(self.harness),
                 "depth": config.depth,
                 "language": config.language,
                 "instructions": config.instructions,
+                "preprocessing": {
+                    "normalize_transcript": config.normalize_transcript,
+                    "preprocess_transcript": config.preprocess_transcript,
+                    "recipe": 1,
+                },
                 "schema": 1,
             }
         )
@@ -167,7 +190,17 @@ class AnalysisPipeline:
                     transcript_ref.digest,
                     fingerprint(transcript),
                 )
-        transcript_hash = fingerprint(transcript)
+        raw_transcript_hash = fingerprint(transcript)
+        analysis_transcript = normalize_transcript(transcript) if config.normalize_transcript else transcript
+        preprocessing_stats: PreprocessingStats | None = None
+        detector = None
+        if config.preprocess_transcript:
+            preprocessor = TranscriptPreprocessor()
+            analysis_transcript, preprocessing_stats = preprocessor.process(analysis_transcript)
+            detector = preprocessor.boundary_detector
+        if analysis_transcript is not transcript:
+            self.artifacts.put_json(analysis_transcript)
+        transcript_hash = fingerprint(analysis_transcript)
         selected_chapters = chapters or transcript.chapters
         with telemetry.span(
             "chew.segmentation",
@@ -178,7 +211,14 @@ class AnalysisPipeline:
             },
         ):
             manifest = segment_transcript(
-                transcript, selected_chapters, SegmentationPolicy(), depth=config.depth
+                analysis_transcript,
+                selected_chapters,
+                SegmentationPolicy(
+                    max_input_tokens=config.max_input_tokens,
+                    reserved_output_tokens=config.reserved_output_tokens,
+                ),
+                detector=detector,
+                depth=config.depth,
             )
         analysis_key = fingerprint(
             {
@@ -226,7 +266,7 @@ class AnalysisPipeline:
                     "language": config.language,
                     "user_instructions": config.instructions,
                     "segments": [
-                        transcript.segments[index].model_dump(mode="json")
+                        analysis_transcript.segments[index].model_dump(mode="json")
                         for index in topic.segment_indexes
                     ],
                 }
@@ -245,7 +285,11 @@ class AnalysisPipeline:
                     "title": title or transcript.title or "YouTube 영상",
                     "language": config.language,
                     "user_instructions": config.instructions,
-                    "transcript_fingerprint": transcript_hash,
+                    "transcript_fingerprint": raw_transcript_hash,
+                    "topic_ranges": {
+                        topic.topic_id: {"start_ms": topic.start_ms, "end_ms": topic.end_ms}
+                        for topic in manifest.topics
+                    },
                 }
             payload_ref = self.artifacts.put_json(payload)
             self.database.upsert_job(replace(job, payload_hash=payload_ref.digest))
@@ -275,7 +319,12 @@ class AnalysisPipeline:
             self.artifacts.get_json(self.artifacts.ref_for_digest(pack_hash))
         )
         return AnalysisResult(
-            run_id, pack, False, dict(handler.usage), tuple(sorted(handler.models))
+            run_id,
+            pack,
+            False,
+            dict(handler.usage),
+            tuple(sorted(handler.models)),
+            preprocessing_stats,
         )
 
 
@@ -287,8 +336,26 @@ class _AnalysisJobHandler:
         self.usage: dict[str, int] = {}
         self.models: set[str] = set()
 
-    def _record_result(self, result: object) -> None:
+    def _record_result(self, job: JobRecord, request: GenerationRequest, result: object) -> None:
         generated = GenerationResult.model_validate(result)
+        encoded_input = json.dumps(request.input, ensure_ascii=False, separators=(",", ":"))
+        encoded_schema = json.dumps(request.output_schema, ensure_ascii=False, separators=(",", ":"))
+        segments = request.input.get("segments")
+        self.database.record_job_measurement(
+            job_id=job.job_id,
+            request_id=generated.request_id,
+            task=request.task,
+            runtime_id=generated.runtime_id,
+            model=generated.model,
+            usage=generated.usage,
+            details={
+                "input_chars": len(encoded_input),
+                "input_segment_count": len(segments) if isinstance(segments, list) else 0,
+                "output_schema_chars": len(encoded_schema),
+                "is_repair": request.task == "repair",
+                "retry": job.attempts > 1,
+            },
+        )
         for key, value in generated.usage.items():
             self.usage[key] = self.usage.get(key, 0) + value
         if generated.model:
@@ -321,25 +388,26 @@ class _AnalysisJobHandler:
             trace_id=job.run_id,
         )
         result = await self.harness.generate(request)
-        self._record_result(result)
+        self._record_result(job, request, result)
         try:
             return self._validate_output(result.output, model)
         except (ValidationError, ValueError):
-            repair = await self.harness.generate(
-                GenerationRequest(
-                    request_id=f"{job.job_id}:repair",
-                    task="repair",
-                    input={
-                        "instruction": REPAIR_PROMPT,
-                        "target_task": task,
-                        "original_input": input_value,
-                        "invalid_output": result.output,
-                    },
-                    output_schema=schema,
-                    trace_id=job.run_id,
-                )
+            repair_request = GenerationRequest(
+                request_id=f"{job.job_id}:repair",
+                task="repair",
+                input={
+                    "instruction": REPAIR_PROMPT,
+                    "target_task": task,
+                    "original_input": input_value,
+                    "invalid_output": result.output,
+                },
+                output_schema=schema,
+                trace_id=job.run_id,
             )
-            self._record_result(repair)
+            repair = await self.harness.generate(
+                repair_request
+            )
+            self._record_result(job, repair_request, repair)
             return self._validate_output(repair.output, model)
 
     @staticmethod
@@ -391,6 +459,19 @@ class _AnalysisJobHandler:
             topics=tuple(topic_models),
             chapters=tuple(chapters),
             further_study=tuple(str(value) for value in composition["further_study"]),
+            failed_topic_ids=tuple(
+                job_id.split(":topic:", 1)[1]
+                for job_id in self.database.failed_job_ids(job.run_id, "topic")
+            ),
+            missing_ranges=tuple(
+                MissingRange.model_validate(payload["topic_ranges"][topic_id])
+                for topic_id in (
+                    job_id.split(":topic:", 1)[1]
+                    for job_id in self.database.failed_job_ids(job.run_id, "topic")
+                )
+            ),
+            runtime_id=self.harness.runtime_id,
+            model=next(iter(self.models)) if len(self.models) == 1 else None,
         )
         ref = self.artifacts.put_json(pack)
         self.database.set_run_pack(job.run_id, ref.digest)

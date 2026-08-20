@@ -33,6 +33,9 @@ def test_analysis_config_is_defined() -> None:
     assert config.language == "ko"
     assert config.depth == "detailed"
     assert config.recipe_json == '{"language":"ko"}'
+    assert config.max_input_tokens is None
+    assert config.normalize_transcript is False
+    assert config.preprocess_transcript is False
 
 
 def test_analysis_graph_has_topic_chapter_and_final_dependencies() -> None:
@@ -136,6 +139,28 @@ class StructuredFakeHarness:
         }
 
 
+class PartiallyFailingHarness(StructuredFakeHarness):
+    async def generate(self, request: GenerationRequest) -> GenerationResult:
+        if request.task == "topic_summary" and request.input["topic_id"] == "full-video-topic-001":
+            raise RuntimeError("fixture topic failure")
+        return await super().generate(request)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_marks_pack_partial_with_failed_topic_range(tmp_path: Path) -> None:
+    source = SourceIdentity(source_id="youtube:abcDEF_1234", video_id="abcDEF_1234", canonical_url="https://www.youtube.com/watch?v=abcDEF_1234")
+    transcript = Transcript(source=source, language="en", duration_ms=11 * 60_000, provenance=Provenance.MANUAL_SUBTITLE, segments=tuple(TranscriptSegment(start_ms=index * 60_000, end_ms=(index + 1) * 60_000, text=f"segment {index}") for index in range(11)))
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    pipeline = AnalysisPipeline(database=database, artifacts=ArtifactStore(tmp_path), transcripts=TranscriptService([StaticTranscriptProvider(transcript)]), harness=PartiallyFailingHarness())
+
+    result = await pipeline.analyze(source.canonical_url, AnalysisConfig(language="en", depth="detailed", instructions="", whisper_fallback=False, runtime="fake", recipe_json="{}"))
+
+    assert result.pack.completion_status == "partial"
+    assert result.pack.failed_topic_ids == ("full-video-topic-001",)
+    assert result.pack.missing_ranges[0].start_ms == 0
+
+
 class RecordingTranscriptService:
     def __init__(self, transcript: Transcript) -> None:
         self.transcript = transcript
@@ -194,6 +219,48 @@ async def test_pipeline_reuses_completed_pack_for_same_url(tmp_path: Path) -> No
     assert len(harness.calls) == call_count
     assert harness.calls.count("repair") == 1
     assert provider.calls == 1
+    measurements = database.list_job_measurements(first.run_id + ":topic:full-video-topic-001")
+    assert [measurement[1] for measurement in measurements] == ["topic_summary", "repair"]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_does_not_reuse_a_pack_after_the_selected_model_changes(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="en",
+        duration_ms=60_000,
+        provenance=Provenance.MANUAL_SUBTITLE,
+        segments=(TranscriptSegment(start_ms=0, end_ms=60_000, text="Transcript"),),
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    harness = StructuredFakeHarness()
+    harness.model = "fake-model-a"  # type: ignore[attr-defined]
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=ArtifactStore(tmp_path),
+        transcripts=TranscriptService([StaticTranscriptProvider(transcript)]),
+        harness=harness,
+    )
+    config = AnalysisConfig(
+        language="en",
+        depth="detailed",
+        instructions="",
+        whisper_fallback=False,
+        runtime="fake",
+        recipe_json="{}",
+    )
+
+    await pipeline.analyze(source.canonical_url, config)
+    harness.model = "fake-model-b"  # type: ignore[attr-defined]
+    second = await pipeline.analyze(source.canonical_url, config)
+
+    assert second.reused is False
 
 
 @pytest.mark.asyncio
@@ -223,6 +290,49 @@ async def test_pipeline_enables_optional_transcript_provider_from_settings(tmp_p
     await pipeline.analyze(source.canonical_url, AnalysisConfig(language="ko", depth="detailed", instructions="", whisper_fallback=True, runtime="auto", recipe_json="{}"))
 
     assert transcripts.include_optional is True
+
+
+@pytest.mark.asyncio
+async def test_pipeline_preprocesses_topic_input_and_reports_stats(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="en",
+        duration_ms=60_000,
+        provenance=Provenance.AUTO_SUBTITLE,
+        segments=(TranscriptSegment(start_ms=0, end_ms=60_000, text="um useful evidence"),),
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    harness = StructuredFakeHarness()
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=ArtifactStore(tmp_path),
+        transcripts=TranscriptService([StaticTranscriptProvider(transcript)]),
+        harness=harness,
+    )
+
+    result = await pipeline.analyze(
+        source.canonical_url,
+        AnalysisConfig(
+            language="en",
+            depth="detailed",
+            instructions="",
+            whisper_fallback=False,
+            runtime="fake",
+            recipe_json="{}",
+            preprocess_transcript=True,
+        ),
+    )
+
+    topic_request = next(request for request in harness.requests if request.task == "topic_summary")
+    assert topic_request.input["segments"][0]["text"] == "useful evidence"
+    assert result.preprocessing_stats is not None
+    assert result.preprocessing_stats.removed_filler_count == 1
 
 
 @pytest.mark.asyncio

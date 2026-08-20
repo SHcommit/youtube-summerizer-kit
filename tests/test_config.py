@@ -50,6 +50,27 @@ def test_project_can_explicitly_enable_optional_whisper_fallback(tmp_path: Path)
     assert load_settings(tmp_path, None).whisper_fallback is True
 
 
+def test_project_can_configure_token_budget_for_segmentation(tmp_path: Path) -> None:
+    (tmp_path / "CHEW.md").write_text(
+        "---\nmax_input_tokens: 4096\nreserved_output_tokens: 512\n---\n",
+        encoding="utf-8",
+    )
+
+    settings = load_settings(tmp_path, None)
+
+    assert settings.max_input_tokens == 4096
+    assert settings.reserved_output_tokens == 512
+
+
+def test_project_can_select_an_ollama_model(tmp_path: Path) -> None:
+    (tmp_path / "CHEW.md").write_text("---\nruntime: ollama\nollama_model: qwen3:4b\n---\n", encoding="utf-8")
+
+    settings = load_settings(tmp_path, None)
+
+    assert settings.runtime == "ollama"
+    assert settings.ollama_model == "qwen3:4b"
+
+
 def test_invalid_markdown_configuration_has_an_actionable_error(tmp_path: Path) -> None:
     (tmp_path / "CHEW.md").write_text("---\nruntime: [\n---\n", encoding="utf-8")
 
