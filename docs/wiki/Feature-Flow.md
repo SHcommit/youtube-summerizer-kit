@@ -193,7 +193,7 @@ Full Jitter (0 to cap) prevents synchronized retries ("thundering herd") when mu
 
 ---
 
-*Last updated: 2026-08-20 — covers Steps 5–9 (§7-3, §7-5, §7-6, §7-7, §2-3, §6-1, §9-5, §9-10, §9-11)*
+*Last updated: 2026-08-20 — covers Steps 5–9 (§7-3, §7-5, §7-6, §7-7, §2-3, §6-1, §9-5, §9-10, §9-11) + AI Agent Integration Roadmap*
 
 ---
 
@@ -280,3 +280,81 @@ TranscriptPreprocessor([
 ### 결론
 
 Strategy 패턴은 단순히 코드를 정리하는 게 아니라 **"설계가 바뀌어도 비용이 최소화되는 구조"** 를 만드는 것이다. `chew`의 핵심 가치인 느슨한 결합(Ports & Adapters)과 완전히 일치하는 방향이다.
+
+---
+
+## AI Agent Integration Vision (Phase 6–8)
+
+### Why the Harness Architecture Enables This
+
+The harness system was designed with Protocol-based abstraction so any BYOK runtime can be swapped without touching pipeline logic. This same abstraction makes `chew` composable as a tool for other systems:
+
+```
+Current:  $ chew summarize 'https://youtu.be/...'
+
+Future:
+  Claude Code → MCP tool call → chew_analyze(url) → Obsidian auto-save
+  Zapier/n8n  → YouTube new video trigger → POST /analyze → Notion DB update
+  Python app  → from chew import analyze; result = await analyze(url)
+  AI Agent    → "Analyze 10 AI videos and extract common insights"
+               → chew × 10 → Knowledge Graph → report
+```
+
+### Phase 6: Python Library API
+
+`ApplicationService` is already the single use-case entry point. The library wraps it:
+
+```python
+from chew import analyze, analyze_sync
+
+# async
+result = await analyze("https://youtu.be/VIDEO_ID", runtime="codex", depth=3)
+print(result.text)           # formatted output
+print(result.knowledge_pack) # structured KnowledgePack
+
+# sync wrapper for scripting
+result = analyze_sync("https://youtu.be/VIDEO_ID")
+```
+
+`AnalysisResult` exposes: `text`, `knowledge_pack`, `stats` (token savings), `run_id`.
+
+### Phase 7: MCP Server
+
+`chew serve --mcp` exposes three tools to any MCP-compatible agent:
+
+| Tool | Description |
+|---|---|
+| `chew_analyze(url, runtime)` | Analyze a video; returns Knowledge Pack |
+| `chew_list()` | List locally cached Knowledge Packs |
+| `chew_get(run_id, format)` | Reassemble existing pack in a new format |
+
+MCP config example (`~/.claude/mcp_servers.json`):
+```json
+{
+  "chew": {
+    "command": "chew",
+    "args": ["serve", "--mcp"]
+  }
+}
+```
+
+Install: `pip install 'chew[mcp]'`
+
+### Phase 8: n8n / Zapier Automation
+
+`chew serve` REST API becomes the automation endpoint:
+
+```
+POST /analyze  → 202 Accepted + run_id
+GET  /runs/{id} → 200 completed + text + knowledge_pack
+```
+
+Automation scenario examples:
+
+| Trigger | Action | Result |
+|---|---|---|
+| YouTube channel new video (RSS) | `POST /analyze` | Notion DB auto-update |
+| Podcast RSS new episode | `POST /analyze` | Obsidian Vault auto-append |
+| Slack link shared | `POST /analyze` | Summary posted to thread |
+
+No additional dependencies beyond Phase 6 REST API completion.

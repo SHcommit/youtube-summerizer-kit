@@ -132,6 +132,113 @@ chew notion 'https://youtu.be/VIDEO_ID' --database-id <ID>
 
 ---
 
+### Phase 6: Python 라이브러리 API — 개발자 통합
+
+**배경:** 현재 `chew`는 CLI 전용이다. Python 라이브러리 인터페이스를 제공하면 다른 코드에서 직접 임포트해 자동화 파이프라인에 통합할 수 있다. 기존 `ApplicationService`가 이미 잘 분리되어 있어 추가 비용이 최소화된다.
+
+#### §P6-1. Public Python API
+```python
+from chew import analyze, analyze_sync
+
+# 비동기
+result = await analyze(
+    "https://youtu.be/VIDEO_ID",
+    runtime="codex",          # BYOK runtime_id
+    depth=3,                  # 분석 깊이
+    output_format="digest",   # "digest" | "blog" | "study" | "obsidian"
+)
+print(result.text)            # 최종 출력
+print(result.knowledge_pack)  # 구조화된 Knowledge Pack
+
+# 동기 래퍼 (스크립팅용)
+result = analyze_sync("https://youtu.be/VIDEO_ID", runtime="gemini")
+```
+
+#### §P6-2. 패키지 API 공개
+- `src/chew/__init__.py`에 `analyze`, `analyze_sync` 공개
+- `AnalysisResult(text, knowledge_pack, stats, run_id)` 반환 타입
+- **의존성:** 없음 (기존 `ApplicationService` 래핑)
+
+---
+
+### Phase 7: MCP 서버 — AI Agent 통합
+
+**배경:** Model Context Protocol(MCP)을 통해 Claude Code, Cursor, Windsurf 등 AI 에이전트가 `chew`를 도구로 직접 호출할 수 있다. "AI 관련 영상 10개 분석해서 공통 인사이트 뽑아줘" 같은 워크플로우가 가능해진다.
+
+#### §P7-1. MCP 서버 (`chew serve --mcp`)
+```python
+# Claude Code / Cursor에서 자동으로 호출 가능
+mcp.tool("chew_analyze")
+async def chew_analyze(url: str, runtime: str = "codex") -> dict:
+    result = await analyze(url, runtime=runtime)
+    return {"text": result.text, "run_id": result.run_id}
+
+mcp.tool("chew_list")
+async def chew_list() -> list[dict]:
+    # 로컬 캐시된 Knowledge Pack 목록 반환
+    ...
+
+mcp.tool("chew_get")
+async def chew_get(run_id: str, format: str = "digest") -> dict:
+    # 기존 분석 결과를 다른 포맷으로 재조립
+    ...
+```
+
+#### §P7-2. MCP 설정 예시
+```json
+// ~/.claude/mcp_servers.json
+{
+  "chew": {
+    "command": "chew",
+    "args": ["serve", "--mcp"],
+    "env": {"CODEX_API_KEY": "..."}
+  }
+}
+```
+
+#### §P7-3. AI Agent 워크플로우 예시
+```
+Claude Code → chew_analyze(url) → Knowledge Pack → Obsidian에 자동 저장
+Custom Agent → "AI 영상 10개 분석" → chew_analyze × 10 → Knowledge Graph → 리포트
+```
+
+- **의존성:** `pip install 'chew[mcp]'` + `mcp` 패키지
+
+---
+
+### Phase 8: 자동화 통합 — n8n / Zapier / Make
+
+**배경:** Phase 6 REST API (`chew serve`)와 Phase 7 MCP를 기반으로 no-code 자동화 플랫폼과 연결한다. 새 유튜브 영상이 올라오면 자동으로 분석하고 Notion에 저장하는 워크플로우를 비개발자도 구성할 수 있다.
+
+#### §P8-1. n8n 워크플로우 예시
+```
+YouTube Channel 구독 (RSS) → HTTP Request: POST /analyze → Notion Database 업데이트
+```
+
+#### §P8-2. REST API 확장 (`chew serve` 기반)
+```http
+POST /analyze
+Content-Type: application/json
+{"url": "https://youtu.be/VIDEO_ID", "runtime": "codex", "output_format": "digest"}
+
+→ 202 Accepted
+{"run_id": "abc123", "status": "processing", "poll": "/runs/abc123"}
+
+GET /runs/{run_id}
+→ 200 {"status": "completed", "text": "...", "knowledge_pack": {...}}
+```
+
+#### §P8-3. 자동화 플랫폼 연동 시나리오
+| 트리거 | 액션 | 결과 |
+|---|---|---|
+| YouTube 채널 새 영상 | `POST /analyze` | Notion DB 자동 업데이트 |
+| 팟캐스트 RSS 새 에피소드 | `POST /analyze` | Obsidian Vault 자동 추가 |
+| Slack 링크 공유 | `POST /analyze` | 요약본 Slack 스레드에 게시 |
+
+- **의존성:** Phase 6 REST API 완성 후 (추가 의존성 없음)
+
+---
+
 ## 📋 잔여 기술 부채 (낮은 우선순위)
 
 | 항목 | 설명 |
@@ -154,3 +261,21 @@ chew notion 'https://youtu.be/VIDEO_ID' --database-id <ID>
 > - BYOK — 내 API/CLI로, 내 데이터는 내 로컬에
 > - Analyze Once, Reuse Forever — 같은 영상 두 번 분석하지 않는다
 > - Knowledge Graph — 영상들 간의 연결이 자동으로 만들어진다
+
+### AI Agent 통합 비전
+
+```
+지금:   $ chew summarize 'https://youtu.be/...'
+
+미래:
+  Claude Code → chew_analyze(url) → Obsidian에 자동 저장
+  Zapier/n8n  → YouTube 새 영상 감지 → chew → Notion DB 업데이트
+  Python      → from chew import analyze; result = await analyze(url)
+  Custom Agent→ "AI 관련 영상 10개 분석해서 공통 인사이트 뽑아줘"
+                → chew × 10 → Knowledge Graph → 리포트 생성
+```
+
+**왜 하네스 구조가 이 비전을 가능하게 하는가:**
+- 런타임이 Protocol로 추상화되어 있어 어떤 BYOK 키도 그대로 전달 가능
+- `ApplicationService`가 CLI/MCP/REST API 모두에서 재사용 가능한 단일 진입점
+- Knowledge Pack이 content-addressed로 캐싱되어 다중 소비자(Obsidian, Notion, API)가 재조립 비용 없이 활용 가능
