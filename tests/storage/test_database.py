@@ -136,3 +136,28 @@ def test_database_close_removes_thread_local_connection(tmp_path: Path) -> None:
     db.close()
     conn2 = db._connect()
     assert conn1 is not conn2  # new connection after close
+
+
+def test_claim_ready_jobs_allows_chapter_when_topic_dep_is_failed_runtime(tmp_path: Path) -> None:
+    """claim_ready_jobs can claim a chapter even if some topic dependencies are 'failed_runtime'."""
+    from datetime import UTC, datetime
+
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    now = datetime(2026, 8, 19, tzinfo=UTC)
+
+    database.upsert_job(JobSpec("topic-good", "run-1", "topic", 20))
+    database.upsert_job(JobSpec("topic-bad", "run-1", "topic", 20))
+    database.upsert_job(
+        JobSpec("chapter-1", "run-1", "chapter", 10, ("topic-good", "topic-bad"))
+    )
+
+    # Complete topic-good, fail topic-bad as 'failed_runtime'
+    database.claim_ready_jobs("run-1", "w", now, 60, 2)  # claim both topics
+    database.complete_job("topic-good", "hash-good")
+    database.fail_job("topic-bad", "failed_runtime")
+
+    # Chapter should be claimable now (failed_runtime counts as satisfied)
+    claimed = database.claim_ready_jobs("run-1", "w", now, 60, 1)
+    assert [job.job_id for job in claimed] == ["chapter-1"]

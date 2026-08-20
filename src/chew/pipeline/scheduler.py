@@ -209,7 +209,8 @@ class Scheduler:
                         "job_failed",
                         extra={"kind": job.kind, "error": str(error), "attempts": job.attempts},
                     )
-                    self.terminal_error = error
+                    if job.kind != "topic":
+                        self.terminal_error = error
                     return
                 self.database.retry_job(job.job_id, job.worker_id)
                 logger.warning(

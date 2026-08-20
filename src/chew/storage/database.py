@@ -332,7 +332,7 @@ class Database:
                   AND NOT EXISTS (
                     SELECT 1 FROM job_dependencies d
                     JOIN jobs parent ON parent.job_id = d.depends_on
-                    WHERE d.job_id = j.job_id AND parent.status != 'completed'
+                    WHERE d.job_id = j.job_id AND parent.status NOT IN ('completed', 'failed_runtime')
                   )
                 ORDER BY j.priority ASC, j.job_id ASC
                 LIMIT ?

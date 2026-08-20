@@ -105,20 +105,21 @@ async def test_rate_limit_retries_job_and_persists_lower_concurrency(tmp_path: P
 
 
 @pytest.mark.asyncio
-async def test_failed_parent_marks_downstream_failed_and_scheduler_exits(tmp_path: Path) -> None:
+async def test_chapter_failure_is_terminal(tmp_path: Path) -> None:
+    """A chapter job that exhausts retries halts the pipeline (chapter is critical)."""
     database = database_with_run(tmp_path)
     database.upsert_job(JobSpec("topic", "run-1", "topic", 20, runtime_id="fake"))
     database.upsert_job(JobSpec("chapter", "run-1", "chapter", 10, ("topic",), "fake"))
     database.upsert_job(JobSpec("compose", "run-1", "compose", 5, ("chapter",), "fake"))
 
-    class FailingHandler(RecordingHandler):
+    class FailingChapterHandler(RecordingHandler):
         async def handle(self, job: JobRecord) -> str:
-            if job.job_id == "topic":
-                raise ValueError("invalid structured output")
+            if job.job_id == "chapter":
+                raise ValueError("chapter synthesis failed")
             return await super().handle(job)
 
-    handler = FailingHandler({})
-    with pytest.raises(ValueError, match="invalid structured output"):
+    handler = FailingChapterHandler({})
+    with pytest.raises(ValueError, match="chapter synthesis failed"):
         await asyncio.wait_for(
             Scheduler(
                 database,
@@ -126,10 +127,8 @@ async def test_failed_parent_marks_downstream_failed_and_scheduler_exits(tmp_pat
                 global_concurrency=2,
                 runtime_limits={"fake": 2},
             ).run("run-1"),
-            timeout=1,
+            timeout=2,
         )
-
-    assert handler.calls == Counter()
 
 
 @pytest.mark.asyncio
@@ -274,3 +273,28 @@ async def test_scheduler_run_does_not_call_asyncio_wait(tmp_path: Path, monkeypa
     database.upsert_job(JobSpec("topic-fast", "run-1", "topic", 20, runtime_id="fake"))
     handler = RecordingHandler({"topic-fast": 0.01})
     await Scheduler(database, handler, global_concurrency=1, runtime_limits={"fake": 1}).run("run-1")
+
+
+@pytest.mark.asyncio
+async def test_topic_failure_is_non_terminal_and_chapter_still_runs(tmp_path: Path) -> None:
+    """A topic job that exhausts retries does not halt the pipeline — chapter proceeds."""
+    database = database_with_run(tmp_path)
+    database.upsert_job(JobSpec("topic-good", "run-1", "topic", 20, runtime_id="fake"))
+    database.upsert_job(JobSpec("topic-bad", "run-1", "topic", 20, runtime_id="fake"))
+    database.upsert_job(
+        JobSpec("chapter-1", "run-1", "chapter", 10, ("topic-good", "topic-bad"), "fake")
+    )
+
+    class PartialHandler(RecordingHandler):
+        async def handle(self, job: JobRecord) -> str:
+            if job.job_id == "topic-bad":
+                raise ValueError("permanent topic failure")
+            return await super().handle(job)
+
+    handler = PartialHandler({})
+    # Must NOT raise — topic failure is non-terminal with partial failure support
+    summary = await Scheduler(
+        database, handler, global_concurrency=2, runtime_limits={"fake": 2}
+    ).run("run-1")
+    assert summary.failed_jobs >= 1
+    assert handler.calls["chapter-1"] >= 1
