@@ -15,7 +15,7 @@ flowchart TB
     REUSE --> ASSEMBLY["5 · Output Assembly & Validation"]
     ASSEMBLY --> OUTPUT["OUTPUT<br/>Digest · Tech Blog · Study Notes · Obsidian Vault"]
 
-    RUNTIMES["AI Runtime Adapters<br/>Codex · Gemini · Claude · Ollama · Antigravity (agy)"] -.-> SYNTHESIS
+    RUNTIMES["AI Runtime Adapters<br/>Codex · Gemini · Claude · Ollama · LayeredOllama · HuggingFace · Antigravity (agy)"] -.-> SYNTHESIS
     RUNTIMES -.-> ASSEMBLY
 
     LOCAL["Local State & Cache (SQLite WAL & zstd)<br/>Intermediate Persistence · Crash Recovery · Hash Reuse"] -.-> IDENTITY
