@@ -284,3 +284,19 @@ def test_doctor_unknown_runtime_has_no_hint(monkeypatch: pytest.MonkeyPatch) -> 
     assert result.exit_code == 0
     assert "mystery_runtime: not installed" in result.stdout
     assert "Install:" not in result.stdout
+
+
+def test_serve_command_exits_cleanly_without_server_extras(monkeypatch: pytest.MonkeyPatch) -> None:
+    """serve exits with code 1 and a helpful message when fastapi/uvicorn are absent."""
+    import builtins
+    real_import = builtins.__import__
+
+    def _block_server(name: str, *args: object, **kwargs: object) -> object:
+        if name in ("uvicorn", "fastapi"):
+            raise ImportError(f"No module named '{name}'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _block_server)
+    result = CliRunner().invoke(app, ["serve"])
+    assert result.exit_code == 1
+    assert "server" in result.stdout.lower() or "extras" in result.stdout.lower()

@@ -473,6 +473,32 @@ app.command("doctor", help="Diagnose AI runtime installation and authentication.
 app.command("진단", hidden=True)(doctor)
 
 
+def serve(
+    context: typer.Context,
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 8080,
+) -> None:
+    """Start the health-check HTTP server (requires extras[server])."""
+    try:
+        import uvicorn
+
+        from chew.server import create_app
+    except ImportError:
+        typer.echo(
+            "The 'server' extras are required. Run: pip install 'youtube-summarizer-kit[server]'"
+        )
+        raise typer.Exit(1) from None
+    from chew.app.bootstrap import build_application as _build
+
+    _app = _build()
+    # Access the database through the bootstrap-built application if available
+    db = getattr(_app, "database", None) or getattr(getattr(_app, "_service", None), "database", None)
+    uvicorn.run(create_app(database=db), host=host, port=port)  # type: ignore[arg-type]
+
+
+app.command("serve", help="Start the FastAPI health/readiness server.")(serve)
+
+
 def _plan_data(plan: CleanupPlan) -> dict[str, object]:
     return {
         "policy": plan.policy,

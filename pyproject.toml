@@ -41,6 +41,10 @@ telemetry = [
   "opentelemetry-exporter-otlp-proto-http",
   "viztracer",
 ]
+server = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.29",
+]
 dev = [
   "build",
   "coverage[toml]",
