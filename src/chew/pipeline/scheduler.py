@@ -142,7 +142,7 @@ class Scheduler:
                     with suppress(TimeoutError):
                         await asyncio.wait_for(_notify.wait(), timeout=1.0)
                 elif self.database.active_job_count(run_id):
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(self.poll_interval)
         finally:
             for task in running:
                 if not task.done():
