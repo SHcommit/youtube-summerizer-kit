@@ -18,13 +18,13 @@
 
 ## 2. 🟠 High (계층적 의존성 위반 & 타입 안전성 훼손)
 
-### 2-1. Pipeline Layer의 App Config 직접 의존성 제거
+### ✅ 2-1. Pipeline Layer의 App Config 직접 의존성 제거 (완료: 2026-08-19)
 - **현상**: `src/chew/pipeline/engine.py`가 상위 레이어인 `src/chew/app/config.py`의 `Settings` 객체를 직접 임포트하여 사용 (`AGENTS.md` 레이어 의존 규칙 위반).
-- **개선안**: Pipeline 독립적 런타임 옵션 DTO(예: `AnalysisConfig`)를 정의하거나 파라미터 직접 전달로 고립시켜 Ports & Adapters 아키텍처 순수성 복원.
+- **완료**: `AnalysisConfig` frozen dataclass 도입 (`engine.py`). `app/service.py`에서 Settings → AnalysisConfig 변환. 레이어 경계 복원.
 
-### 2-2. `service.py` 내 `getattr` 기반 덕타이핑 계약 위반 해소
+### ✅ 2-2. `service.py` 내 `getattr` 기반 덕타이핑 계약 위반 해소 (완료: 2026-08-19)
 - **현상**: `ApplicationService`가 `Harness` Protocol 표준 인터페이스에 정의되지 않은 `set_preference` 메서드를 `getattr`로 동적 탐색하여 호출함.
-- **개선안**: `AutoHarness` 전용 인터페이스/Protocol(예: `ConfigurableHarness`)을 별도로 명시하거나, Harness 관리 구성을 정식 메소드로 확장.
+- **완료**: `@runtime_checkable ConfigurableHarness` Protocol을 `harness/base.py`에 추가. `service.py`와 `pipeline/outputs.py`에서 `isinstance(h, ConfigurableHarness)` 체크로 교체.
 
 ### 2-3. `scheduler.py` 무한 Polling Busy-Wait 제어 개선
 - **현상**: 작업 큐 처리 대기 시 `await asyncio.sleep(0.005)` (5ms) 고정 인터벌 폴링을 수행하여 DB 및 CPU 스핀 락 유사 자원 소모 발생.
@@ -42,9 +42,9 @@
 - **현상**: `SCHEMA_VERSION = 4` 상태이나, `initialize()`에서 테이블 칼럼 존재 유무(`if "request_key" not in columns:`)를 수동 검사하여 ALTER TABLE을 수행함.
 - **개선안**: 버전별 명시적 마이그레이션 스크립트 실행 구조 또는 마이그레이션 이력 테이블 도입.
 
-### 3-3. Production 코드 내 `assert` 문을 명시적 예외 처리로 전환
+### ✅ 3-3. Production 코드 내 `assert` 문을 명시적 예외 처리로 전환 (완료: 2026-08-19)
 - **현상**: `process.py` 등 일부 모듈에서 `assert process.stdin is not None`과 같이 Python `assert` 구문 사용. (`python -O` 최적화 모드 시 무효화)
-- **개선안**: `if process.stdin is None: raise RuntimeError(...)` 형태로 명시적 에러 검증.
+- **완료**: `process.py` (2건), `whisper.py` (1건), `outputs.py` (1건) → `if X is None: raise RuntimeError("...")` 전환 완료.
 
 ### 3-4. CLI 인증 명령어 매핑 중복 정의 단일화
 - **현상**: `registry.py`와 `builtin.py` 두 곳에 CLI 런타임별 로그인 명령 맵(`{"codex": "codex login", ...}`)이 이중 관리됨.
@@ -165,41 +165,25 @@
 
 > 본 섹션은 코드베이스 전체 심층 감사(2026-08-19) 결과 발견된 **프로덕션 운영 준비도(Operational Readiness)** 결함을 기반으로 작성되었습니다.
 
-### 9-1. 🔴 Structured Logging 전면 도입 (Python `logging` 모듈 0건 사용)
-- **현상**: 전체 `src/chew/` 소스에서 `import logging` 구문이 **단 한 건도 없음**. 에러 발생 시 Python traceback만 터미널에 노출되어 Datadog, CloudWatch, Loki 등 모니터링 시스템 연동이 원천적으로 불가.
-- **심각도**: 🔴 Critical — 엔터프라이즈 환경 도입 차단 요인
-- **개선안**:
-  - `structlog` 또는 Python 표준 `logging` + JSON formatter 도입
-  - 모든 harness 호출, scheduler 이벤트, DB 연산에 `run_id`, `job_id`, `runtime_id` 컨텍스트 필드 포함
-  - 로그 레벨 정책: `DEBUG`(개발), `INFO`(운영), `WARNING`(degradation), `ERROR`(실패)
-  - 출력 형식: `{"timestamp": "...", "level": "INFO", "run_id": "...", "job_id": "...", "model": "...", "latency_ms": 420, "event": "job_completed"}`
+### ✅ 9-1. 🔴 Structured Logging 전면 도입 (완료: 2026-08-19)
+- **현상**: 전체 `src/chew/` 소스에서 `import logging` 구문이 **단 한 건도 없음**.
+- **완료**: `src/chew/log.py` 신규 생성 — `JsonFormatter`, `configure_logging()`, `get_logger()`, `contextvars.ContextVar` (`run_id_var`, `job_id_var`). `scheduler.py` job lifecycle 이벤트 전체 로깅. CLI `@app.callback()`에서 `configure_logging(level=CHEW_LOG_LEVEL)` 초기화.
 
-### 9-2. 🔴 Graceful Shutdown 라이프사이클 구현 (SIGINT/SIGTERM 핸들러 부재)
-- **현상**: `grep -r "signal.signal" src/chew/` 결과 **핸들러 등록 0건**. `process.py`의 `signal.SIGKILL` 전송만 존재하며, 이는 자식 프로세스를 graceful 종료 없이 즉시 강제 종료함.
-- **영향**:
-  - Ctrl+C 시 Ollama HTTP 요청 중단 불완전
-  - Worker DB Lease가 해제되지 않아 다음 실행 시 lease 충돌
-  - SQLite WAL flush 미보장으로 데이터 유실 가능
-- **개선안**:
-  - `signal.signal(SIGINT/SIGTERM)` 핸들러 등록
-  - `ProcessExecutor._terminate()`: SIGTERM → 5초 대기 → SIGKILL escalation 패턴 적용
-  - 스케줄러 `run()` 메서드에 `shutdown_event: asyncio.Event` 주입하여 진행 중 task의 clean cancellation 보장
-  - DB worker claim 해제 및 WAL checkpoint 자동화
+### ✅ 9-2. 🔴 Graceful Shutdown 라이프사이클 구현 (완료: 2026-08-19)
+- **현상**: SIGTERM/SIGINT 핸들러 0건. SIGKILL 즉시 강제 종료만 존재.
+- **완료**:
+  - CLI `@app.callback()`에서 `signal.signal(SIGTERM, _handle_sigterm)` 등록 (→ KeyboardInterrupt 전환)
+  - `ProcessExecutor._terminate()`: SIGTERM → `_await_termination()` 5초 대기 → SIGKILL escalation
+  - `Scheduler.run()`: `shutdown_event: asyncio.Event` 파라미터 추가, while 루프 조건 + `claim_ready_jobs` 가드
+  - `Database.checkpoint()`: WAL flush 메서드 추가
 
-### 9-3. 🔴 SQLite 커넥션 풀링 / 재사용 구현 (매 메서드 호출 시 Connect/Close)
-- **현상**: `database.py`의 모든 public 메서드가 `_connect()`를 호출하여 매번 새 `sqlite3.Connection` 생성 후 파괴. 스케줄러 루프 1회 반복 당 최소 3-4회 커넥션 생성/파괴 발생.
-- **성능 영향**: topic 40개 처리 시 수백 회의 불필요한 PRAGMA 설정 + 시스템 콜 오버헤드
-- **개선안**:
-  - `threading.local()` 기반 thread-local 커넥션 캐싱
-  - 또는 `contextlib.contextmanager` 기반 커넥션 획득/반환 패턴
-  - 커넥션 수명 관리: 최대 idle 시간 설정 후 자동 재연결
+### ✅ 9-3. 🔴 SQLite 커넥션 풀링 / 재사용 구현 (완료: 2026-08-19)
+- **현상**: 매 메서드 호출마다 `sqlite3.Connection` 생성/파괴. topic 40개 처리 시 수백 회 시스템 콜 오버헤드.
+- **완료**: `Database._local = threading.local()` 도입. `_connect()`가 thread-local 커넥션을 캐싱 후 반환. `Database.close()` 추가. 기존 `with self._connect() as connection:` 패턴 유지.
 
-### 9-4. 🔴 Ollama HTTP 세션 재사용 (매 요청 새 TCP 연결)
-- **현상**: `ollama.py`의 `_transport()` 메서드가 `urllib.request.urlopen()`으로 매 API 호출마다 새 TCP 연결 생성. HTTP Keep-Alive, 커넥션 풀링 미적용.
-- **개선안**:
-  - `aiohttp.ClientSession` 또는 `httpx.AsyncClient`로 교체
-  - `TCPConnector(limit=max_concurrency)` 기반 커넥션 풀 설정
-  - 세션 수명을 `OllamaHarness` 인스턴스에 바인딩하고 `async with` 패턴으로 자원 관리
+### ✅ 9-4. 🔴 Ollama HTTP 세션 재사용 (완료: 2026-08-19)
+- **현상**: `urllib.request.urlopen()`으로 매 API 호출마다 새 TCP 연결 생성.
+- **완료**: `OllamaHarness` 완전 재작성 — `httpx.AsyncClient(timeout=180.0)` lazy 초기화 (`_get_client()`), `aclose()` 추가. `httpx>=0.27` core dep 추가. `probe()`도 httpx 클라이언트 재사용.
 
 ### 9-5. 🟠 SpanRecord 무한 축적 메모리 누수 방지
 - **현상**: `telemetry.py` L87의 `self.spans.append(record)`가 프로세스 수명 동안 모든 span을 리스트에 무한 축적. 장시간 배치 실행 시 메모리 증가.
@@ -208,20 +192,20 @@
   - 주기적 flush/export 후 리스트 초기화
   - 또는 `collections.deque(maxlen=N)` 적용
 
-### 9-6. 🟠 Production `assert` 문 → 명시적 예외 전환 (4건 잔존)
-- **현상**: `process.py` (2건), `whisper.py` (1건), `outputs.py` (1건)에서 `assert` 구문 사용. `python -O` 최적화 모드에서 검증이 사라짐.
-- **개선안**: `if X is None: raise RuntimeError("...")` 형태로 4건 전환
+### ✅ 9-6. 🟠 Production `assert` 문 → 명시적 예외 전환 (완료: 2026-08-19)
+- **현상**: `process.py` (2건), `whisper.py` (1건), `outputs.py` (1건)에서 `assert` 구문 사용.
+- **완료**: 4건 전체 `if X is None: raise RuntimeError("...")` 로 전환 완료.
 
 ### 9-7. 🟠 Exponential Backoff with Jitter 적용
 - **현상**: `scheduler.py` L150의 rate limit 재시도 대기가 `error.retry_after` (고정 1.0초)만 사용.
 - **개선안**: `min(base * 2^attempt + random_jitter, max_backoff)` 패턴 적용. AWS 표준 "Full Jitter" 알고리즘 권장.
 
-### 9-8. 🟡 HuggingFace Inference API / vLLM 하네스 어댑터 구현
-- **현상**: §6에 계획된 `LayeredOllamaHarness`가 미구현 상태. $0 로컬 추론이 핵심 차별화 포인트임에도 코드 부재.
-- **개선안**:
-  - `HuggingFaceHarness`: `huggingface_hub.InferenceClient` 기반 무료 Inference API 연동
-  - `LayeredOllamaHarness`: DAG job kind별 모델 라우팅 (`topic` → 1.5B, `chapter` → 7B, `compose` → 14B+)
-  - `harness/huggingface.py` 신규 어댑터 + `registry.py`에 등록
+### ✅ 9-8. 🟡 HuggingFace Inference API / vLLM 하네스 어댑터 구현 (완료: 2026-08-19)
+- **현상**: §6에 계획된 `LayeredOllamaHarness`가 미구현 상태.
+- **완료**:
+  - `harness/huggingface.py` 신규 — `HuggingFaceHarness` (`AsyncInferenceClient`, optional dep `huggingface-hub>=0.23`)
+  - `harness/layered_ollama.py` 신규 — `LayeredOllamaHarness` (topic_summary→1.5B, chapter_summary→7B, compose/output_*→14B)
+  - 두 harness 모두 `registry.py` `default_registry()`에 등록
 
 ### 9-9. 🟡 CLI 토큰 사용량 / 비용 표시 (사용자 체감 지표)
 - **현상**: `engine.py`의 `_AnalysisJobHandler.usage` dict에서 토큰 수 집계하지만, 최종 CLI 출력에 노출되지 않아 사용자가 비용/절감 효과를 체감할 수 없음.
@@ -253,13 +237,32 @@
 
 ## 10. 우선순위 요약 Roadmap (Updated 2026-08-19)
 
-1. **Step 1 (완료)**: `telemetry.py` 내 dead code 제거, 하드코딩 메트릭 제거 및 함수 소형화 refactoring.
-2. **Step 2 (차기 우선과제)**: `engine.py` 레이어 경계 복원 (`Settings` 의존성 분리) 및 `service.py` Protocol 정리.
-3. **Step 3 (🔴 신규 최우선)**: **Structured Logging** (`structlog`) 전면 도입 (§9-1) + **Graceful Shutdown** SIGINT/SIGTERM 핸들러 구현 (§9-2).
-4. **Step 4 (🔴 신규)**: **SQLite 커넥션 풀링** (§9-3) + **Ollama HTTP 세션 재사용** (§9-4) + `assert` → `RuntimeError` 전환 (§9-6).
-5. **Step 5**: `HarnessRouter` + `ResilientHarness` (Phase 1) 구현으로 **BYOK 토큰 95% 절감 계층 아키텍처** 완성 + HuggingFace 하네스 (§9-8).
-6. **Step 6**: CLI 실시간 토큰 사용량/절감률 표시 (§9-9) + **Exponential Backoff** 적용 (§9-7).
-7. **Step 7**: `scheduler.py` Polling 구조 개선 + **부분 실패 (Partial Failure) 허용** 처리 + SpanRecord 메모리 누수 방지 (§9-5).
-8. **Step 8**: FastAPI 헬스 체크, 모델 버전 핀 CI/CD 자동화, Getting Started 5분 최적화 (§9-10).
-9. **Step 9**: 장애 주입 테스트 스위트 구축 (§9-11) — Rate limit, Lease expiry, Auth error, Partial failure, Concurrent DB.
+### ✅ 완료된 Steps
+
+- **Step 1 ✅**: `telemetry.py` dead code 제거, 하드코딩 메트릭 동적화 (§1-2)
+- **Step 2 ✅**: `AnalysisConfig` DTO 도입으로 레이어 경계 복원 (§2-1) + `ConfigurableHarness` Protocol (§2-2)
+- **Step 3 ✅**: Structured Logging JSON 전면 도입 (§9-1) + Graceful Shutdown SIGTERM/SIGKILL escalation + `shutdown_event` + WAL checkpoint (§9-2)
+- **Step 4 ✅**: SQLite thread-local 커넥션 캐싱 (§9-3) + Ollama `httpx` 세션 재사용 (§9-4) + `assert` → `RuntimeError` 4건 (§9-6)
+- **Step 5 ✅**: `HuggingFaceHarness` + `LayeredOllamaHarness` 3-tier 라우팅 (§9-8, §6-1/6-2)
+
+### 남은 Steps (우선순위 순)
+
+6. **Step 6 (계획 완료, 미실행)**: `_backoff_sleep()` Full Jitter (§9-7) + `CommandResult.usage` CLI 토큰 표시 (§9-9)
+   - 계획: `docs/superpowers/plans/2026-08-19-step6-backoff-token-display.md`
+
+7. **Step 7**: `scheduler.py` Polling busy-wait 개선 — `asyncio.Event` push 구조 (§2-3) + Partial Failure 허용 (§7-3) + `SpanRecord` deque maxlen (§9-5)
+
+8. **Step 8**: FastAPI `/health` `/readiness` 헬스 체크 (§7-5) + 모델 태그 버전 핀 CI/CD (§7-7) + Getting Started 5분 최적화 (§9-10)
+
+9. **Step 9**: 장애 주입 테스트 스위트 (§9-11) — Rate limit recovery, Lease takeover, Auth error E2E, Partial failure, Concurrent DB 무결성
+
+### 미분류 잔여 과제
+
+- §1-1: `telemetry.py` 전역 싱글턴 → ContextVar/DI 전환
+- §3-2: SQLite 스키마 마이그레이션 정식 체계 (버전별 스크립트)
+- §3-4: CLI 인증 명령어 매핑 중복 단일화 (`registry.py` + `builtin.py`)
+- §3-5: Rate limit, Lease expiry, Auth error 테스트 커버리지 강화
+- §4-1: `segmentation.py` 하드코딩 한국어 키워드 제거
+- §5-1: 사용자 커스텀 프롬프트 Pattern 시스템 (`~/.chew/patterns/`)
+- §5-3: Whisper VAD 기반 병렬 오디오 처리
 
