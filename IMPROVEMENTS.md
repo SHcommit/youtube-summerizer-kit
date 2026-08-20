@@ -24,31 +24,13 @@
 > **실행 전 주의:** 아래 YouTube 영상 ID는 실행 전 반드시 `yt-dlp --get-duration URL`로 실제 길이를 검증할 것.
 > 영상이 삭제/비공개 전환된 경우 동일 길이의 대체 영상을 찾아 이 표를 업데이트하되, `benchmark-videos.lock.json`에 최초 선정 기록을 남길 것.
 
-| # | 언어 | 목표 길이 | 영상 | YouTube ID | 선정 이유 | 상태 |
+| # | 언어 | 실측 길이 | 영상 | YouTube ID | 선정 이유 | 상태 |
 |---|---|---|---|---|---|---|
-| 1 | 🇰🇷 한국어 | ~15분 | 슈카월드 — 부업 인구 역대 최대 기록 | `sc6ESId6ibo` | 한국어 구어체·필러 밀도 높음, 경제 주제 | ✅ 확정 |
-| 2 | 🇰🇷 한국어 | ~30분 | [월간슈카] 요즘 한국경제 FULL | `MuH0WpeFaE4` | 한국어 설명형 장문, 전문 용어 포함 | ✅ 확정 |
-| 3 | 🇺🇸 영어 | ~7분 | UKspreadbetting — Trade Entries and Exits. Money Management Secrets | `xwqF7oYk3m8` | 영어 단기 트레이딩 교육, 필러 밀도 측정 극단값 | ✅ 확정 |
-| 4 | 🇺🇸 영어 | ~30분 | **미결정** — 후보 아래 참조 | — | 영어 중간 길이 대화체 | 🔲 미결정 |
-| 5 | 🇺🇸 영어 | ~1시간 | **미결정** — 후보 아래 참조 | — | 영어 장시간 강의/인터뷰 | 🔲 미결정 |
-| 6 | 🇺🇸 영어 | ~2시간 | Joe Rogan #1470 — Elon Musk | `RcYjXbSJBN8` | 영어 장시간 팟캐스트, 비구조적 대화 | ✅ 확정 |
-| 7 | 🇺🇸 영어 | ~8.5시간 | Lex Fridman #438 — Elon Musk: Neuralink and the Future of Humanity | `Kbk9BiPhm7o` | 최신(2024-08), 역대 최장, 다화자 혼합 | ✅ 확정 |
-
-#### 🔲 #4 (~30분) 후보 — 하나 선택
-
-| 후보 | 영상 | ID | 특징 |
-|---|---|---|---|
-| A | Stanley Druckenmiller — End of 2023 Full Interview | `cyR0kA20F6s` | 즉흥 대화체, um/uh 많음, 매크로 경제 |
-| B | Howard Marks — Making Sense of Today's Markets | `bfgNtbr2KuE` | 명료한 영어, 투자 철학 |
-| C | Dr David Paul — How to Make Money in Markets | `O1mZJcrMTrY` | JSE 발췌, 트레이딩 교육체 |
-
-#### 🔲 #5 (~1시간) 후보 — 하나 선택
-
-| 후보 | 영상 | ID | 특징 |
-|---|---|---|---|
-| A | 사용자 선택 (제목 미확인) | `0LYMTsj_eqc` | 접근 제한으로 자동 확인 불가 |
-| B | Dr David Paul — The Consistently Winning Trader (JSE Masterclass) | `GKckbawOVeU` | 강의체, 구조적, David Paul 대표작 |
-| C | A Conversation With Stanley Druckenmiller — Full Show | `7njzXBzYnNI` | 헤지펀드 인터뷰, 자연스러운 대화체 |
+| 1 | 🇺🇸 영어 | 4분 35초 | Stop Hunting in Trading Exists! But it is Just Not What You Expect it to Be | `c4GaJKprGEs` | 초단기 교육형 영상 | ✅ 확정 |
+| 2 | 🇺🇸 영어 | 39분 | Sam Altman: "Never a Better Time to Do a Startup" | `ZIaOBAjvc38` | 중간 길이 인터뷰 | ✅ 확정 |
+| 3 | 🇺🇸 영어 | 55분 48초 | Sam Altman on AGI, Compute, and Human Agency | `XDB5beon4DY` | 1시간 내외 기술 인터뷰 | ✅ 확정 |
+| 4 | 🇺🇸 영어 | 2시간 9초 | Joe Rogan Experience #1470 — Elon Musk | `RcYjXbSJBN8` | 장시간 비구조적 대화 | ✅ 확정 |
+| 5 | 🇺🇸 영어 | 2시간 49분 45초 | Elon Musk – "In 36 months, the cheapest place to put AI will be space” | `BYXbuik3dgA` | 다른 형식의 장시간 Elon Musk 인터뷰 | ✅ 확정 |
 
 ### 측정 항목
 
@@ -112,11 +94,11 @@ Token measurement spike — baseline before preprocessing.
   6. 결과를 Markdown 표로 reports/token-baseline.md에 저장
 
 BENCHMARK_VIDEOS (변경 금지):
-  "15m_ko": "https://www.youtube.com/watch?v=sc6ESId6ibo"
-  "30m_ko": "https://www.youtube.com/watch?v=MuH0WpeFaE4"
-  "1h_en":  "https://www.youtube.com/watch?v=dEv99vxKjVI"
+  "5m_en":  "https://www.youtube.com/watch?v=c4GaJKprGEs"
+  "39m_en": "https://www.youtube.com/watch?v=ZIaOBAjvc38"
+  "1h_en":  "https://www.youtube.com/watch?v=XDB5beon4DY"
   "2h_en":  "https://www.youtube.com/watch?v=RcYjXbSJBN8"
-  "3h_en":  "https://www.youtube.com/watch?v=DxREm3s1scA"
+  "2h50m_en":  "https://www.youtube.com/watch?v=BYXbuik3dgA"
 
 한국어 필러 패턴: ["음+", "어+", "그+", "뭐지", "있잖아", "그러니까", "아~", "에~"]
 영어 필러 패턴:  ["\\bum+\\b", "\\buh+\\b", "\\byou know\\b", "\\blike\\b", "\\bactually\\b"]
