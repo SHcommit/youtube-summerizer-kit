@@ -161,3 +161,55 @@ def test_claim_ready_jobs_allows_chapter_when_topic_dep_is_failed_runtime(tmp_pa
     # Chapter should be claimable now (failed_runtime counts as satisfied)
     claimed = database.claim_ready_jobs("run-1", "w", now, 60, 1)
     assert [job.job_id for job in claimed] == ["chapter-1"]
+
+
+def test_rate_limit_recovery_after_10_consecutive_successes(tmp_path: Path) -> None:
+    """After two rate-limit events, 10 consecutive successes raise the limit by 1."""
+    db = Database(tmp_path / "state.db")
+    db.initialize()
+    # Establish ceiling=4
+    assert db.get_runtime_limit("fake", 4) == 4
+    # Two rate-limit events: 4 → 2 → 1
+    db.note_rate_limit("fake")
+    db.note_rate_limit("fake")
+    assert db.get_runtime_limit("fake", 4) == 1
+    # 9 successes — still at 1
+    for _ in range(9):
+        limit = db.note_runtime_success("fake")
+    assert limit == 1
+    # 10th success triggers recovery: limit goes from 1 → 2
+    limit = db.note_runtime_success("fake")
+    assert limit == 2
+    # streak reset: 9 more successes do not yet trigger another bump
+    for _ in range(9):
+        limit = db.note_runtime_success("fake")
+    assert limit == 2
+    # 10th again: 2 → 3
+    limit = db.note_runtime_success("fake")
+    assert limit == 3
+
+
+def test_concurrent_db_writers_wal_integrity(tmp_path: Path) -> None:
+    """Ten threads writing jobs simultaneously via separate Database instances do not corrupt the DB."""
+    db = Database(tmp_path / "state.db")
+    db.initialize()
+    db.create_run("run-1", "source", "analysis-v1")
+
+    errors: list[Exception] = []
+
+    def write_job(index: int) -> None:
+        worker_db = Database(tmp_path / "state.db")
+        worker_db.initialize()
+        try:
+            worker_db.upsert_job(JobSpec(f"job-{index}", "run-1", "topic", 20))
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=write_job, args=(i,)) for i in range(10)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors, f"concurrent writes raised: {errors}"
+    assert db.active_job_count("run-1") == 10
