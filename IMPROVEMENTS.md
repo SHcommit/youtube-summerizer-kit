@@ -2,7 +2,9 @@
 
 > 동영상/오디오 전용 개인 지식 축적 도구 - 볼수록 쌓이고, 쌓일수록 연결된다.
 >
-> **목표:** BYOK(Bring Your Own Key) 구조에서 Frontier LLM을 핵심 분석 엔진으로 유지하되, 전처리(로컬) + 지식 그래프(임베딩)로 비용을 낮추고 차별화된 가치를 만든다.
+> **목표:** BYOK(Bring Your Own Key) 구조에서 Frontier LLM을 핵심 분석 엔진으로 유지하고, 원문 근거를 검증 가능한 결과로 만들며, 실행 정책으로 비용·품질·장애 대응을 통제한다. 로컬 처리와 임베딩은 이 목표를 실측으로 만족할 때만 선택적으로 추가한다.
+
+> **현재 우선순위 결정:** 단발성 영상 요약은 벡터 DB나 RAG 인덱스를 재사용하지 않는다. 따라서 매 실행마다 임베딩을 생성하지 않는다. 먼저 `EvidenceRef -> span 검증 -> immutable ExecutionPlan -> Policy Layer`를 구현한다. Ollama는 이 경계 위에서만 opt-in 실험 경로로 사용하며, 최종 요약과 최종 판단은 항상 사용자의 BYOK Frontier runtime이 맡는다.
 
 ---
 
@@ -107,6 +109,90 @@ uv run --extra youtube --with tiktoken python scripts/spike_token_baseline.py --
 
 ## 다음 로드맵
 
+### Phase 0: 근거 무결성과 실행 정책 - 최우선
+
+**목적:** 현재의 Frontier 중심 계층 요약을 유지하면서, 최종 주장에 원문 근거를 연결하고, 어떤 runtime이 어떤 예산으로 실행되는지를 정책으로 통제한다. 이 단계는 Frontier input token을 줄이겠다는 약속이 아니라 결과 신뢰성, 운영 재현성, 이후 로컬 실험의 안전한 경계를 만드는 작업이다.
+
+#### P0-1. 신뢰 경계와 EvidenceRef 계약
+
+모든 중간 결과를 같은 신뢰 수준으로 취급하지 않는다.
+
+```text
+RawTranscript             신뢰 원본. content-addressed artifact, 수정 불가
+EvidenceCandidate         모델이 제안한 미검증 근거. 신뢰하지 않음
+ValidatedEvidenceRef      코드가 원문 위치를 확인한 참조
+KnowledgePack             Frontier가 작성한 해석 결과. 원문 자체는 아님
+```
+
+`EvidenceCandidate`는 기존 Frontier `topic_summary` 출력 안에서 생성한다. 별도 Ollama 호출을 추가하지 않는다. 최소 필드는 다음과 같다.
+
+```text
+claim_id                  주장이 속한 topic 내 안정적 식별자
+segment_ids               원문 TranscriptSegment 식별자 목록
+timestamp_start/end       주장 근거 시간 범위
+quote                     원문에서 가져온 짧은 인용문
+```
+
+`ValidatedEvidenceRef`에는 raw artifact hash, 검증된 segment ID, timestamp 범위, quote hash와 검증 상태를 저장한다. 모델은 후보를 제안할 수 있지만, 검증기만 `ValidatedEvidenceRef`를 생성할 수 있다.
+
+#### P0-2. 결정론적 span 검증기
+
+검증기는 LLM이 아니며 다음만 검사한다.
+
+1. `segment_ids`가 해당 topic의 raw transcript 범위 안에 존재하는가.
+2. 후보 timestamp가 참조 segment의 timestamp와 겹치는가.
+3. 정규화한 `quote`가 참조 segment 또는 바로 인접한 segment의 raw text에 존재하는가.
+4. artifact hash가 분석에 사용한 raw transcript와 일치하는가.
+
+검증기는 주장의 사실 여부를 판정하지 않는다. 모델이 원문에 없는 인용문·시간을 근거로 삼는 것을 막는 장치다. 실패 시 전체 요약을 실패시키지 않고 해당 evidence만 `invalid`로 기록한다. 재생성 여부는 아래 Policy Layer의 retry 예산 안에서만 결정한다.
+
+#### P0-3. Immutable ExecutionPlan과 Policy Layer
+
+Harness는 요청을 실행할 뿐 runtime 선택, 비용 예산, fallback을 스스로 결정하지 않는다. 실행 시작 전 Policy Layer가 입력 메타데이터·사용자 설정·runtime health를 바탕으로 immutable `ExecutionPlan`을 만든다.
+
+```text
+Policy Layer -> ExecutionPlan 생성
+Pipeline     -> 계획에 따라 topic/chapter 작업 구성
+Harness      -> 지정된 runtime/model 요청만 실행
+LLM output   -> 실행 계획, 모델, 예산을 변경할 권한 없음
+```
+
+`ExecutionPlan` 필수 기록:
+
+- `policy_version`, 실행 계획 fingerprint, 선택 이유
+- Frontier runtime/model과 task별 route
+- local accelerator 허용 여부와 health 결과
+- task별 input/output token budget, timeout, retry limit
+- Frontier fallback 경로와 partial-result 정책
+
+Policy v1은 규칙 기반의 순수 함수로 유지한다. LangGraph, agent loop, 동적 모델 자율 선택은 도입하지 않는다. 초기 기본 경로는 `frontier-only`이며, Ollama 부재·오류·검증 실패가 전체 결과 실패로 이어지지 않게 한다.
+
+#### P0-4. 최소 sandbox boundary
+
+- 모델 출력은 JSON schema와 응답 크기 제한을 통과한 데이터로만 취급한다. shell command, 파일 경로, URL, runtime 설정으로 해석하지 않는다.
+- raw transcript artifact는 immutable이며, 전처리본은 별도 derived artifact로만 저장한다.
+- API key와 비밀값은 `CHEW.md`, SQLite 측정값, artifact, 로그에 기록하지 않는다.
+- Ollama adapter는 allowlisted local HTTP generation 요청만 수행한다. 모델 출력으로 subprocess나 외부 네트워크를 실행하지 않는다.
+- Policy Layer만 runtime route와 token budget을 결정한다. Harness와 LLM output은 이를 변경할 수 없다.
+
+#### P0-5. 측정과 채택 기준
+
+`job_measurements` 및 run metadata에 policy fingerprint, route, evidence candidate 수, validation pass/fail 수, retry 이유, 실제 provider usage를 저장한다. 다음 기준을 모두 만족할 때만 기본 경로를 확장한다.
+
+1. 검증 통과 `EvidenceRef`의 raw span 존재율은 100%다.
+2. 핵심 주장 recall과 timestamp accuracy가 기존 Frontier-only 기준보다 낮아지지 않는다.
+3. unsupported claim, missing range, partial failure가 증가하지 않는다.
+4. Ollama 보조 경로는 실제 Frontier input usage 또는 비용을 10% 이상 줄일 때만 opt-in을 넘어 기본값 후보가 된다.
+
+#### P0-6. 명시적 비범위
+
+- 단발성 영상 요약을 위한 임베딩, RAG, vector DB
+- Knowledge Graph, 영상 간 유사도 인덱스
+- Ollama가 만드는 최종 요약·챕터·Knowledge Pack
+- LangGraph/agent orchestration, 외부 자동화 API/MCP
+
+임베딩은 다중 영상 재질문, 장기 노트 검색, Obsidian 연동처럼 재사용되는 retrieval 요구가 확인될 때만 재검토한다.
+
 ### Phase 1: Frontier 토큰 절감 - 자막 전처리 파이프라인
 
 **상세 설계:** `docs/superpowers/specs/2026-08-20-transcript-preprocessing-design.md`
@@ -150,6 +236,7 @@ class TranscriptPreprocessor:
 
 #### P1-3. 의미 경계 탐지 (`preprocessing.py` Stage 3)
 
+- **상태: 보류.** 단발성 요약에 매번 임베딩을 생성하는 비용과 복잡도는 현재 우선순위에 맞지 않는다. 아래 설계는 다중 영상 retrieval 요구가 검증된 뒤 재검토한다.
 - `sentence-transformers`의 다국어 모델을 사용한다.
 - 인접 세그먼트 코사인 유사도 변곡점을 topic 경계 힌트로 사용한다.
 - `segmentation.py`의 `BoundaryDetector`에 주입한다.
@@ -203,7 +290,7 @@ chew graph --related RUN_ID
 
 ### Phase 4: Cheap Frontier 티어 라우팅
 
-기본은 사용자가 선택한 단일 BYOK runtime을 모든 작업에 사용하는 것이다. tier 라우팅은 사용자가 보유한 runtime과 모델을 명시적으로 설정한 경우에만 활성화한다. 다른 cloud provider로 자동 전환하지 않는다.
+기본은 사용자가 선택한 단일 BYOK runtime을 모든 작업에 사용하는 것이다. tier 라우팅은 Phase 0의 Policy Layer가 `ExecutionPlan`으로 명시할 때만 활성화한다. 다른 cloud provider로 자동 전환하지 않는다.
 
 | 작업 | 기본 정책 | tier routing opt-in |
 |---|---|---|
@@ -212,7 +299,7 @@ chew graph --related RUN_ID
 | `output_compose` | 선택 runtime | 사용자가 지정한 고품질 tier |
 | `output_verify` | 선택 runtime | 사용자가 지정한 고품질 tier 또는 opt-in |
 
-`LayeredOllamaHarness`의 Map/Combine/Reduce 구조는 로컬 선택지로 유지한다. cloud runtime의 task-tier 정책은 `CHEW.md`에서 사용자가 runtime/model/fallback 순서를 직접 설정할 수 있을 때만 추가한다.
+`LayeredOllamaHarness`의 Map/Combine/Reduce 구조는 실험적 로컬 선택지로 유지한다. 최종 Knowledge Pack을 Ollama만으로 생성하는 기본 경로로 승격하지 않는다. cloud runtime의 task-tier 정책은 `CHEW.md`에서 사용자가 runtime/model/fallback 순서를 직접 설정할 수 있고, Policy Layer가 실행 계획에 기록할 때만 추가한다.
 
 **현재 구현:** `CHEW.md`의 `task_runtimes`로 task별 runtime을 명시할 수 있다. map에 없는 task는 단일 기본 `runtime`을 사용하며 자동 provider fallback은 없다. 모델 단위 routing은 실제 적용 가능한 selector가 있는 Ollama의 전역 `ollama_model`만 지원한다. cloud model/fallback 순서는 adapter별 적용·검증 계약이 추가되기 전에는 받지 않는다.
 
@@ -247,7 +334,8 @@ chew graph --related RUN_ID
 
 - BYOK: 내 API/CLI와 내 데이터
 - Analyze Once, Reuse Forever: 같은 영상을 두 번 분석하지 않음
-- Knowledge Graph: 영상 간 연결 자동 생성
+- Evidence-first: 최종 주장에 검증 가능한 원문 timestamp와 span을 연결
+- Knowledge Graph: 영상 간 연결 자동 생성 (향후 보류 기능)
 
 ---
 
@@ -300,6 +388,8 @@ chew graph --related RUN_ID
 미달 시 해당 전략은 opt-in으로 유지하고, 절감률을 마케팅 문구로 사용하지 않는다.
 
 ### F. Ollama 실행 효율 개선 우선순위
+
+**선행 조건:** Phase 0의 EvidenceRef, span 검증, Policy Layer가 완료되기 전에는 Ollama 경로를 기본값으로 확대하지 않는다. Ollama는 최종 요약기가 아니라 보수적 로컬 가속기이며, 실측에서 Frontier input 비용을 낮추는 경우에만 사용한다.
 
 현재 Ollama 경로는 topic마다 전체 segment payload와 JSON schema를 전송하고, 시간 기반 분절, JSON repair, profile별 compose/verify 호출의 영향을 함께 받는다. 실제 병목을 가정하지 않고 아래 순서로 측정하고 개선한다.
 
