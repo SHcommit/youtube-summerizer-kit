@@ -14,8 +14,9 @@
 
 1. Run reviewed Korean and long-video preprocessing benchmarks. Keep preprocessing opt-in unless
    it achieves the 10% adoption gate without quality regression.
-2. Compare one-pass and hierarchical analysis for short videos using the same Frontier runtime
-   before changing the default analysis path.
+2. Run `chew benchmark run --short-video` for the 4m35s `5m_en` fixture after YouTube caption
+   rate limiting clears and a reviewed reference is added. Compare same-transcript, same-Frontier
+   one-pass and hierarchical paths before changing the default analysis path.
 3. Complete the remaining Policy/Sandbox work: decide on per-task timeout/retry policy in
    `ExecutionPlan` and validate evidence handling on a real Frontier run.
 

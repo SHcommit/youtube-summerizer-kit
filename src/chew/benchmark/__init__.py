@@ -13,6 +13,7 @@ from chew.benchmark.runner import (
     _score_output,
     benchmark_catalog,
     live_benchmark_spec,
+    short_video_benchmark_spec,
     write_benchmark_report,
 )
 
@@ -29,5 +30,6 @@ __all__ = [
     "_score_output",
     "benchmark_catalog",
     "live_benchmark_spec",
+    "short_video_benchmark_spec",
     "write_benchmark_report",
 ]

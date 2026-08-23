@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Short-video Frontier benchmark**:
+  - Adds `chew benchmark run --short-video` to compare one-pass and hierarchical synthesis using the same transcript and configured Frontier runtime.
+  - Records provider usage, latency, evidence coverage, timestamp accuracy, and unsupported claims without mixing in direct video-URL input.
 - **Harness Response and Endpoint Boundaries**:
   - Rejects model responses over 1 MiB, deeper than 64 JSON levels, or containing collections over 10,000 items before schema materialization.
   - Restricts Ollama to loopback endpoints unless the caller explicitly provides an endpoint allowlist.

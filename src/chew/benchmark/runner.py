@@ -423,3 +423,153 @@ def live_benchmark_spec(
             ),
         ),
     )
+
+
+def short_video_benchmark_spec(
+    url: str,
+    *,
+    reference: BenchmarkReference,
+    repeats: int = 3,
+    configured_runtime: str = "codex",
+) -> BenchmarkSpec:
+    """Compare one-pass and hierarchical synthesis with the same transcript and Frontier runtime."""
+
+    from chew.core.identity import normalize_youtube_url
+    from chew.core.models import GenerationRequest
+    from chew.core.prompts import PROMPT_FINGERPRINT
+    from chew.harness.base import Harness
+    from chew.harness.builtin import request_prompt
+    from chew.harness.registry import default_registry
+    from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
+    from chew.storage.artifacts import ArtifactStore
+    from chew.storage.database import Database
+    from chew.transcripts import TranscriptService, default_providers
+
+    source = normalize_youtube_url(url)
+    if reference.source_id != source.source_id:
+        raise ValueError("benchmark reference source_id does not match URL")
+    registry = default_registry()
+    runtime_lock = Lock()
+
+    async def selected_runtime() -> Harness:
+        async with runtime_lock:
+            return await registry.select(configured_runtime)
+
+    def single_pass() -> ConditionRunner:
+        async def observe(_: str) -> BenchmarkObservation:
+            selected = await selected_runtime()
+            transcript = (
+                await TranscriptService(default_providers()).resolve(source, reference.language, include_optional=False)
+            ).transcript
+            request = GenerationRequest(
+                request_id=str(uuid4()),
+                task="benchmark_single_pass_transcript",
+                input={
+                    "title": transcript.title or "YouTube video",
+                    "language": reference.language,
+                    "segments": [segment.model_dump(mode="json") for segment in transcript.segments],
+                    "instruction": (
+                        "Produce a concise evidence-grounded summary. Return key points with exact "
+                        "timestamps and transcript quotes."
+                    ),
+                },
+                output_schema=_COMMON_SCHEMA,
+                trace_id=str(uuid4()),
+            )
+            started = monotonic()
+            result = await selected.generate(request)
+            metrics, unsupported = _score_output(result.output, reference)
+            return BenchmarkObservation(
+                metrics,
+                monotonic() - started,
+                sum(result.usage.values()),
+                unsupported,
+                {
+                    "runtime": result.runtime_id,
+                    "model": result.model or "default",
+                    "prompt_fingerprint": hashlib.sha256(request_prompt(request).encode()).hexdigest(),
+                    "comparison": "same_frontier_transcript",
+                },
+            )
+
+        return observe
+
+    def hierarchical() -> ConditionRunner:
+        async def observe(_: str) -> BenchmarkObservation:
+            selected = await selected_runtime()
+            capabilities = (await selected.probe()).capabilities
+            started = monotonic()
+            with tempfile.TemporaryDirectory(prefix="chew-short-video-benchmark-") as temporary:
+                root = Path(temporary)
+                database = Database(root / "state.sqlite3")
+                database.initialize()
+                pipeline = AnalysisPipeline(
+                    database=database,
+                    artifacts=ArtifactStore(root),
+                    transcripts=TranscriptService(default_providers()),
+                    harness=selected,
+                    concurrency=capabilities.max_concurrency,
+                )
+                result = await pipeline.analyze(
+                    url,
+                    AnalysisConfig(
+                        language=reference.language,
+                        depth="detailed",
+                        instructions="",
+                        whisper_fallback=False,
+                        runtime=configured_runtime,
+                        recipe_json="{}",
+                    ),
+                )
+            points = [
+                {
+                    "text": claim.text,
+                    "timestamp_ms": claim.evidence[0].start_ms if claim.evidence else 0,
+                    "evidence": claim.evidence[0].text if claim.evidence else "",
+                }
+                for topic in result.pack.topics
+                for claim in topic.claims
+            ]
+            metrics, unsupported = _score_output(
+                {
+                    "overview": result.pack.overview,
+                    "key_points": points,
+                    "further_study": list(result.pack.further_study),
+                },
+                reference,
+            )
+            return BenchmarkObservation(
+                metrics,
+                monotonic() - started,
+                sum((result.usage or {}).values()),
+                unsupported,
+                {
+                    "runtime": selected.runtime_id,
+                    "model": ",".join(result.models) or "default",
+                    "prompt_fingerprint": PROMPT_FINGERPRINT,
+                    "comparison": "same_frontier_transcript",
+                },
+            )
+
+        return observe
+
+    return BenchmarkSpec(
+        source_id=source.source_id,
+        repeats=repeats,
+        conditions=(
+            BenchmarkCondition(
+                "frontier-single-pass",
+                "Single-pass / configured Frontier",
+                "transcript",
+                single_pass(),
+                True,
+            ),
+            BenchmarkCondition(
+                "frontier-hierarchical",
+                "Hierarchical / configured Frontier",
+                "transcript",
+                hierarchical(),
+                True,
+            ),
+        ),
+    )

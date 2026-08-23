@@ -24,6 +24,7 @@ from chew.benchmark.runner import (
     BenchmarkRunner,
     benchmark_catalog,
     live_benchmark_spec,
+    short_video_benchmark_spec,
     write_benchmark_report,
 )
 from chew.core.identity import (
@@ -659,6 +660,7 @@ def benchmark_run(
     runtime: Annotated[str, typer.Option("--runtime")] = "codex",
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("benchmark-results"),
     reference: Annotated[Path | None, typer.Option("--reference")] = None,
+    short_video: Annotated[bool, typer.Option("--short-video")] = False,
 ) -> None:
     if not live:
         typer.echo(
@@ -675,9 +677,10 @@ def benchmark_run(
         )
         raise typer.Exit(2)
     benchmark_reference = BenchmarkReference.from_json(reference.read_text(encoding="utf-8"))
+    spec_factory = short_video_benchmark_spec if short_video else live_benchmark_spec
     report = asyncio.run(
         BenchmarkRunner().run(
-            live_benchmark_spec(
+            spec_factory(
                 url,
                 reference=benchmark_reference,
                 repeats=repeats,

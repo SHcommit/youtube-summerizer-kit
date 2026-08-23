@@ -473,9 +473,15 @@ chew benchmark-ui
 chew benchmark list
 chew benchmark run 'https://youtu.be/VIDEO_ID' --live \
   --reference benchmark-reference.json --repeats 3 --runtime codex
+
+# Short-video path decision: same transcript and same Frontier runtime
+chew benchmark run 'https://www.youtube.com/watch?v=c4GaJKprGEs' --live --short-video \
+  --reference short-video-reference.json --repeats 1 --runtime codex
 ```
 
 The benchmark compares direct Gemini URL analysis using a minimal prompt and shared schema against the hierarchical pipeline using Gemini and the configured runtime. It evaluates claim and evidence recall, timestamp accuracy, long-duration coverage, and unsupported claims against a reference file. Each result states whether its input was `video_url` or `transcript`, so Gemini's multimodal input advantage is not mistaken for pipeline quality.
+
+`--short-video` instead compares a single-pass transcript request with hierarchical synthesis using the same configured Frontier runtime. It is the decision path for short videos and must use a reviewed reference file; its report does not claim a result until both conditions run successfully.
 
 Live benchmarks require both `--live` and an explicit reference file because they use real login sessions and quota. Reports are written atomically to `benchmark-results/run-*/report.json` and `report.md`. The project does not yet publish a multilingual, multi-duration benchmark corpus or claim that it always outperforms Gemini.
 

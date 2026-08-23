@@ -13,6 +13,7 @@ from chew.benchmark import (
     BenchmarkSpec,
     ReferenceClaim,
     _score_output,
+    short_video_benchmark_spec,
 )
 from chew.cli import app
 
@@ -82,9 +83,33 @@ def test_benchmark_catalog_command_is_offline() -> None:
 
 
 def test_live_benchmark_requires_explicit_opt_in() -> None:
-    result = CliRunner().invoke(app, ["벤치마크", "실행", "https://youtu.be/abcDEF_1234"])
+    result = CliRunner().invoke(
+        app,
+        ["벤치마크", "실행", "https://youtu.be/abcDEF_1234", "--short-video"],
+    )
     assert result.exit_code == 2
     assert "--live" in result.stdout
+
+
+def test_short_video_benchmark_uses_same_transcript_frontier_conditions() -> None:
+    reference = BenchmarkReference(
+        source_id="youtube:abcDEF_1234",
+        language="en",
+        duration_ms=275_000,
+        claims=(ReferenceClaim("claim", "evidence", 10_000),),
+    )
+
+    spec = short_video_benchmark_spec(
+        "https://www.youtube.com/watch?v=abcDEF_1234",
+        reference=reference,
+        configured_runtime="codex",
+    )
+
+    assert spec.repeats == 3
+    assert [(condition.condition_id, condition.input_method) for condition in spec.conditions] == [
+        ("frontier-single-pass", "transcript"),
+        ("frontier-hierarchical", "transcript"),
+    ]
 
 
 def test_reference_scoring_penalizes_hallucinations_and_wrong_timestamps() -> None:
