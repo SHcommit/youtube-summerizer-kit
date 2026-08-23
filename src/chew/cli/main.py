@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Annotated, Any, Protocol, cast
 
 import typer
+from platformdirs import user_data_path
 
 from chew.app.config import ConfigurationError
 from chew.app.retention import CleanupPlan, RetentionPlanner
@@ -36,6 +37,7 @@ from chew.log import configure_logging
 from chew.telemetry import telemetry
 from chew.transcripts.service import TranscriptRateLimited, TranscriptUnavailable
 from chew.transcripts.whisper import WhisperDependencyMissing
+from chew.transcripts.youtube_auth import YouTubeAuthError, YouTubeAuthStore
 
 
 class Application(Protocol):
@@ -54,6 +56,7 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode=None,
 )
+auth_app = typer.Typer(no_args_is_help=True)
 
 
 @app.callback()
@@ -95,6 +98,11 @@ def _retention_factory() -> RetentionPlanner:
     from chew.app.bootstrap import build_retention_planner
 
     return build_retention_planner()
+
+
+def _youtube_auth_store() -> YouTubeAuthStore:
+    data = Path(user_data_path("youtube-summarizer-kit", appauthor=False))
+    return YouTubeAuthStore(data)
 
 
 KOREAN_COMMANDS = {
@@ -264,13 +272,16 @@ def _run_generation(
     except TranscriptRateLimited as error:
         if korean:
             typer.echo(
-                f"YouTube 자막 요청이 제한되었습니다. 약 {error.retry_after_seconds}초 후 같은 명령을 다시 실행하세요. "
-                "계속 실패하면 로컬 MP3/MP4 또는 VTT/SRT 자막을 사용하세요."
+                f"YouTube timedtext 요청이 HTTP 429로 제한되었습니다. 약 {error.retry_after_seconds}초 후 같은 명령을 다시 실행하세요. "
+                "계속되면 `chew auth youtube --from-browser chrome`으로 본인 YouTube 로그인을 연결하세요. "
+                "또는 CHEW.md에 youtube_cookie_file을 명시하거나 로컬 MP3/MP4를 사용하세요."
             )
         else:
             typer.echo(
-                f"YouTube caption requests are rate-limited. Retry the same command in about "
-                f"{error.retry_after_seconds}s. If it persists, use local MP3/MP4 or VTT/SRT captions."
+                f"YouTube timedtext returned HTTP 429. Retry the same command in about "
+                f"{error.retry_after_seconds}s. If it persists, connect your own YouTube login with "
+                "`chew auth youtube --from-browser chrome`, explicitly set youtube_cookie_file in CHEW.md, "
+                "or use local MP3/MP4 media."
             )
         raise typer.Exit(2) from error
     except TranscriptUnavailable as error:
@@ -528,6 +539,41 @@ def doctor(
 
 app.command("doctor", help="Diagnose AI runtime installation and authentication.")(doctor)
 app.command("진단", hidden=True)(doctor)
+
+
+@auth_app.command("youtube")
+def auth_youtube(
+    from_browser: Annotated[str | None, typer.Option("--from-browser")] = None,
+    clear: Annotated[bool, typer.Option("--clear")] = False,
+    status: Annotated[bool, typer.Option("--status")] = False,
+) -> None:
+    """Connect, inspect, or remove the local YouTube caption login."""
+
+    operations = int(from_browser is not None) + int(clear) + int(status)
+    if operations != 1:
+        typer.echo("Choose exactly one of --from-browser, --status, or --clear.")
+        raise typer.Exit(2)
+    store = _youtube_auth_store()
+    if clear:
+        if store.clear():
+            typer.echo("YouTube login removed from local chew storage.")
+        else:
+            typer.echo("No YouTube login is connected.")
+        return
+    if status:
+        typer.echo("YouTube login connected." if store.cookie_file() is not None else "No YouTube login is connected.")
+        return
+    assert from_browser is not None
+    typer.echo("Connecting your local YouTube session for caption retrieval. YouTube may still restrict access.")
+    try:
+        store.connect_from_browser(from_browser.lower())
+    except YouTubeAuthError as error:
+        typer.echo(f"YouTube login connection failed: {error}")
+        raise typer.Exit(2) from error
+    typer.echo("YouTube login connected.")
+
+
+app.add_typer(auth_app, name="auth", help="Connect or remove local service credentials.")
 
 
 def serve(
