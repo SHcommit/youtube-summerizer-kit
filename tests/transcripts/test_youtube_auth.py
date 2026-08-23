@@ -70,6 +70,16 @@ def test_connect_requires_youtube_login_cookie(tmp_path, monkeypatch: pytest.Mon
         YouTubeAuthStore(tmp_path).connect_from_browser("chrome")
 
 
+def test_connect_reports_when_yt_dlp_is_not_installed(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing(_: str):
+        raise ImportError("yt-dlp missing")
+
+    monkeypatch.setattr("chew.transcripts.youtube_auth.import_module", missing)
+
+    with pytest.raises(YouTubeAuthError, match="yt-dlp is required"):
+        YouTubeAuthStore(tmp_path).connect_from_browser("chrome")
+
+
 def test_clear_is_idempotent(tmp_path) -> None:
     store = YouTubeAuthStore(tmp_path)
     assert store.clear() is False

@@ -3,17 +3,28 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from http.cookiejar import Cookie, CookieJar, MozillaCookieJar
+from importlib import import_module
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-
-from yt_dlp.cookies import extract_cookies_from_browser
+from typing import cast
 
 SUPPORTED_BROWSERS = frozenset({"chrome", "chromium", "firefox"})
 
 
 class YouTubeAuthError(RuntimeError):
     """A user-actionable error while connecting a local YouTube session."""
+
+
+def extract_cookies_from_browser(browser: str) -> CookieJar:
+    """Load yt-dlp only when the optional login operation is requested."""
+
+    try:
+        extractor = cast(Callable[[str], CookieJar], import_module("yt_dlp.cookies").extract_cookies_from_browser)
+    except ImportError as error:
+        raise YouTubeAuthError("yt-dlp is required. Install: pip install 'youtube-summarizer-kit[youtube]'") from error
+    return extractor(browser)
 
 
 def _is_youtube_domain(domain: str) -> bool:
@@ -57,7 +68,9 @@ class YouTubeAuthStore:
             choices = ", ".join(sorted(SUPPORTED_BROWSERS))
             raise YouTubeAuthError(f"Unsupported browser: {browser}. Choose one of: {choices}.")
         try:
-            browser_cookies: CookieJar = extract_cookies_from_browser(browser)
+            browser_cookies = extract_cookies_from_browser(browser)
+        except YouTubeAuthError:
+            raise
         except Exception as error:
             raise YouTubeAuthError(
                 f"Could not access {browser} cookies. Close the browser and try again, or set youtube_cookie_file manually."
