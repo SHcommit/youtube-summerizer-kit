@@ -198,8 +198,8 @@ def _apply_preprocessing(transcript: Any, preprocessing: str) -> Any:
         if error.name == "chew.pipeline.preprocessing":
             return transcript
         raise
-    preprocess_transcript = module.preprocess_transcript
-    return preprocess_transcript(transcript, mode=preprocessing)
+    processed, _ = module.preprocess_transcript(transcript)
+    return processed
 
 
 def _count_tokens(text: str) -> int:
