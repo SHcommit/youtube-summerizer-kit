@@ -24,6 +24,20 @@
 4. Complete the remaining Policy/Sandbox work: decide on per-task timeout/retry policy in
    `ExecutionPlan` and validate evidence handling on a real Frontier run.
 
+## Latest Transcript Acquisition Result
+
+- Fixture: `https://www.youtube.com/watch?v=c4GaJKprGEs` (about five minutes).
+- Tried public `youtubei`, direct `captionTracks` timed-text, yt-dlp manual/automatic captions,
+  `youtube-transcript-api`, and `pytubefix`; local requests encountered `400 FAILED_PRECONDITION`,
+  `HTTP 429`, or no usable caption result.
+- Tried yt-dlp browser-session mode. Whole-Chrome auto-discovery exceeded one minute; selecting a
+  single Chrome profile avoided that scan but YouTube returned `The page needs to be reloaded`.
+  Browser-session mode can invoke macOS Keychain, so it is not an acceptable default recovery path.
+- A full `chew summarize` run was stopped after about three and a half minutes in transcript
+  acquisition. No raw snapshot, Frontier request, Knowledge Pack, or user output was produced.
+- A third-party public transcript endpoint did return VTT for diagnosis, proving captions exist,
+  but it is not a product fallback and must not be used to claim end-to-end success.
+
 ## Current Decision
 
 - Frontier remains the final reasoning and summary runtime.
