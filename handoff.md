@@ -1,114 +1,53 @@
-# Handoff — Phase 1 Benchmark Baseline and Preprocessing
+# Current Execution Index
 
-## Current state
+> Read this first to answer "what should we do now?" Read the linked canonical document only
+> when its acceptance criteria or product decision is needed.
 
-- Working branch: `feat/agentic-layered-harness`
-- Integration target: `develop`
-- This branch contains the completed Steps 1–9 improvements plus the
-  maintainer benchmark foundation design:
-  `docs/superpowers/specs/2026-08-21-maintainer-benchmark-foundation-design.md`
-- The benchmark foundation is designed but not implemented. No real baseline
-  result has been recorded yet.
+## Branch and State
 
-## Immediate decision
+- Branch: `feat/ollama-summary-efficiency`
+- Active roadmap: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
+- Completed history: [`CHANGELOG.md`](CHANGELOG.md)
+- Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
 
-**Do not implement Phase 1 preprocessing before preserving the current
-baseline.** The current behavior is the control group. If it is changed first,
-we cannot credibly calculate cost, speed, or quality improvement later.
+## Next Priorities
 
-The required sequence is:
+1. Complete P0 transcript acquisition: remove browser credential/Keychain dependency from the
+   default recovery path, add per-provider and global deadlines, then add VTT/SRT/TXT user
+   transcript input. Verify a 5-minute fixture reaches Frontier and creates a Knowledge Pack.
+2. Run reviewed Korean and long-video preprocessing benchmarks only after P0 can supply the same
+   raw transcript snapshot to both paths. Keep preprocessing opt-in unless it achieves the 10%
+   adoption gate without quality regression.
+3. Run `chew benchmark run --short-video` for the 4m35s `5m_en` fixture after P0 transcript
+   acquisition and a reviewed reference are available. Compare same-transcript, same-Frontier
+   one-pass and hierarchical paths before changing the default analysis path.
+4. Complete the remaining Policy/Sandbox work: decide on per-task timeout/retry policy in
+   `ExecutionPlan` and validate evidence handling on a real Frontier run.
 
-```text
-1. Lock benchmark inputs and run current implementation (baseline)
-2. Preserve immutable raw results and the human-readable baseline report
-3. Implement the selected IMPROVEMENTS.md Phase 1 stages
-4. Run the identical locked inputs and configuration (candidate)
-5. Compare baseline vs candidate; run explicit LLM quality evaluation if needed
-6. Make an adoption decision, then publish reviewed results
-```
+## Latest Transcript Acquisition Result
 
-## Benchmark scope
+- Fixture: `https://www.youtube.com/watch?v=c4GaJKprGEs` (about five minutes).
+- Tried public `youtubei`, direct `captionTracks` timed-text, yt-dlp manual/automatic captions,
+  `youtube-transcript-api`, and `pytubefix`; local requests encountered `400 FAILED_PRECONDITION`,
+  `HTTP 429`, or no usable caption result.
+- Tried yt-dlp browser-session mode. Whole-Chrome auto-discovery exceeded one minute; selecting a
+  single Chrome profile avoided that scan but YouTube returned `The page needs to be reloaded`.
+  Browser-session mode can invoke macOS Keychain, so it is not an acceptable default recovery path.
+- A full `chew summarize` run was stopped after about three and a half minutes in transcript
+  acquisition. No raw snapshot, Frontier request, Knowledge Pack, or user output was produced.
+- A third-party public transcript endpoint did return VTT for diagnosis, proving captions exist,
+  but it is not a product fallback and must not be used to claim end-to-end success.
 
-The first comparison uses these verified English videos:
+## Current Decision
 
-| Key | YouTube ID | Duration |
-|---|---|---:|
-| `5m_en` | `c4GaJKprGEs` | 4m 35s |
-| `39m_en` | `ZIaOBAjvc38` | 39m |
-| `1h_en` | `XDB5beon4DY` | 55m 48s |
-| `2h_en` | `RcYjXbSJBN8` | 2h 00m 09s |
-| `2h50m_en` | `BYXbuik3dgA` | 2h 49m 45s |
+- Frontier remains the final reasoning and summary runtime.
+- Ollama does not perform summary or judgment work. Reconsider it only for a specifically defined,
+  low-risk helper task with measured benefit.
+- Knowledge Graph, Notion, RSS, MCP, REST API, and automation are deferred.
 
-The final canonical fixture will live in `benchmarks/videos.lock.json`.
+## Verification and Working Tree
 
-## Implementation direction
-
-Implement only maintainer-facing tools; do not add MLflow, Plotly, benchmark
-packages, or benchmark UI to the normal `chew` dependency set or user workflow.
-
-```text
-benchmarks/
-├── README.md
-├── videos.lock.json
-├── run_preprocessing.py       # local metrics, never calls an LLM
-├── evaluate_quality.py        # explicit, credentialed LLM quality check
-├── render_report.py           # Markdown + Plotly HTML from saved results
-└── benchmark_metrics.py
-
-reports/performance-comparisons/transcript-preprocessing/
-├── README.md
-├── latest.md                  # reviewed, publishable summary
-└── <run-id>/                  # immutable JSON, Markdown, HTML, artifacts
-```
-
-Use `uv run --isolated --with ...` for benchmark-only dependencies. This keeps
-the normal package install clean. `uv` download cache must not be purged by a
-script because it may be shared by other local projects.
-
-## What to measure
-
-| Area | Measurements to preserve |
-|---|---|
-| Cost | raw/processed input tokens, output tokens where available, optional versioned cost estimate |
-| Speed | preprocessing latency, segmentation count, end-to-end time, retries/failures |
-| Quality | evidence recall, timestamp accuracy, unsupported claims |
-| Reliability | transcript provider, availability, run status, substitutions |
-| Reproducibility | Git SHA, model/runtime, concurrency, lock-file hash, timestamp |
-
-Token reduction alone is not an adoption criterion. The candidate must meet the
-quality floor and must not hide unavailable or substituted transcript inputs.
-
-## Report, Wiki, and Tech Blog flow
-
-1. `metrics.json` is the immutable evidence for a run.
-2. `report.md` and Plotly `report.html` compare previous/current values by
-   video with paired slope charts, grouped bars, and a quality-gate table.
-3. A maintainer reviews matching configuration, status, and quality gates.
-4. The reviewed conclusion is promoted to `latest.md` and linked from
-   `reports/BENCHMARK.md`.
-5. The existing Wiki sync workflow publishes the curated report after merge to
-   `master`.
-6. A Tech Blog post is written from the reviewed report, including the problem,
-   implementation, measured outcome, limitations, and adoption decision.
-
-Never publish mock values or claim improvement before the baseline and
-candidate runs exist.
-
-## Handoff checklist
-
-- [ ] Merge the committed feature branch into `develop` after confirming the
-      intended commit range.
-- [ ] Implement the maintainer benchmark foundation from the approved design.
-- [ ] Execute and preserve the baseline before modifying Phase 1 behavior.
-- [ ] Implement Phase 1 preprocessing according to `IMPROVEMENTS.md`.
-- [ ] Execute candidate and optional LLM quality evaluation with the same lock
-      file and configuration.
-- [ ] Review comparison, update `reports/BENCHMARK.md`, Wiki, changelog, and
-      Tech Blog only after measured evidence supports the conclusion.
-
-## Existing uncommitted worktree changes
-
-This handoff intentionally does not absorb unrelated or uncommitted changes.
-Before merging or continuing implementation, inspect and separately decide on
-the current modifications to `IMPROVEMENTS.md`, `reports/trace_report.md`,
-`reports/benchmark-videos.lock.json`, and local `.superpowers/` artifacts.
+- Last documentation check: `git diff --check` passed.
+- Untracked benchmark-report directories exist under
+  `reports/performance-comparisons/transcript-preprocessing/`; inspect before staging and do not
+  include them accidentally.

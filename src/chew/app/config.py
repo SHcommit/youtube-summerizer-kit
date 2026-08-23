@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
 class ConfigurationError(ValueError):
@@ -22,8 +22,17 @@ class Settings(BaseModel):
     language: str = "ko"
     default_profile: str = "digest"
     depth: Literal["brief", "short", "quick", "concise", "detailed", "deep"] = "detailed"
-    runtime: str = "auto"
+    runtime: str = "frontier"
+    task_runtimes: dict[str, str] = Field(default_factory=dict)
+    local_accelerator: bool = False
+    ollama_model: str | None = None
     whisper_fallback: bool = False
+    youtube_cookie_file: str | None = None
+    max_input_tokens: int | None = Field(default=None, gt=0)
+    reserved_output_tokens: int = Field(default=0, ge=0)
+    output_verify: bool = True
+    normalize_transcript: bool = False
+    preprocess_transcript: bool = False
     storage_policy: Literal["compact", "private", "archive"] = "compact"
     instructions: str = ""
 

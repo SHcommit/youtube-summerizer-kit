@@ -93,3 +93,28 @@ def test_punctuation_boundary_can_adjust_fixed_target() -> None:
     )
     manifest = segment_transcript(transcript, (), SegmentationPolicy())
     assert manifest.topics[0].end_ms == 270_000
+
+
+def test_explicit_token_budget_splits_before_time_limit() -> None:
+    transcript = Transcript(
+        source=SOURCE,
+        language="en",
+        duration_ms=180_000,
+        provenance=Provenance.MANUAL_SUBTITLE,
+        segments=tuple(
+            TranscriptSegment(
+                start_ms=index * 60_000,
+                end_ms=(index + 1) * 60_000,
+                text="word " * 10,
+            )
+            for index in range(3)
+        ),
+    )
+
+    manifest = segment_transcript(
+        transcript,
+        (),
+        SegmentationPolicy(max_input_tokens=12, reserved_output_tokens=2),
+    )
+
+    assert [topic.segment_indexes for topic in manifest.topics] == [(0,), (1,), (2,)]

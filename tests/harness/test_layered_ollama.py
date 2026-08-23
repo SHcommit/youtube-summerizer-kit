@@ -77,6 +77,21 @@ async def test_layered_ollama_routes_compose_to_layer3() -> None:
 
 
 @pytest.mark.asyncio
+async def test_layered_ollama_repairs_with_the_failed_task_tier() -> None:
+    selected_models: list[str] = []
+
+    async def fake_transport(payload: dict) -> dict:
+        selected_models.append(str(payload.get("model", "")))
+        return {"response": '{"overview": "ok"}', "prompt_eval_count": 1, "eval_count": 1}
+
+    harness = LayeredOllamaHarness("small", "medium", "large", transport=fake_transport)
+    request = _make_request("repair").model_copy(update={"input": {"target_task": "compose"}})
+    await harness.generate(request)
+
+    assert selected_models == ["large"]
+
+
+@pytest.mark.asyncio
 async def test_layered_ollama_routes_unknown_task_to_layer3() -> None:
     """Unknown task names default to layer3 (most capable)."""
     selected_models: list[str] = []

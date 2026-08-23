@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from urllib.parse import urlparse
 
 import httpx
 
@@ -21,10 +22,11 @@ class OllamaHarness:
         model: str = "qwen3:8b",
         *,
         endpoint: str = "http://127.0.0.1:11434",
+        allowed_endpoints: tuple[str, ...] = (),
         transport: Transport | None = None,
     ) -> None:
         self.model = model
-        self.endpoint = endpoint.rstrip("/")
+        self.endpoint = _validated_endpoint(endpoint, allowed_endpoints)
         self._custom_transport = transport
         self._client: httpx.AsyncClient | None = None
         self._uses_default_transport = transport is None
@@ -91,6 +93,15 @@ class OllamaHarness:
             "input_tokens": prompt_count if isinstance(prompt_count, int) else 0,
             "output_tokens": output_count if isinstance(output_count, int) else 0,
         }
+        for response_key, usage_key in (
+            ("total_duration", "total_duration_ns"),
+            ("load_duration", "load_duration_ns"),
+            ("prompt_eval_duration", "prompt_eval_duration_ns"),
+            ("eval_duration", "eval_duration_ns"),
+        ):
+            value = envelope.get(response_key)
+            if isinstance(value, int):
+                usage[usage_key] = value
         return GenerationResult(
             request_id=request.request_id,
             output=parse_json_object(response),
@@ -98,3 +109,15 @@ class OllamaHarness:
             model=self.model,
             usage=usage,
         )
+
+
+def _validated_endpoint(endpoint: str, allowed_endpoints: tuple[str, ...]) -> str:
+    normalized = endpoint.rstrip("/")
+    parsed = urlparse(normalized)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise HarnessExecutionError("Ollama endpoint must be an absolute HTTP URL")
+    if normalized in {value.rstrip("/") for value in allowed_endpoints}:
+        return normalized
+    if parsed.hostname not in {"127.0.0.1", "::1", "localhost"}:
+        raise HarnessExecutionError("Ollama endpoint must use loopback or an explicit allowlist")
+    return normalized

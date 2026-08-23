@@ -50,6 +50,22 @@ def test_json_formatter_includes_extra_fields() -> None:
     assert parsed["model"] == "qwen3:8b"
 
 
+def test_json_formatter_redacts_sensitive_extra_fields() -> None:
+    formatter = JsonFormatter()
+    record = logging.LogRecord(
+        name="chew.harness", level=logging.INFO, pathname="", lineno=0,
+        msg="generate complete", args=(), exc_info=None,
+    )
+    record.__dict__["api_key"] = "sk-test-secret-value"
+    record.__dict__["authorization"] = "Bearer test-token"
+
+    output = formatter.format(record)
+
+    assert "sk-test-secret-value" not in output
+    assert "test-token" not in output
+    assert json.loads(output)["api_key"] == "[REDACTED]"
+
+
 def test_configure_logging_is_idempotent() -> None:
     configure_logging(level="WARNING")
     configure_logging(level="WARNING")

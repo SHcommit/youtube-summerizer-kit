@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from chew.core.models import TopicSummaryDraft
 from chew.domain import GenerationRequest
-from chew.harness.builtin import HarnessAuthenticationError
+from chew.harness.builtin import HarnessAuthenticationError, HarnessExecutionError, parse_json_object
 from chew.harness.claude import ClaudeHarness
 from chew.harness.codex import CodexHarness
 from chew.harness.gemini import GeminiHarness
@@ -21,6 +22,29 @@ REQUEST = GenerationRequest(
     timeout_ms=1_000,
     trace_id="trace-1",
 )
+
+
+def test_parse_json_object_rejects_oversized_response() -> None:
+    oversized = '{"answer":"' + "x" * 1_000_001 + '"}'
+
+    with pytest.raises(HarnessExecutionError, match="too large"):
+        parse_json_object(oversized)
+
+
+def test_parse_json_object_rejects_excessive_nesting() -> None:
+    payload: dict[str, object] = {}
+    for _ in range(65):
+        payload = {"child": payload}
+
+    with pytest.raises(HarnessExecutionError, match="too deeply nested"):
+        parse_json_object(json.dumps(payload))
+
+
+def test_parse_json_object_rejects_oversized_collection() -> None:
+    payload = {"items": list(range(10_001))}
+
+    with pytest.raises(HarnessExecutionError, match="collection is too large"):
+        parse_json_object(json.dumps(payload))
 
 
 class Executor:
@@ -49,8 +73,42 @@ async def test_codex_extracts_final_jsonl_message_and_usage() -> None:
     result = await CodexHarness(executable="codex", executor=executor).generate(REQUEST)
     assert result.output == {"answer": "ok"}
     assert result.usage == {"input_tokens": 10, "output_tokens": 2}
-    assert executor.schema == REQUEST.output_schema
+    assert executor.schema == {
+        **REQUEST.output_schema,
+        "required": ["answer"],
+        "additionalProperties": False,
+    }
+    assert "required" not in REQUEST.output_schema
     assert executor.calls[0][0][:3] == ("codex", "exec", "--ephemeral")
+
+
+@pytest.mark.asyncio
+async def test_codex_marks_defaulted_schema_properties_as_required() -> None:
+    stdout = "\n".join(
+        (
+            '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"topic_id\\":\\"topic-1\\",\\"title\\":\\"Title\\",\\"summary\\":\\"Summary\\",\\"claims\\":[],\\"concepts\\":[],\\"examples\\":[]}"}}',
+            '{"type":"turn.completed","usage":{}}',
+        )
+    )
+    executor = Executor(ProcessResult(0, stdout, ""))
+    request = REQUEST.model_copy(update={"output_schema": TopicSummaryDraft.model_json_schema()})
+
+    await CodexHarness(executable="codex", executor=executor).generate(request)
+
+    assert executor.schema is not None
+    assert set(executor.schema["required"]) == {
+        "topic_id",
+        "title",
+        "summary",
+        "claims",
+        "concepts",
+        "examples",
+    }
+    assert executor.schema["additionalProperties"] is False
+    claim_draft = executor.schema["$defs"]["ClaimDraft"]
+    assert set(claim_draft["required"]) == {"text", "evidence_candidates", "provenance"}
+    assert claim_draft["additionalProperties"] is False
+    assert '"default"' not in json.dumps(executor.schema)
 
 
 @pytest.mark.asyncio

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,7 @@ from chew.application import AuthenticationRequired, CommandResult, RunStatus
 from chew.cli import app, normalize_cli_args
 from chew.config import ConfigurationError
 from chew.identity import SourceInputError
-from chew.transcripts.service import TranscriptUnavailable
+from chew.transcripts.service import TranscriptRateLimited, TranscriptUnavailable
 from chew.transcripts.whisper import WhisperDependencyMissing
 
 URL = "https://youtu.be/abcDEF_1234"
@@ -39,6 +40,27 @@ class StubApplication:
 
     def diagnostics(self) -> dict[str, object]:
         return {"runtimes": [{"id": "codex", "available": True}]}
+
+
+@dataclass
+class StubYouTubeAuthStore:
+    connected: bool = False
+    cleared: bool = False
+
+    def connect_from_browser(self, browser: str, profile: str) -> object:
+        assert browser == "chrome"
+        assert profile == "Default"
+        self.connected = True
+        return object()
+
+    def profile(self) -> object | None:
+        return object() if self.connected else None
+
+    def clear(self) -> bool:
+        was_connected = self.connected
+        self.connected = False
+        self.cleared = True
+        return was_connected
 
 
 @pytest.fixture
@@ -90,6 +112,38 @@ def test_authentication_failure_is_actionable(stub: StubApplication, tmp_path: P
     result = CliRunner().invoke(app, ["요약", URL, "--output", str(tmp_path)])
     assert result.exit_code == 2
     assert "codex login" in result.stdout
+
+
+def test_auth_youtube_selects_a_profile_without_printing_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = StubYouTubeAuthStore()
+    cli_main = import_module("chew.cli.main")
+    monkeypatch.setattr(cli_main, "_youtube_auth_store", lambda: store)
+
+    result = CliRunner().invoke(app, ["auth", "youtube", "--from-browser", "chrome", "--profile", "Default"])
+
+    assert result.exit_code == 0
+    assert "YouTube browser profile selected" in result.stdout
+    assert "cookies.txt" not in result.stdout
+
+
+def test_auth_youtube_clear_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = StubYouTubeAuthStore()
+    cli_main = import_module("chew.cli.main")
+    monkeypatch.setattr(cli_main, "_youtube_auth_store", lambda: store)
+
+    result = CliRunner().invoke(app, ["auth", "youtube", "--clear"])
+
+    assert result.exit_code == 0
+    assert "No YouTube browser profile is selected" in result.stdout
+
+
+def test_rate_limit_recommends_explicit_youtube_auth(stub: StubApplication, tmp_path: Path) -> None:
+    stub.error = TranscriptRateLimited((), retry_after_seconds=60)
+
+    result = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])
+
+    assert result.exit_code == 2
+    assert "chew auth youtube --from-browser chrome" in result.stdout
 
 
 def test_english_authentication_failure_is_in_english(stub: StubApplication, tmp_path: Path) -> None:

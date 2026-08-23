@@ -8,12 +8,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Maintainer Transcript Preprocessing Benchmark Foundation**:
-  - Added `benchmarks/videos.lock.json` as the canonical five-video fixture for baseline/candidate preprocessing comparisons.
-  - Added maintainer-only scripts for metrics collection, quality-gate validation, and Markdown/Plotly report rendering under `benchmarks/`.
-  - Added `benchmarks/benchmark.sh report allInOne` as the short wrapper for current-run measurement plus final Markdown/HTML report generation.
-  - Added post-feature validation report improvements: aggregate token/latency summary, stage token funnel, stage latency metrics, release metadata in HTML, and no-effect warnings when a candidate path records no measurable token or segmentation change.
-  - Added immutable report location scaffolding under `reports/performance-comparisons/transcript-preprocessing/`.
+- **YouTube caption acquisition hardening**:
+  - Adds a player-bootstrap `youtubei` structured transcript provider and a direct player-response `captionTracks` provider ahead of third-party extractors.
+  - Records timed-text `HTTP 429` explicitly and continues when YouTube rejects a `youtubei` request with `FAILED_PRECONDITION`.
+  - Enables an installed Node.js runtime for yt-dlp and adds an explicit `youtube_cookie_file` opt-in without automatic browser-profile discovery or cookie copying.
+  - Adds `chew auth youtube` as an explicit local-browser login fallback; it retains only the selected browser/profile name, reads no credentials until caption retrieval, and removes the selection with `--clear`.
+- **Resilient transcript acquisition**:
+  - Adds `pytubefix` caption extraction as an independent fallback after yt-dlp and youtube-transcript-api.
+  - Preserves 429 as a rate-limit outcome, retries it with bounded backoff, and gives an actionable CLI recovery message.
+  - Documents provider order, opt-in credential boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
+- **Short-video Frontier benchmark**:
+  - Adds `chew benchmark run --short-video` to compare one-pass and hierarchical synthesis using the same transcript and configured Frontier runtime.
+  - Records provider usage, latency, evidence coverage, timestamp accuracy, and unsupported claims without mixing in direct video-URL input.
+- **Harness Response and Endpoint Boundaries**:
+  - Rejects model responses over 1 MiB, deeper than 64 JSON levels, or containing collections over 10,000 items before schema materialization.
+  - Restricts Ollama to loopback endpoints unless the caller explicitly provides an endpoint allowlist.
+  - Prevents configured Ollama routes from handling summary tasks; the Policy Layer records the Frontier fallback instead.
+  - Redacts values stored under sensitive keys in structured logs and SQLite job measurements.
+  - Normalizes Pydantic and compose schemas for Codex strict structured output, including required properties, closed objects, and default removal.
+  - Resuming a failed run now retries every downstream dependency, preventing stale chapter or compose artifacts from being reused.
+- **Documentation Lifecycle**:
+  - Defined canonical roles for active improvements, completed history, deferred product opportunities, and temporary handoffs in `AGENTS.md`.
+  - Added a concise `handoff.md` execution index for current priorities without duplicating roadmaps or completed history.
+- **Product Roadmap**:
+  - Added `PRODUCT_ROADMAP.md` to separate deferred product opportunities from active technical improvements.
+- **Evidence integrity and Frontier-first execution policy**:
+  - Topic-model citations are parsed as untrusted candidates and become canonical evidence only after deterministic raw-transcript segment, timestamp, and quote validation.
+  - Runs persist an immutable `ExecutionPlan` snapshot and each generation attempt records its policy fingerprint; model output cannot alter routing or token limits.
+  - The default logical runtime is now `frontier`, which selects only Codex, Gemini, or Claude. Ollama remains explicit opt-in and falls back to the configured Frontier runtime when unavailable.
+  - Adds deterministic Evidence/Policy test coverage, pull-request dependency review, and a built-wheel CLI smoke test in the release workflow.
+- **Reproducible preprocessing token-baseline spike**:
+  - Adds `scripts/spike_token_baseline.py`, a maintainer-only raw-caption measurement tool backed by the locked benchmark video set.
+  - It records `cl100k_base` token counts, bilingual filler density, source provenance, duration verification, and current topic-segmentation counts without invoking an LLM.
+- **Opt-in transcript preprocessing pipeline**:
+  - Adds composable local preprocessing strategies: conservative filler removal, optional punctuation restoration, and optional semantic boundary detection.
+  - `preprocess_transcript: true` preserves the preprocessed artifact separately, exposes estimated token savings in CLI output, and includes the preprocessing recipe in analysis cache identity.
+- **Expanded generation-attempt profiling**:
+  - SQLite schema v6 records each request's input characters, segment count, output-schema characters, repair flag, and retry flag alongside provider usage and duration fields.
+  - Adds `scripts/report_job_measurements.py` to render per-run, read-only profiling reports without treating structural estimates as billing tokens.
+- **Explicit opt-in task runtime routing**:
+  - `task_runtimes` routes only explicitly named tasks to a user-selected BYOK runtime; all other tasks retain the configured default runtime and no provider is auto-switched.
+- **Local LLM Runtime Decision Record**:
+  - Documents that local Open LLM and Ollama are optional user choices, not a required product dependency.
+- **Ollama request measurements and opt-in token-budget segmentation**:
+  - Persists each generation attempt, including JSON repairs, against its SQLite job with runtime, model, provider-reported token counts, and available Ollama duration fields.
+  - Adds `max_input_tokens` and `reserved_output_tokens` to `CHEW.md`; when configured, topic segmentation preserves the time boundary while preventing overlap from exceeding the explicit input budget.
+  - Adds selected single-model identity to the analysis cache key so changing an Ollama model does not reuse an incompatible Knowledge Pack.
+  - Marks Knowledge Packs with failed topic IDs and missing timestamp ranges; digest output visibly labels partial results.
+  - Adds opt-in `output_verify: false` for blog/study output compilation; the default still performs outline, compose, and verification.
+  - Adds opt-in `normalize_transcript: true`, preserving the raw transcript while analyzing a separately stored normalized artifact.
+  - Routes layered-Ollama repairs to the failed task's tier rather than always downgrading to the smallest model.
+  - `chew config --init` now offers an interactive Qwen3 4B / 8B / later choice and downloads a model only after confirmation.
 - **`HuggingFaceHarness` and `LayeredOllamaHarness`** (§7-6, §7-7):
   - `HuggingFaceHarness`: free-tier hosted inference via HuggingFace Inference API (`huggingface_hub`); authenticates with `HF_TOKEN` env var.
   - `LayeredOllamaHarness`: routes pipeline tasks across three quantized Ollama model tiers (1.5B / 7B / 14B) based on task type (`topic_summary` → layer1, `chapter_summary` → layer2, `output_compose` → layer3).

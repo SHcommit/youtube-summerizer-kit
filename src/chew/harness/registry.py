@@ -15,6 +15,8 @@ from chew.harness.huggingface import HuggingFaceHarness
 from chew.harness.layered_ollama import LayeredOllamaHarness
 from chew.harness.ollama import OllamaHarness
 
+_FRONTIER_RUNTIME_IDS = frozenset({"codex", "gemini", "claude"})
+
 
 class HarnessRegistry:
     def __init__(self, harnesses: Sequence[Harness]) -> None:
@@ -28,7 +30,11 @@ class HarnessRegistry:
         unauthenticated: list[HarnessProbe] = []
         unverified: list[Harness] = []
         for harness, probe in zip(self.harnesses, probes, strict=True):
-            matches = runtime_id == "auto" or harness.runtime_id == runtime_id
+            matches = (
+                runtime_id == "auto"
+                or harness.runtime_id == runtime_id
+                or (runtime_id == "frontier" and harness.runtime_id in _FRONTIER_RUNTIME_IDS)
+            )
             if matches and probe.available and probe.auth_ready is True:
                 return harness
             if matches and probe.available and probe.auth_ready is None:
@@ -49,13 +55,13 @@ class HarnessRegistry:
         raise RuntimeError(f"사용 가능한 AI 실행기가 없습니다: {runtime_id}")
 
 
-def default_registry() -> HarnessRegistry:
+def default_registry(*, ollama_model: str | None = None) -> HarnessRegistry:
     return HarnessRegistry(
         (
             CodexHarness(),
             GeminiHarness(),
             ClaudeHarness(),
-            OllamaHarness(),
+            OllamaHarness(model=ollama_model or "qwen3:8b"),
             HuggingFaceHarness(),
             LayeredOllamaHarness(),
             AntigravityHarness(),

@@ -97,6 +97,16 @@ pip install -e '.[youtube,dev]'
 
 선택적 `faster-whisper` fallback은 모델과 영상 오디오를 자동으로 내려받지 않도록 기본값이 비활성화되어 있습니다. 사용하려면 `pip install -e '.[youtube,whisper]'`로 설치하고 `CHEW.md`에 `whisper_fallback: true`를 지정합니다. 처음 실제로 음성 인식을 실행할 때는 `faster-whisper`가 모델을 내려받을 수 있습니다.
 
+YouTube timedtext가 `HTTP 429`를 반환하면 `yt-dlp`는 설치된 Node.js runtime과 공식 EJS challenge component를 자동으로 사용합니다. 그래도 제한되면 본인의 로컬 YouTube 로그인 세션을 명시적으로 연결합니다.
+
+```bash
+chew auth youtube --from-browser chrome
+chew 요약 "https://www.youtube.com/watch?v=VIDEO_ID"
+chew auth youtube --clear
+```
+
+로그인은 선택 사항입니다. `chew auth youtube`는 선택한 브라우저·프로필 이름만 보관하며 쿠키, Keychain 값, 비밀번호는 저장하지 않습니다. 실제 자막을 가져올 때에만 yt-dlp가 선택된 로컬 브라우저 세션을 메모리에서 읽고 즉시 폐기합니다. 프록시나 원격 서버는 사용하지 않습니다. 자막이 없거나 영상·계정이 제한된 경우에는 로그인 후에도 YouTube가 거부할 수 있습니다. 고급 사용자는 기존처럼 `CHEW.md`에 YouTube 전용 Netscape `cookies.txt` 경로를 `youtube_cookie_file: ./youtube-cookies.txt`로 직접 지정할 수도 있습니다.
+
 로컬 오디오·영상 파일 입력에도 `whisper` extra가 필요하지만, YouTube fallback 설정을 켤 필요는 없습니다.
 
 ```bash
@@ -148,9 +158,9 @@ chew 진단 --json
 | HuggingFace (`huggingface`) | 예 | `HF_TOKEN` 환경 변수 | `HF_TOKEN` 설정 후 `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | 예 | 첫 생성 때 확인 / 기존 로컬 세션 사용 | `agy` CLI 설치 및 세션 사용 |
 
-**로컬 LLM은 완전히 선택 사항입니다.** 기본값 `runtime: auto`에서는 설치되어 있고 로그인이 확인된 실행기를 Codex → Gemini → Claude → Ollama → Antigravity 순서로 선택하며, Ollama가 설치되어 있지 않으면 자동으로 건너뜁니다. 대부분의 사용자는 클라우드 CLI(Codex, Gemini, Claude)만으로 사용하며 Ollama를 설치할 필요가 없습니다.
+**로컬 LLM은 완전히 선택 사항입니다.** 기본값 `runtime: frontier`는 인증된 Codex, Gemini, Claude만 선택하며 로컬 모델은 제외합니다. 최종 요약과 판단에는 Frontier runtime이 필요하며, 로컬 모델은 요약 task route로 사용할 수 없습니다.
 
-완전한 오프라인·로컬 환경을 원한다면 Ollama만 로컬 모델 다운로드가 필요합니다.
+Ollama는 선택적 로컬 모델 다운로드가 필요한 실행기입니다.
 
 | 구성 | 추가 디스크 용량 |
 |---|---|
@@ -194,14 +204,38 @@ CHEW.md
 language: ko
 default_profile: digest
 depth: detailed
-runtime: auto
+runtime: frontier
+task_runtimes: {} # 선택: task별 BYOK Frontier runtime. 예: {topic_summary: gemini, compose: codex}
+local_accelerator: false # 향후 승인된 저위험 보조 작업용
+ollama_model: null # 향후 승인된 로컬 보조 작업용
 whisper_fallback: false
+youtube_cookie_file: null # 고급 설정: 직접 지정하는 YouTube 전용 cookies.txt 경로
+# 선택 사항: Ollama 입력 상한. 설정하지 않으면 기존 시간 기반 분절을 유지한다.
+max_input_tokens: 4096
+reserved_output_tokens: 512
+output_verify: true
+normalize_transcript: false
+preprocess_transcript: false
 storage_policy: compact
 ---
 
 사실과 AI의 추가 설명을 구분한다.
 기술 용어는 첫 등장에 짧게 정의하고, 모든 핵심 주장에 영상 근거를 연결한다.
 ```
+
+`max_input_tokens`와 `reserved_output_tokens`로 보수적 입력 상한을 opt-in할 수 있습니다. 이 값은 provider 청구 토큰이 아니며, 기존 시간 기반 분절을 유지하려면 둘 다 설정하지 않습니다.
+
+`blog`와 `study`에서는 `output_verify: false`로 마지막 LLM 검증 호출을 생략할 수 있습니다. fixture 측정으로 품질 저하가 없음을 확인하기 전까지 기본값 `true`를 유지합니다.
+
+`normalize_transcript: true`는 공백을 정리하고 인접한 중복 자막만 병합합니다. 원문 자막은 근거 source로 별도 보존합니다.
+
+`preprocess_transcript: true`는 여기에 보수적인 로컬 필러 제거를 추가합니다. `pip install 'chew[preprocess]'`를 설치하면 문장부호 복원과 의미 경계 힌트도 선택적으로 적용됩니다. 고정 fixture의 품질·비용 비교가 끝날 때까지 기본값은 꺼져 있습니다.
+
+`task_runtimes`는 opt-in BYOK Frontier routing입니다. map에 없는 task는 기존 `runtime`을 그대로 쓰며, 다른 provider로 자동 전환하지 않습니다. 로컬 runtime은 요약이나 판단 작업에 선택할 수 없습니다. cloud provider별 모델 선택은 adapter가 실제 적용·검증할 수 있을 때 추가합니다.
+
+현재 고정 영어 fixture 비교에서 보수적 필러 제거의 `cl100k_base` 절감은 `1.92%~4.94%`였습니다. 이는 provider 청구 비용이 아닌 tokenizer 비교이며, 기본 활성화 기준 10%에 미달하므로 opt-in을 유지합니다.
+
+대화형 터미널에서 처음 `chew config --init`을 실행하면 Qwen3 4B(약 2.5GB), Qwen3 8B(약 5.2GB), 나중에 설정 중 하나를 선택할 수 있습니다. 확인한 경우에만 `ollama pull` 다운로드가 시작됩니다.
 
 ### 요약 강도 및 깊이 설정 (`depth`)
 
@@ -222,6 +256,10 @@ chew '유튜브_URL' --depth deep
 본문은 LLM 지침으로 사용됩니다. `.chew/profiles/blog.md` 같은 목적별 파일에서는 문체, 독자 수준, 글의 구성 방식을 추가로 지정할 수 있습니다. 프로젝트 설정은 상위 디렉터리까지 탐색하며, 파일이 없으면 패키지에 포함된 안전한 기본 설정을 사용합니다.
 
 분석 설정과 출력 설정은 분리됩니다. 예를 들어 블로그 문체만 바꿨다면 자막과 소주제를 다시 분석하지 않고 기존 Knowledge Pack에서 블로그 문서만 새로 만듭니다. 프로필별로 다른 `runtime`을 지정하면 캐시되지 않은 출력 재조립에 그 실행기를 사용합니다.
+
+`task_runtimes`는 opt-in BYOK Frontier routing입니다. 각 run은 route, input budget, fallback, 선택 이유가 담긴 immutable Execution Plan을 먼저 기록합니다. map에 없는 task는 `runtime`을 유지하며, 모델 출력은 이 계획을 바꿀 수 없습니다. 로컬 runtime은 요약이나 판단 작업에 선택할 수 없습니다.
+
+중요 source claim의 citation은 모델이 제안한 뒤에도 raw transcript의 segment index, timestamp, quote가 일치할 때만 결과에 연결됩니다. 이 검증은 claim의 사실 여부가 아니라 원문 근거 연결만 보장합니다.
 
 ---
 
@@ -454,9 +492,15 @@ chew benchmark-ui
 chew 벤치마크 목록
 chew 벤치마크 실행 'https://youtu.be/VIDEO_ID' --live \
   --reference benchmark-reference.json --repeats 3 --runtime codex
+
+# 짧은 영상 경로 선택: 동일 자막, 동일 Frontier runtime
+chew 벤치마크 실행 'https://www.youtube.com/watch?v=c4GaJKprGEs' --live --short-video \
+  --reference short-video-reference.json --repeats 1 --runtime codex
 ```
 
 비교 조건은 Gemini 직접 URL 분석(단순 프롬프트·동일 스키마)과 계층형 파이프라인(Gemini·설정 실행기)입니다. 기준 답안의 주장·근거·타임스탬프와 비교해 recall, 근거 coverage, timestamp accuracy, 장시간 구간 coverage, unsupported claim을 계산합니다. 입력 방식이 `video_url`인지 `transcript`인지 분리 표기하여 Gemini의 멀티모달 이점을 파이프라인 품질로 오인하지 않습니다.
+
+`--short-video`는 같은 configured Frontier runtime에 같은 transcript를 넣는 단일 요약과 계층 합성을 비교합니다. 짧은 영상의 기본 경로 판단용이며, 사람이 검토한 reference 파일이 필요합니다. 두 조건이 모두 성공하기 전에는 결과를 채택하지 않습니다.
 
 라이브 벤치마크는 실제 로그인과 사용량이 발생하므로 `--live`와 기준 답안 파일을 모두 명시해야 실행됩니다. 결과는 `benchmark-results/run-*/report.json`과 `report.md`에 원자적으로 저장됩니다. 아직 실제 다국어·다양한 길이의 공개 코퍼스 결과를 제공하거나 Gemini보다 항상 우수하다고 주장하지 않습니다.
 

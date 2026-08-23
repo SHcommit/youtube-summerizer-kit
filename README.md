@@ -96,6 +96,16 @@ pip install -e '.[youtube,dev]'
 
 The optional `faster-whisper` fallback is disabled by default so installation does not download a speech model or video audio. To enable it, install `pip install -e '.[youtube,whisper]'` and set `whisper_fallback: true` in `CHEW.md`. The first enabled transcription may download a model through `faster-whisper`.
 
+For a YouTube `HTTP 429` timed-text response, `yt-dlp` automatically enables an installed Node.js runtime and its official EJS challenge component. If it persists, explicitly connect your own local YouTube session:
+
+```bash
+chew auth youtube --from-browser chrome
+chew summarize "https://www.youtube.com/watch?v=VIDEO_ID"
+chew auth youtube --clear
+```
+
+Login is optional. `chew auth youtube` stores only the selected browser/profile name, never cookies, Keychain values, or passwords. During caption retrieval, yt-dlp reads that selected local browser session in memory and then discards it; `chew` never uses a proxy or remote server. YouTube can still deny unavailable, restricted, or account-limited captions. Advanced users may instead set a YouTube-only Netscape `cookies.txt` path with `youtube_cookie_file: ./youtube-cookies.txt` in `CHEW.md`.
+
 Local audio and video file input also requires the `whisper` extra:
 
 ```bash
@@ -147,9 +157,9 @@ The yellow Knowledge Pack is the reuse boundary. Once created, the system can pr
 | HuggingFace (`huggingface`) | Yes | `HF_TOKEN` env var | Set `HF_TOKEN`; `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | Yes | Verified on invocation / persistent session | Install `agy` CLI |
 
-**Local LLMs are completely optional.** With the default `runtime: auto`, the kit selects an installed, authenticated runtime from the Codex → Gemini → Claude → Ollama → Antigravity candidate set — Ollama is skipped automatically if it is not installed. Most users run entirely on cloud CLIs (Codex, Gemini, Claude) and never install Ollama at all.
+**Local LLMs are completely optional.** The default `runtime: frontier` selects an authenticated Codex, Gemini, or Claude runtime and excludes local models. Final summaries and judgments require a Frontier runtime; local models are not valid summary task routes.
 
-If you do want a fully local, offline setup, Ollama is the only runtime that requires a local model download:
+Ollama is the only optional runtime that requires a local model download:
 
 | Setup | Disk required |
 |---|---|
@@ -175,6 +185,8 @@ Initialize editable configuration once per project:
 chew config --init
 ```
 
+In an interactive terminal, this first-run command offers a local-model choice: Qwen3 4B (about 2.5GB), Qwen3 8B (about 5.2GB), or configure later. It only runs `ollama pull` after explicit confirmation.
+
 The command creates these files without overwriting existing ones:
 
 ```text
@@ -193,8 +205,18 @@ Example `CHEW.md`:
 language: en
 default_profile: digest
 depth: detailed
-runtime: auto
+runtime: frontier
+task_runtimes: {} # Optional BYOK Frontier routing, e.g. {topic_summary: gemini, compose: codex}
+local_accelerator: false # Reserved for a future approved low-risk helper task
+ollama_model: null # Reserved for a future approved local helper task
 whisper_fallback: false
+youtube_cookie_file: null # Advanced override: explicit YouTube-only cookies.txt path
+# Optional Ollama input ceiling. Leave unset to retain time-only segmentation.
+max_input_tokens: 4096
+reserved_output_tokens: 512
+output_verify: true
+normalize_transcript: false
+preprocess_transcript: false
 storage_policy: compact
 ---
 
@@ -221,6 +243,20 @@ chew 'VIDEO_URL' --depth deep
 The Markdown body becomes an LLM instruction. Purpose-specific files such as `.chew/profiles/blog.md` can define voice, audience level, and document structure. Configuration discovery walks up through parent directories; packaged defaults are used when no file exists.
 
 Analysis settings and output settings are fingerprinted separately. Changing only the blog voice does not repeat transcript and topic analysis—it generates a new document from the existing Knowledge Pack. A profile may also choose a different `runtime` for uncached output reassembly.
+
+`max_input_tokens` and `reserved_output_tokens` opt in to a conservative input ceiling. They are not provider billing figures; leave both unset to preserve the default time-based segmentation.
+
+For `blog` and `study`, `output_verify: false` skips the final LLM verification call. Keep the default enabled until fixture measurements show that the cost saving does not reduce output quality.
+
+`normalize_transcript: true` only normalizes whitespace and collapses adjacent duplicate captions. The raw transcript remains the evidence source and is retained separately.
+
+`preprocess_transcript: true` additionally applies conservative local filler removal. With `pip install 'chew[preprocess]'`, punctuation restoration and semantic boundary hints are added when their optional dependencies are present. This is opt-in until the locked fixture comparison confirms the quality and cost tradeoff.
+
+`task_runtimes` is opt-in BYOK Frontier routing. Each run first records an immutable Execution Plan with its route, input budget, fallback, and reason. Tasks omitted from the map keep `runtime`; model output cannot change that plan. Local runtimes cannot be selected for summary or judgment work. Cloud model selectors are not accepted until each adapter can apply and verify them.
+
+Important source claims carry model-proposed citations only after their segment index, timestamp, and quoted text match the immutable raw transcript. Citation validation anchors a claim in the source; it does not independently establish that the claim is true.
+
+The current locked English fixture comparison found only `1.92%–4.94%` `cl100k_base` reduction from conservative filler removal. It is a tokenizer comparison, not a provider billing claim, and remains below the 10% default-adoption gate.
 
 ---
 
@@ -448,9 +484,15 @@ chew benchmark-ui
 chew benchmark list
 chew benchmark run 'https://youtu.be/VIDEO_ID' --live \
   --reference benchmark-reference.json --repeats 3 --runtime codex
+
+# Short-video path decision: same transcript and same Frontier runtime
+chew benchmark run 'https://www.youtube.com/watch?v=c4GaJKprGEs' --live --short-video \
+  --reference short-video-reference.json --repeats 1 --runtime codex
 ```
 
 The benchmark compares direct Gemini URL analysis using a minimal prompt and shared schema against the hierarchical pipeline using Gemini and the configured runtime. It evaluates claim and evidence recall, timestamp accuracy, long-duration coverage, and unsupported claims against a reference file. Each result states whether its input was `video_url` or `transcript`, so Gemini's multimodal input advantage is not mistaken for pipeline quality.
+
+`--short-video` instead compares a single-pass transcript request with hierarchical synthesis using the same configured Frontier runtime. It is the decision path for short videos and must use a reviewed reference file; its report does not claim a result until both conditions run successfully.
 
 Live benchmarks require both `--live` and an explicit reference file because they use real login sessions and quota. Reports are written atomically to `benchmark-results/run-*/report.json` and `report.md`. The project does not yet publish a multilingual, multi-duration benchmark corpus or claim that it always outperforms Gemini.
 

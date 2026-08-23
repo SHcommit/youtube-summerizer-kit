@@ -20,6 +20,8 @@ import json
 import logging
 import time
 
+from chew.core.redaction import redact_sensitive
+
 run_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("run_id", default="")
 job_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("job_id", default="")
 
@@ -48,7 +50,7 @@ class JsonFormatter(logging.Formatter):
         }
         for key, value in record.__dict__.items():
             if key not in _BUILTIN_ATTRS and not key.startswith("_"):
-                payload[key] = value
+                payload[key] = redact_sensitive(value, key=key)
         if record.exc_info:
             payload["exc_info"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False, default=str)

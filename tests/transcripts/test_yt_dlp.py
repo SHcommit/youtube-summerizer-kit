@@ -1,13 +1,34 @@
 from __future__ import annotations
 
+from urllib.error import HTTPError
+
 import pytest
 
 from chew.domain import Provenance
 from chew.identity import normalize_youtube_url
-from chew.transcripts.yt_dlp import YtDlpSubtitleProvider
+from chew.transcripts.yt_dlp import YtDlpSubtitleProvider, yt_dlp_options
 
 SOURCE = normalize_youtube_url("https://youtu.be/abcDEF_1234")
 pytestmark = pytest.mark.asyncio
+
+
+async def test_yt_dlp_options_enable_installed_node_and_explicit_cookie_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("chew.transcripts.yt_dlp.which", lambda executable: "/usr/local/bin/node" if executable == "node" else None)
+
+    options = yt_dlp_options(cookie_file="./youtube-cookies.txt")
+
+    assert options["js_runtimes"] == {"node": {"path": "/usr/local/bin/node"}}
+    assert options["remote_components"] == {"ejs:github"}
+    assert options["cookiefile"] == "./youtube-cookies.txt"
+
+
+async def test_yt_dlp_options_use_only_the_selected_browser_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("chew.transcripts.yt_dlp.which", lambda _: None)
+
+    options = yt_dlp_options(browser_profile=("chrome", "Default"))
+
+    assert options["cookiesfrombrowser"] == ("chrome", "Default", None, None)
+    assert "cookiefile" not in options
 
 
 async def test_manual_subtitles_are_preferred_over_automatic() -> None:
@@ -44,6 +65,21 @@ async def test_provider_failure_reason_is_recorded_by_fallback_service() -> None
         await TranscriptService([YtDlpSubtitleProvider(extractor=broken, caption_kind="manual")]).resolve(SOURCE, "ko")
 
     assert captured.value.attempts[0].reasons == ("provider_error:RuntimeError",)
+
+
+async def test_http_429_is_recorded_as_rate_limited() -> None:
+    from chew.transcripts.service import TranscriptRateLimited, TranscriptService
+
+    def limited(_: str) -> dict[str, object]:
+        raise HTTPError("https://youtube.com", 429, "Too Many Requests", {}, None)
+
+    with pytest.raises(TranscriptRateLimited) as captured:
+        await TranscriptService(
+            [YtDlpSubtitleProvider(extractor=limited, caption_kind="manual")],
+            rate_limit_retries=0,
+        ).resolve(SOURCE, "ko")
+
+    assert captured.value.attempts[0].reasons == ("rate_limited",)
 
 
 async def test_manual_and_automatic_can_be_independent_fallback_candidates() -> None:

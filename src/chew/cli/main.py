@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import signal as _signal
+import subprocess
 import sys
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -13,6 +15,7 @@ from pathlib import Path
 from typing import Annotated, Any, Protocol, cast
 
 import typer
+from platformdirs import user_data_path
 
 from chew.app.config import ConfigurationError
 from chew.app.retention import CleanupPlan, RetentionPlanner
@@ -22,6 +25,7 @@ from chew.benchmark.runner import (
     BenchmarkRunner,
     benchmark_catalog,
     live_benchmark_spec,
+    short_video_benchmark_spec,
     write_benchmark_report,
 )
 from chew.core.identity import (
@@ -31,8 +35,9 @@ from chew.core.identity import (
 )
 from chew.log import configure_logging
 from chew.telemetry import telemetry
-from chew.transcripts.service import TranscriptUnavailable
+from chew.transcripts.service import TranscriptRateLimited, TranscriptUnavailable
 from chew.transcripts.whisper import WhisperDependencyMissing
+from chew.transcripts.youtube_auth import YouTubeAuthError, YouTubeAuthStore
 
 
 class Application(Protocol):
@@ -51,6 +56,7 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode=None,
 )
+auth_app = typer.Typer(no_args_is_help=True)
 
 
 @app.callback()
@@ -92,6 +98,11 @@ def _retention_factory() -> RetentionPlanner:
     from chew.app.bootstrap import build_retention_planner
 
     return build_retention_planner()
+
+
+def _youtube_auth_store() -> YouTubeAuthStore:
+    data = Path(user_data_path("youtube-summarizer-kit", appauthor=False))
+    return YouTubeAuthStore(data)
 
 
 KOREAN_COMMANDS = {
@@ -136,18 +147,34 @@ def _emit(data: Any, json_output: bool, *, korean: bool = False) -> None:
                 typer.echo(f"토큰 사용량: 입력 {input_tokens:,} / 출력 {output_tokens:,}")
             else:
                 typer.echo(f"Token usage: {input_tokens:,} input / {output_tokens:,} output")
+        preprocessing = data.get("preprocessing")
+        if isinstance(preprocessing, dict) and not data.get("reused"):
+            before = preprocessing.get("original_token_estimate", 0)
+            after = preprocessing.get("processed_token_estimate", 0)
+            reduction = preprocessing.get("token_reduction_pct", 0.0)
+            stages = ", ".join(preprocessing.get("applied_strategies", []))
+            if korean:
+                typer.echo(f"자막 전처리: {before:,} → {after:,} 추정 토큰 ({reduction:.1f}% 절감; {stages})")
+            else:
+                typer.echo(f"Transcript preprocessing: {before:,} → {after:,} estimated tokens ({reduction:.1f}% saved; {stages})")
     else:
         typer.echo(data if isinstance(data, str) else json.dumps(data, ensure_ascii=False))
 
 
 def _result_data(result: CommandResult) -> dict[str, object]:
-    return {
+    data: dict[str, object] = {
         "run_id": result.run_id,
         "profile": result.profile,
         "reused": result.reused,
         "files": [str(path) for path in result.files],
         "usage": result.usage,
     }
+    if result.preprocessing_stats is not None:
+        data["preprocessing"] = {
+            **asdict(result.preprocessing_stats),
+            "token_reduction_pct": result.preprocessing_stats.token_reduction_pct,
+        }
+    return data
 
 
 def _emit_status(values: list[dict[str, object]], json_output: bool, *, korean: bool) -> None:
@@ -242,7 +269,25 @@ def _run_generation(
         label = "로컬 미디어 오류" if korean else "Local media error"
         typer.echo(f"{label}: {error}")
         raise typer.Exit(2) from error
+    except TranscriptRateLimited as error:
+        if korean:
+            typer.echo(
+                f"YouTube timedtext 요청이 HTTP 429로 제한되었습니다. 약 {error.retry_after_seconds}초 후 같은 명령을 다시 실행하세요. "
+                "계속되면 `chew auth youtube --from-browser chrome`으로 본인 YouTube 로그인을 연결하세요. "
+                "또는 CHEW.md에 youtube_cookie_file을 명시하거나 로컬 MP3/MP4를 사용하세요."
+            )
+        else:
+            typer.echo(
+                f"YouTube timedtext returned HTTP 429. Retry the same command in about "
+                f"{error.retry_after_seconds}s. If it persists, connect your own YouTube login with "
+                "`chew auth youtube --from-browser chrome`, explicitly set youtube_cookie_file in CHEW.md, "
+                "or use local MP3/MP4 media."
+            )
+        raise typer.Exit(2) from error
     except TranscriptUnavailable as error:
+        session_refresh_required = any(
+            "session_refresh_required" in attempt.reasons for attempt in error.attempts
+        )
         if korean and local_media:
             typer.echo(
                 "사용 가능한 음성 transcript를 만들지 못했습니다. 파일에 음성이 있는지와 오디오 품질을 확인하세요."
@@ -251,6 +296,16 @@ def _run_generation(
             typer.echo(
                 "No usable speech transcript could be created. Check that the file contains "
                 "speech and that its audio is readable."
+            )
+        elif korean and session_refresh_required:
+            typer.echo(
+                "선택한 브라우저 프로필에서 YouTube를 열어 새로고침한 뒤 같은 명령을 다시 실행하세요. "
+                "브라우저 프로필은 `chew auth youtube`에서 다시 선택할 수 있습니다."
+            )
+        elif session_refresh_required:
+            typer.echo(
+                "Open YouTube in the selected browser profile, reload the page, then run the same command again. "
+                "You can select a different profile with `chew auth youtube`."
             )
         elif korean:
             typer.echo(
@@ -438,6 +493,8 @@ def config(
         if created:
             label = "생성" if _is_korean(context) else "Created"
             typer.echo(f"{label}: " + ", ".join(str(path) for path in created))
+        if Path("CHEW.md") in created and sys.stdin.isatty():
+            _offer_ollama_model_setup(korean=_is_korean(context))
         else:
             typer.echo(
                 "기존 설정 파일을 유지했습니다."
@@ -456,6 +513,36 @@ app.command("config", help="Show or initialize Markdown configuration.")(config)
 app.command("설정", hidden=True)(config)
 
 
+def _offer_ollama_model_setup(*, korean: bool) -> None:
+    prompt = (
+        "로컬 모델 선택 [1=빠르게 시작 Qwen3 4B (약 2.5GB), 2=권장 Qwen3 8B (약 5.2GB), 3=나중에]"
+        if korean
+        else "Local model [1=Qwen3 4B (~2.5GB), 2=Qwen3 8B (~5.2GB), 3=configure later]"
+    )
+    choice = typer.prompt(prompt, default="3")
+    model = {"1": "qwen3:4b", "2": "qwen3:8b"}.get(choice)
+    if model is None:
+        return
+    config_path = Path("CHEW.md")
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        .replace("runtime: auto", "runtime: ollama")
+        .replace("ollama_model: null", f"ollama_model: {model}"),
+        encoding="utf-8",
+    )
+    if shutil.which("ollama") is None:
+        typer.echo(
+            "Ollama 앱을 설치한 뒤 `chew config --init`을 다시 실행하세요: https://ollama.com/download"
+            if korean
+            else "Install Ollama, then run `chew config --init` again: https://ollama.com/download"
+        )
+        return
+    if typer.confirm(
+        (f"{model}을 지금 다운로드할까요?" if korean else f"Download {model} now?"), default=True
+    ):
+        subprocess.run(["ollama", "pull", model], check=False)
+
+
 def doctor(
     context: typer.Context,
     json_output: Annotated[bool, typer.Option("--json")] = False,
@@ -465,6 +552,52 @@ def doctor(
 
 app.command("doctor", help="Diagnose AI runtime installation and authentication.")(doctor)
 app.command("진단", hidden=True)(doctor)
+
+
+@auth_app.command("youtube")
+def auth_youtube(
+    from_browser: Annotated[str | None, typer.Option("--from-browser")] = None,
+    profile: Annotated[str | None, typer.Option("--profile")] = None,
+    clear: Annotated[bool, typer.Option("--clear")] = False,
+    status: Annotated[bool, typer.Option("--status")] = False,
+) -> None:
+    """Select, inspect, or remove the local YouTube caption browser profile."""
+
+    if int(clear) + int(status) > 1 or (from_browser is not None and (clear or status)) or (
+        profile is not None and (clear or status)
+    ):
+        typer.echo("Choose a browser profile, --status, or --clear.")
+        raise typer.Exit(2)
+    store = _youtube_auth_store()
+    if clear:
+        if store.clear():
+            typer.echo("YouTube browser profile selection removed.")
+        else:
+            typer.echo("No YouTube browser profile is selected.")
+        return
+    if status:
+        selected = store.profile()
+        if selected is None:
+            typer.echo("No YouTube browser profile is selected.")
+        else:
+            typer.echo(f"YouTube browser profile selected: {selected.browser} / {selected.profile}")
+        return
+    selected_browser = from_browser or typer.prompt("Browser", default="chrome")
+    if profile is None:
+        profiles = store.available_profiles(selected_browser)
+        typer.echo(f"Available profiles: {', '.join(profiles)}")
+        selected_profile = typer.prompt("Browser profile", default=profiles[0])
+    else:
+        selected_profile = profile
+    try:
+        store.connect_from_browser(selected_browser, selected_profile)
+    except YouTubeAuthError as error:
+        typer.echo(f"YouTube browser profile selection failed: {error}")
+        raise typer.Exit(2) from error
+    typer.echo("YouTube browser profile selected. Credentials are read only during caption retrieval and are not stored.")
+
+
+app.add_typer(auth_app, name="auth", help="Connect or remove local service credentials.")
 
 
 def serve(
@@ -609,6 +742,7 @@ def benchmark_run(
     runtime: Annotated[str, typer.Option("--runtime")] = "codex",
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("benchmark-results"),
     reference: Annotated[Path | None, typer.Option("--reference")] = None,
+    short_video: Annotated[bool, typer.Option("--short-video")] = False,
 ) -> None:
     if not live:
         typer.echo(
@@ -625,9 +759,10 @@ def benchmark_run(
         )
         raise typer.Exit(2)
     benchmark_reference = BenchmarkReference.from_json(reference.read_text(encoding="utf-8"))
+    spec_factory = short_video_benchmark_spec if short_video else live_benchmark_spec
     report = asyncio.run(
         BenchmarkRunner().run(
-            live_benchmark_spec(
+            spec_factory(
                 url,
                 reference=benchmark_reference,
                 repeats=repeats,

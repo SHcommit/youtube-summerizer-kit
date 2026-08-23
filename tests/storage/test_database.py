@@ -88,10 +88,109 @@ def test_run_preserves_source_locator_for_local_media_resume(tmp_path: Path) -> 
     assert database.get_run_source_locator("run-local") == "/recordings/meeting.mp3"
 
 
+def test_run_preserves_immutable_execution_plan_snapshot(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+
+    database.create_run(
+        "run-policy",
+        "youtube:abcDEF_1234",
+        "analysis",
+        execution_plan_json='{"policy_version":"frontier-first-v1","reason":"frontier_only"}',
+    )
+
+    assert database.get_run_execution_plan("run-policy") == {
+        "policy_version": "frontier-first-v1",
+        "reason": "frontier_only",
+    }
+
+
+def test_prepare_resume_retries_runtime_failed_jobs(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    database.upsert_job(JobSpec("topic-1", "run-1", "topic", 20))
+    database.upsert_job(JobSpec("chapter-1", "run-1", "chapter", 10, ("topic-1",)))
+    database.upsert_job(JobSpec("compose", "run-1", "compose", 5, ("chapter-1",)))
+    database.fail_job("topic-1", "failed_runtime")
+    database.complete_job("chapter-1", "chapter-hash")
+    database.complete_job("compose", "compose-hash")
+
+    assert database.prepare_resume("run-1") == 3
+    claimed = database.claim_ready_jobs("run-1", "worker-a", datetime(2026, 8, 23, tzinfo=UTC), 60, 1)
+
+    assert [job.job_id for job in claimed] == ["topic-1"]
+
+
 def test_database_checkpoint_runs_without_error(tmp_path: Path) -> None:
     db = Database(tmp_path / "state.sqlite3")
     db.initialize()
     db.checkpoint()  # must not raise
+
+
+def test_database_records_each_generation_attempt_for_a_job(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    database.upsert_job(JobSpec("topic-1", "run-1", "topic", 20))
+
+    database.record_job_measurement(
+        job_id="topic-1",
+        request_id="topic-1",
+        task="topic_summary",
+        runtime_id="ollama",
+        model="qwen3:8b",
+        usage={"input_tokens": 12, "total_duration_ns": 40},
+        details={"input_chars": 120, "input_segment_count": 2, "is_repair": False},
+    )
+    database.record_job_measurement(
+        job_id="topic-1",
+        request_id="topic-1:repair",
+        task="repair",
+        runtime_id="ollama",
+        model="qwen3:8b",
+        usage={"input_tokens": 4},
+        details={"input_chars": 44, "input_segment_count": 0, "is_repair": True},
+    )
+
+    assert database.list_job_measurements("topic-1") == [
+        (
+            "topic-1",
+            "topic_summary",
+            "ollama",
+            "qwen3:8b",
+            {"input_tokens": 12, "total_duration_ns": 40},
+            {"input_chars": 120, "input_segment_count": 2, "is_repair": False},
+        ),
+        (
+            "topic-1:repair",
+            "repair",
+            "ollama",
+            "qwen3:8b",
+            {"input_tokens": 4},
+            {"input_chars": 44, "input_segment_count": 0, "is_repair": True},
+        ),
+    ]
+
+
+def test_database_redacts_sensitive_measurement_details(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    database.upsert_job(JobSpec("topic-1", "run-1", "topic", 20))
+
+    database.record_job_measurement(
+        job_id="topic-1",
+        request_id="topic-1",
+        task="topic_summary",
+        runtime_id="gemini",
+        model=None,
+        usage={},
+        details={"api_key": "sk-test-secret-value", "input_chars": 12},
+    )
+
+    measurement = database.list_job_measurements("topic-1")[0]
+    assert measurement[-1]["api_key"] == "[REDACTED]"
 
 
 def test_initialize_rejects_newer_database_schema(tmp_path: Path) -> None:
