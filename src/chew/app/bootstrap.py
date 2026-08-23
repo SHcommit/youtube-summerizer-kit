@@ -18,8 +18,8 @@ from chew.pipeline.outputs import OutputCompiler
 from chew.storage.artifacts import ArtifactStore
 from chew.storage.database import Database
 from chew.transcripts import TranscriptService, default_providers
-from chew.transcripts.youtube_auth import YouTubeAuthStore
 from chew.transcripts.whisper import WhisperProvider
+from chew.transcripts.youtube_auth import YouTubeAuthStore
 
 
 class AutoHarness:

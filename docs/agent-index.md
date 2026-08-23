@@ -46,7 +46,7 @@ The codebase follows Ports & Adapters (Hexagonal) architecture. Layers may only 
 | How are sensitive operational fields redacted? | `src/chew/core/redaction.py` |
 | How are jobs scheduled and retried? | `src/chew/pipeline/scheduler.py` |
 | How does chapter/topic segmentation work? | `src/chew/pipeline/segmentation.py` |
-| How are caption failures and fallbacks handled? | `docs/wiki/transcript-acquisition.md`, `src/chew/transcripts/service.py` |
+| How are caption failures, fallbacks, and explicit YouTube login handled? | `docs/wiki/transcript-acquisition.md`, `src/chew/transcripts/service.py`, `src/chew/transcripts/youtube_timedtext.py`, `src/chew/transcripts/youtube_auth.py` |
 | How are model citations validated? | `src/chew/pipeline/evidence.py` — untrusted candidates become references only after raw span validation |
 | How are Codex output schemas made strict-compatible? | `src/chew/harness/codex.py` — normalizes required fields, closed objects, and defaults before CLI execution |
 | How is runtime routing decided? | `src/chew/pipeline/policy.py` — pure Frontier-first execution-plan compiler |
@@ -91,6 +91,7 @@ All commands are in `src/chew/cli/main.py`. Each command has both an English nam
 | `obsidian` | `옵시디언` | Index + topic notes with `[[wikilinks]]` |
 | `status` | `상태` | Show run and job progress |
 | `resume` | `이어하기` | Resume interrupted run |
+| `auth youtube` | — | Explicitly connect, inspect, or clear a local YouTube caption login |
 | `doctor` | `진단` | Diagnose runtime installation; prints `→ Install: <cmd>` hints |
 | `serve` | `서버` | Start FastAPI `/health` + `/readiness` server (needs `[server]` extras) |
 | `storage` | `저장소` | Internal file count and usage |
