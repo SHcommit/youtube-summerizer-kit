@@ -14,6 +14,7 @@ from chew.core.identity import fingerprint, normalize_source
 from chew.core.models import (
     Chapter,
     ChapterSummary,
+    ExecutionPlan,
     GenerationRequest,
     GenerationResult,
     KnowledgePack,
@@ -56,6 +57,7 @@ class AnalysisConfig:
     reserved_output_tokens: int = 0
     normalize_transcript: bool = False
     preprocess_transcript: bool = False
+    execution_plan: ExecutionPlan | None = None
 
 
 class PipelineExecutionError(RuntimeError):
@@ -148,6 +150,9 @@ class AnalysisPipeline:
                 "prompt": PROMPT_FINGERPRINT,
                 "runtime": config.runtime,
                 "task_runtimes": config.task_runtimes or {},
+                "execution_plan": (
+                    config.execution_plan.model_dump(mode="json") if config.execution_plan is not None else None
+                ),
                 "model": _harness_cache_identity(self.harness),
                 "depth": config.depth,
                 "language": config.language,
@@ -247,6 +252,9 @@ class AnalysisPipeline:
                     request_key=request_key,
                     recipe_json=config.recipe_json,
                     source_locator=source.local_path or source.canonical_url,
+                    execution_plan_json=(
+                        config.execution_plan.model_dump_json() if config.execution_plan is not None else ""
+                    ),
                 )
             except sqlite3.IntegrityError:
                 winner = self.database.find_compatible_run(source.source_id, analysis_key)
@@ -306,6 +314,7 @@ class AnalysisPipeline:
             self.harness,
             raw_transcript=transcript,
             raw_transcript_fingerprint=raw_transcript_hash,
+            execution_plan=config.execution_plan,
         )
         scheduler = Scheduler(
             self.database,
@@ -349,12 +358,14 @@ class _AnalysisJobHandler:
         *,
         raw_transcript: Transcript,
         raw_transcript_fingerprint: str,
+        execution_plan: ExecutionPlan | None,
     ) -> None:
         self.database = database
         self.artifacts = artifacts
         self.harness = harness
         self.raw_transcript = raw_transcript
         self.raw_transcript_fingerprint = raw_transcript_fingerprint
+        self.execution_plan = execution_plan
         self.usage: dict[str, int] = {}
         self.models: set[str] = set()
 
@@ -376,6 +387,9 @@ class _AnalysisJobHandler:
                 "output_schema_chars": len(encoded_schema),
                 "is_repair": request.task == "repair",
                 "retry": job.attempts > 1,
+                "policy_fingerprint": (
+                    self.execution_plan.plan_fingerprint if self.execution_plan is not None else ""
+                ),
             },
         )
         for key, value in generated.usage.items():

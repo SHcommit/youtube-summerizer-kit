@@ -40,7 +40,7 @@ def _timestamp(value: datetime) -> str:
 
 
 class Database:
-    SCHEMA_VERSION = 6
+    SCHEMA_VERSION = 7
     _local: threading.local  # class-level annotation; one per Database instance via __init__
 
     def __init__(self, path: Path) -> None:
@@ -82,6 +82,7 @@ class Database:
                     analysis_key TEXT NOT NULL,
                     request_key TEXT NOT NULL DEFAULT '',
                     recipe_json TEXT NOT NULL DEFAULT '',
+                    execution_plan_json TEXT NOT NULL DEFAULT '',
                     status TEXT NOT NULL DEFAULT 'pending',
                     knowledge_pack_hash TEXT,
                     created_at TEXT NOT NULL,
@@ -153,6 +154,8 @@ class Database:
                 connection.execute("ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''")
             if "source_locator" not in columns:
                 connection.execute("ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''")
+            if "execution_plan_json" not in columns:
+                connection.execute("ALTER TABLE runs ADD COLUMN execution_plan_json TEXT NOT NULL DEFAULT ''")
             measurement_columns = {
                 str(row[1]) for row in connection.execute("PRAGMA table_info(job_measurements)").fetchall()
             }
@@ -190,12 +193,13 @@ class Database:
         request_key: str = "",
         recipe_json: str = "",
         source_locator: str = "",
+        execution_plan_json: str = "",
     ) -> None:
         now = _timestamp(datetime.now(UTC))
         with self._connect() as connection:
             connection.execute(
                 "INSERT INTO runs(run_id, source_id, source_locator, analysis_key, request_key, "
-                "recipe_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "recipe_json, execution_plan_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     run_id,
                     source_id,
@@ -203,6 +207,7 @@ class Database:
                     analysis_key,
                     request_key,
                     recipe_json,
+                    execution_plan_json,
                     now,
                     now,
                 ),
@@ -221,6 +226,16 @@ class Database:
         if row is None or not row[0]:
             return None
         return str(row[0])
+
+    def get_run_execution_plan(self, run_id: str) -> dict[str, object] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT execution_plan_json FROM runs WHERE run_id = ?", (run_id,)
+            ).fetchone()
+        if row is None or not row[0]:
+            return None
+        value = json.loads(str(row[0]))
+        return value if isinstance(value, dict) else None
 
     def find_reusable_run(self, source_id: str, request_key: str) -> str | None:
         with self._connect() as connection:
@@ -288,7 +303,7 @@ class Database:
         runtime_id: str,
         model: str | None,
         usage: dict[str, int],
-        details: dict[str, int | bool],
+        details: dict[str, object],
     ) -> None:
         with self._connect() as connection:
             connection.execute(
@@ -308,7 +323,7 @@ class Database:
 
     def list_job_measurements(
         self, job_id: str
-    ) -> list[tuple[str, str, str, str | None, dict[str, int], dict[str, int | bool]]]:
+    ) -> list[tuple[str, str, str, str | None, dict[str, int], dict[str, object]]]:
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT request_id, task, runtime_id, model, usage_json, details_json FROM job_measurements "
@@ -322,11 +337,7 @@ class Database:
                 str(row["runtime_id"]),
                 None if row["model"] is None else str(row["model"]),
                 {str(key): int(value) for key, value in json.loads(str(row["usage_json"])).items()},
-                {
-                    str(key): value
-                    for key, value in json.loads(str(row["details_json"])).items()
-                    if isinstance(value, (int, bool))
-                },
+                {str(key): value for key, value in json.loads(str(row["details_json"])).items()},
             )
             for row in rows
         ]

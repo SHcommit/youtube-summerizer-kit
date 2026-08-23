@@ -88,6 +88,23 @@ def test_run_preserves_source_locator_for_local_media_resume(tmp_path: Path) -> 
     assert database.get_run_source_locator("run-local") == "/recordings/meeting.mp3"
 
 
+def test_run_preserves_immutable_execution_plan_snapshot(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+
+    database.create_run(
+        "run-policy",
+        "youtube:abcDEF_1234",
+        "analysis",
+        execution_plan_json='{"policy_version":"frontier-first-v1","reason":"frontier_only"}',
+    )
+
+    assert database.get_run_execution_plan("run-policy") == {
+        "policy_version": "frontier-first-v1",
+        "reason": "frontier_only",
+    }
+
+
 def test_database_checkpoint_runs_without_error(tmp_path: Path) -> None:
     db = Database(tmp_path / "state.sqlite3")
     db.initialize()

@@ -39,6 +39,7 @@ def test_missing_config_uses_packaged_defaults(tmp_path: Path) -> None:
 
     assert settings.language == "ko"
     assert settings.default_profile == "digest"
+    assert settings.runtime == "frontier"
     assert settings.storage_policy == "compact"
     assert settings.whisper_fallback is False
     assert settings.instructions

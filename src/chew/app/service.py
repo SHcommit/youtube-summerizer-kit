@@ -11,6 +11,7 @@ from chew.harness.builtin import HarnessAuthenticationError
 from chew.harness.registry import HarnessRegistry
 from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
 from chew.pipeline.outputs import OutputCompiler
+from chew.pipeline.policy import build_execution_plan
 from chew.pipeline.preprocessing import PreprocessingStats
 from chew.storage.database import Database
 
@@ -74,23 +75,35 @@ class ApplicationService:
         analysis_settings: Settings,
         output_settings: Settings,
     ) -> CommandResult:
+        local_requested = analysis_settings.local_accelerator or any(
+            runtime_id == "ollama" for runtime_id in analysis_settings.task_runtimes.values()
+        )
+        plan = build_execution_plan(
+            frontier_runtime_id=analysis_settings.runtime,
+            requested_task_runtimes=analysis_settings.task_runtimes,
+            local_accelerator_requested=local_requested,
+            local_accelerator_available=await self._local_accelerator_available(local_requested),
+            max_input_tokens=analysis_settings.max_input_tokens,
+            reserved_output_tokens=analysis_settings.reserved_output_tokens,
+        )
         if isinstance(self.pipeline.harness, ConfigurableHarness):
-            self.pipeline.harness.set_preference(analysis_settings.runtime)
+            self.pipeline.harness.set_preference(plan.default_runtime_id)
         set_task_preferences = getattr(self.pipeline.harness, "set_task_preferences", None)
         if callable(set_task_preferences):
-            set_task_preferences(analysis_settings.task_runtimes)
+            set_task_preferences({route.task: route.runtime_id for route in plan.task_routes})
         config = AnalysisConfig(
             language=analysis_settings.language,
             depth=analysis_settings.depth,
             instructions=analysis_settings.instructions,
             whisper_fallback=analysis_settings.whisper_fallback,
-            runtime=analysis_settings.runtime,
+            runtime=plan.default_runtime_id,
             recipe_json=analysis_settings.model_dump_json(),
-            task_runtimes=analysis_settings.task_runtimes,
-            max_input_tokens=analysis_settings.max_input_tokens,
-            reserved_output_tokens=analysis_settings.reserved_output_tokens,
+            task_runtimes={route.task: route.runtime_id for route in plan.task_routes},
+            max_input_tokens=plan.max_input_tokens,
+            reserved_output_tokens=plan.reserved_output_tokens,
             normalize_transcript=analysis_settings.normalize_transcript,
             preprocess_transcript=analysis_settings.preprocess_transcript,
+            execution_plan=plan,
         )
         try:
             result = await self.pipeline.analyze(url, config)
@@ -107,6 +120,16 @@ class ApplicationService:
             result.usage,
             result.preprocessing_stats,
         )
+
+    async def _local_accelerator_available(self, requested: bool) -> bool | None:
+        if not requested or self.registry is None:
+            return None
+        try:
+            harness = await self.registry.select("ollama")
+            probe = await harness.probe()
+        except (HarnessAuthenticationError, RuntimeError):
+            return False
+        return probe.available and probe.auth_ready is not False
 
     def status(self, run_id: str | None = None) -> tuple[RunStatus, ...]:
         return tuple(RunStatus(*row) for row in self.database.list_run_statuses(run_id))

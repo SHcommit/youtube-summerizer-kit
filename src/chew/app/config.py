@@ -22,8 +22,9 @@ class Settings(BaseModel):
     language: str = "ko"
     default_profile: str = "digest"
     depth: Literal["brief", "short", "quick", "concise", "detailed", "deep"] = "detailed"
-    runtime: str = "auto"
+    runtime: str = "frontier"
     task_runtimes: dict[str, str] = Field(default_factory=dict)
+    local_accelerator: bool = False
     ollama_model: str | None = None
     whisper_fallback: bool = False
     max_input_tokens: int | None = Field(default=None, gt=0)

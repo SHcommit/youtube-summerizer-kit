@@ -3,8 +3,9 @@
 language: ko                       # 출력 언어 (ko, en 등)
 default_profile: digest            # 기본 출력 프로필 (digest, blog, study, obsidian)
 depth: detailed                    # 기본 요약 강도: quick (초간단/핵심), detailed (상세), deep (심층/꽉찬)
-runtime: auto                      # AI 런타임 (auto, antigravity, codex, claude, gemini, ollama)
+runtime: frontier                  # 기본: BYOK Frontier (codex, claude, gemini). ollama은 명시 opt-in
 task_runtimes: {}                  # 선택: task별 명시 runtime (예: {topic_summary: ollama, compose: gemini})
+local_accelerator: false           # Ollama 보조 경로 사용 의도. 오류 시 기본 runtime으로 fallback
 ollama_model: null                 # runtime: ollama일 때 사용할 모델 (예: qwen3:4b)
 whisper_fallback: false            # 자막 미제공 시 로컬 Whisper 음성인식 사용 여부
 max_input_tokens: null             # 선택: Ollama topic별 보수적 입력 상한

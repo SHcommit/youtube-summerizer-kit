@@ -102,6 +102,43 @@ async def test_output_profile_does_not_change_analysis_settings(tmp_path: Path) 
 
 
 @pytest.mark.asyncio
+async def test_application_compiles_frontier_execution_plan_before_pipeline_run(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    pack = KnowledgePack(
+        source=source,
+        title="title",
+        language="ko",
+        overview="overview",
+        transcript_fingerprint="a" * 64,
+        topics=(),
+        chapters=(),
+        analysis_fingerprint="b" * 64,
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", source.source_id, "key")
+    pipeline = Pipeline(pack)
+    application = ApplicationService(
+        pipeline,  # type: ignore[arg-type]
+        Compiler(),  # type: ignore[arg-type]
+        database,
+        working_directory=tmp_path,
+    )
+    settings = Settings(runtime="gemini", max_input_tokens=3_200, reserved_output_tokens=400)
+
+    await application._generate(source.canonical_url, "digest", tmp_path / "digest", settings, settings)
+
+    plan = pipeline.configs[0].execution_plan
+    assert plan is not None
+    assert plan.runtime_for("topic_summary") == "gemini"
+    assert plan.plan_fingerprint
+
+
+@pytest.mark.asyncio
 async def test_resume_uses_the_analysis_recipe_stored_with_the_run(tmp_path: Path) -> None:
     source = SourceIdentity(
         source_id="youtube:abcDEF_1234",
