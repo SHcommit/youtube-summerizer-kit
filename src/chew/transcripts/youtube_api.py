@@ -9,6 +9,7 @@ from importlib import import_module
 from typing import Any
 
 from chew.domain import Provenance, SourceIdentity, Transcript, TranscriptSegment
+from chew.transcripts.base import provider_failure_reason
 
 
 def _default_api() -> Any:
@@ -67,5 +68,5 @@ class YouTubeApiTranscriptProvider:
                 segments=segments,
             )
         except Exception as error:
-            self._attempt_failure.set((f"provider_error:{type(error).__name__}",))
+            self._attempt_failure.set((provider_failure_reason(error),))
             return None

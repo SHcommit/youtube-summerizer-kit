@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Resilient transcript acquisition**:
+  - Adds `pytubefix` caption extraction as an independent fallback after yt-dlp and youtube-transcript-api.
+  - Preserves 429 as a rate-limit outcome, retries it with bounded backoff, and gives an actionable CLI recovery message.
+  - Documents provider order, opt-in credential boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
 - **Short-video Frontier benchmark**:
   - Adds `chew benchmark run --short-video` to compare one-pass and hierarchical synthesis using the same transcript and configured Frontier runtime.
   - Records provider usage, latency, evidence coverage, timestamp accuracy, and unsupported claims without mixing in direct video-URL input.

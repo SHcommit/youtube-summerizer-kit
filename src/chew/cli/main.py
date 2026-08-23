@@ -34,7 +34,7 @@ from chew.core.identity import (
 )
 from chew.log import configure_logging
 from chew.telemetry import telemetry
-from chew.transcripts.service import TranscriptUnavailable
+from chew.transcripts.service import TranscriptRateLimited, TranscriptUnavailable
 from chew.transcripts.whisper import WhisperDependencyMissing
 
 
@@ -260,6 +260,18 @@ def _run_generation(
     except SourceInputError as error:
         label = "로컬 미디어 오류" if korean else "Local media error"
         typer.echo(f"{label}: {error}")
+        raise typer.Exit(2) from error
+    except TranscriptRateLimited as error:
+        if korean:
+            typer.echo(
+                f"YouTube 자막 요청이 제한되었습니다. 약 {error.retry_after_seconds}초 후 같은 명령을 다시 실행하세요. "
+                "계속 실패하면 로컬 MP3/MP4 또는 VTT/SRT 자막을 사용하세요."
+            )
+        else:
+            typer.echo(
+                f"YouTube caption requests are rate-limited. Retry the same command in about "
+                f"{error.retry_after_seconds}s. If it persists, use local MP3/MP4 or VTT/SRT captions."
+            )
         raise typer.Exit(2) from error
     except TranscriptUnavailable as error:
         if korean and local_media:

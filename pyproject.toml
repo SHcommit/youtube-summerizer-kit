@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-youtube = ["yt-dlp", "youtube-transcript-api"]
+youtube = ["yt-dlp", "youtube-transcript-api", "pytubefix"]
 whisper = ["faster-whisper"]
 preprocess = ["deepmultilingualpunctuation>=1.0", "sentence-transformers>=3.0"]
 huggingface = ["huggingface-hub>=0.23"]

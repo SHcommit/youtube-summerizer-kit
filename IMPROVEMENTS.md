@@ -35,6 +35,15 @@
 
 미달하면 전처리는 opt-in으로 유지하며 절감률을 마케팅 문구로 사용하지 않는다.
 
+## 1.5 입력 획득 신뢰성
+
+YouTube 자막은 단일 provider에 의존하지 않는다. 현재 `yt-dlp` 수동/자동 자막,
+`youtube-transcript-api`, `pytubefix` fallback과 bounded rate-limit retry를 사용한다.
+운영·복구 절차는 [`docs/wiki/transcript-acquisition.md`](docs/wiki/transcript-acquisition.md)에 둔다.
+
+남은 작업은 raw transcript snapshot을 benchmark의 두 조건이 공유하도록 만들고, VTT/SRT/TXT
+사용자 제공 transcript adapter를 추가하는 것이다. provider outage가 있으면 quality report를 생성하지 않는다.
+
 ## 2. 짧은 영상 Frontier 경로 선택
 
 15분 이하 영상은 계층 요약의 호출·schema·중간 output 오버헤드가 이득보다 클 수 있다.

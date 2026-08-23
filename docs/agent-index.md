@@ -46,6 +46,7 @@ The codebase follows Ports & Adapters (Hexagonal) architecture. Layers may only 
 | How are sensitive operational fields redacted? | `src/chew/core/redaction.py` |
 | How are jobs scheduled and retried? | `src/chew/pipeline/scheduler.py` |
 | How does chapter/topic segmentation work? | `src/chew/pipeline/segmentation.py` |
+| How are caption failures and fallbacks handled? | `docs/wiki/transcript-acquisition.md`, `src/chew/transcripts/service.py` |
 | How are model citations validated? | `src/chew/pipeline/evidence.py` — untrusted candidates become references only after raw span validation |
 | How are Codex output schemas made strict-compatible? | `src/chew/harness/codex.py` — normalizes required fields, closed objects, and defaults before CLI execution |
 | How is runtime routing decided? | `src/chew/pipeline/policy.py` — pure Frontier-first execution-plan compiler |

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.error import HTTPError
+
 import pytest
 
 from chew.domain import Provenance
@@ -44,6 +46,21 @@ async def test_provider_failure_reason_is_recorded_by_fallback_service() -> None
         await TranscriptService([YtDlpSubtitleProvider(extractor=broken, caption_kind="manual")]).resolve(SOURCE, "ko")
 
     assert captured.value.attempts[0].reasons == ("provider_error:RuntimeError",)
+
+
+async def test_http_429_is_recorded_as_rate_limited() -> None:
+    from chew.transcripts.service import TranscriptRateLimited, TranscriptService
+
+    def limited(_: str) -> dict[str, object]:
+        raise HTTPError("https://youtube.com", 429, "Too Many Requests", {}, None)
+
+    with pytest.raises(TranscriptRateLimited) as captured:
+        await TranscriptService(
+            [YtDlpSubtitleProvider(extractor=limited, caption_kind="manual")],
+            rate_limit_retries=0,
+        ).resolve(SOURCE, "ko")
+
+    assert captured.value.attempts[0].reasons == ("rate_limited",)
 
 
 async def test_manual_and_automatic_can_be_independent_fallback_candidates() -> None:

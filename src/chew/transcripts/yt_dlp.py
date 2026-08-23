@@ -12,6 +12,7 @@ from typing import Any, Literal, cast
 from urllib.request import urlopen
 
 from chew.domain import Chapter, Provenance, SourceIdentity, Transcript, TranscriptSegment
+from chew.transcripts.base import provider_failure_reason
 
 Extractor = Callable[[str], Mapping[str, Any]]
 
@@ -188,6 +189,6 @@ class YtDlpSubtitleProvider:
                     chapters=chapters,
                 )
         except Exception as error:  # Provider failures are recorded by the fallback chain.
-            self._attempt_failure.set((f"provider_error:{type(error).__name__}",))
+            self._attempt_failure.set((provider_failure_reason(error),))
             return None
         return None
