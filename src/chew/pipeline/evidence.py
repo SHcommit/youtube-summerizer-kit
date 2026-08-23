@@ -5,8 +5,12 @@ from __future__ import annotations
 import re
 
 from chew.core.models import (
+    Claim,
+    Evidence,
     EvidenceCandidate,
     EvidenceValidationResult,
+    TopicSummary,
+    TopicSummaryDraft,
     Transcript,
     TranscriptSegment,
     ValidatedEvidenceRef,
@@ -73,3 +77,50 @@ def _searchable_segments(
             if adjacent in allowed:
                 search_indexes.add(adjacent)
     return tuple(segments[index] for index in sorted(search_indexes))
+
+
+def materialize_topic_summary(
+    draft: TopicSummaryDraft,
+    *,
+    transcript: Transcript,
+    raw_transcript_fingerprint: str,
+    allowed_segment_indexes: tuple[int, ...],
+) -> TopicSummary:
+    """Keep only source claims with a validated raw-transcript citation."""
+
+    claims: list[Claim] = []
+    for claim_draft in draft.claims:
+        references = tuple(
+            result.reference
+            for result in (
+                validate_evidence_candidate(
+                    candidate,
+                    transcript=transcript,
+                    raw_transcript_fingerprint=raw_transcript_fingerprint,
+                    allowed_segment_indexes=allowed_segment_indexes,
+                )
+                for candidate in claim_draft.evidence_candidates
+            )
+            if result.reference is not None
+        )
+        if claim_draft.provenance.value == "source" and not references:
+            continue
+        claims.append(
+            Claim(
+                text=claim_draft.text,
+                provenance=claim_draft.provenance,
+                evidence=tuple(
+                    Evidence(text=reference.quote, start_ms=reference.start_ms, end_ms=reference.end_ms)
+                    for reference in references
+                ),
+                evidence_refs=references,
+            )
+        )
+    return TopicSummary(
+        topic_id=draft.topic_id,
+        title=draft.title,
+        summary=draft.summary,
+        claims=tuple(claims),
+        concepts=draft.concepts,
+        examples=draft.examples,
+    )

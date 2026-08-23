@@ -170,13 +170,33 @@ class ExecutionPlan(FrozenModel):
 class Claim(FrozenModel):
     text: str
     evidence: tuple[Evidence, ...] = ()
+    evidence_refs: tuple[ValidatedEvidenceRef, ...] = ()
     provenance: Provenance = Provenance.SOURCE
 
     @model_validator(mode="after")
     def require_source_evidence(self) -> Claim:
-        if self.provenance == Provenance.SOURCE and not self.evidence:
+        if self.provenance == Provenance.SOURCE and not (self.evidence or self.evidence_refs):
             raise ValueError("source claims require evidence")
         return self
+
+
+class ClaimDraft(FrozenModel):
+    """Untrusted source claim and citations returned from a topic model."""
+
+    text: str
+    evidence_candidates: tuple[EvidenceCandidate, ...] = ()
+    provenance: Provenance = Provenance.SOURCE
+
+
+class TopicSummaryDraft(FrozenModel):
+    """Untrusted topic-model output that must be materialized before storage."""
+
+    topic_id: str
+    title: str
+    summary: str
+    claims: tuple[ClaimDraft, ...] = ()
+    concepts: tuple[str, ...] = ()
+    examples: tuple[str, ...] = ()
 
 
 class TopicSummary(FrozenModel):

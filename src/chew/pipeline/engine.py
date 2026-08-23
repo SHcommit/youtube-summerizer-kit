@@ -20,6 +20,7 @@ from chew.core.models import (
     MissingRange,
     SourceIdentity,
     TopicSummary,
+    TopicSummaryDraft,
     Transcript,
 )
 from chew.core.prompts import (
@@ -30,6 +31,7 @@ from chew.core.prompts import (
     TOPIC_PROMPT,
 )
 from chew.harness.base import Harness
+from chew.pipeline.evidence import materialize_topic_summary
 from chew.pipeline.knowledge import build_knowledge_pack
 from chew.pipeline.preprocessing import PreprocessingStats, TranscriptPreprocessor
 from chew.pipeline.scheduler import Scheduler
@@ -266,9 +268,13 @@ class AnalysisPipeline:
                     "language": config.language,
                     "user_instructions": config.instructions,
                     "segments": [
-                        analysis_transcript.segments[index].model_dump(mode="json")
+                        {
+                            **analysis_transcript.segments[index].model_dump(mode="json"),
+                            "segment_index": index,
+                        }
                         for index in topic.segment_indexes
                     ],
+                    "raw_segment_indexes": list(topic.segment_indexes),
                 }
             elif job.kind == "chapter":
                 chapter_id = job.job_id.split(":chapter:", 1)[1]
@@ -294,7 +300,13 @@ class AnalysisPipeline:
             payload_ref = self.artifacts.put_json(payload)
             self.database.upsert_job(replace(job, payload_hash=payload_ref.digest))
 
-        handler = _AnalysisJobHandler(self.database, self.artifacts, self.harness)
+        handler = _AnalysisJobHandler(
+            self.database,
+            self.artifacts,
+            self.harness,
+            raw_transcript=transcript,
+            raw_transcript_fingerprint=raw_transcript_hash,
+        )
         scheduler = Scheduler(
             self.database,
             handler,
@@ -329,10 +341,20 @@ class AnalysisPipeline:
 
 
 class _AnalysisJobHandler:
-    def __init__(self, database: Database, artifacts: ArtifactStore, harness: Harness) -> None:
+    def __init__(
+        self,
+        database: Database,
+        artifacts: ArtifactStore,
+        harness: Harness,
+        *,
+        raw_transcript: Transcript,
+        raw_transcript_fingerprint: str,
+    ) -> None:
         self.database = database
         self.artifacts = artifacts
         self.harness = harness
+        self.raw_transcript = raw_transcript
+        self.raw_transcript_fingerprint = raw_transcript_fingerprint
         self.usage: dict[str, int] = {}
         self.models: set[str] = set()
 
@@ -427,8 +449,14 @@ class _AnalysisJobHandler:
     async def handle(self, job: JobRecord) -> str:
         payload = self._load(job.payload_hash)
         if job.kind == "topic":
-            output = await self._generate(job, "topic_summary", TOPIC_PROMPT, payload, TopicSummary)
-            return self.artifacts.put_json(output).digest
+            output = await self._generate(job, "topic_summary", TOPIC_PROMPT, payload, TopicSummaryDraft)
+            topic = materialize_topic_summary(
+                TopicSummaryDraft.model_validate(output),
+                transcript=self.raw_transcript,
+                raw_transcript_fingerprint=self.raw_transcript_fingerprint,
+                allowed_segment_indexes=tuple(int(index) for index in payload["raw_segment_indexes"]),
+            )
+            return self.artifacts.put_json(topic).digest
         if job.kind == "chapter":
             topic_payloads = [
                 self._load(digest) for digest in self.database.dependency_results(job.job_id)

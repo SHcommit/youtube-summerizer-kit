@@ -146,6 +146,34 @@ class PartiallyFailingHarness(StructuredFakeHarness):
         return await super().generate(request)
 
 
+class EvidenceCandidateHarness(StructuredFakeHarness):
+    @staticmethod
+    def topic_output(input_value: dict[str, object]) -> dict[str, object]:
+        segment = input_value["segments"][0]
+        assert isinstance(segment, dict)
+        return {
+            "topic_id": input_value["topic_id"],
+            "title": input_value["title"],
+            "summary": "소주제 요약",
+            "claims": [
+                {
+                    "text": "응답 시간이 감소했다.",
+                    "provenance": "source",
+                    "evidence_candidates": [
+                        {
+                            "segment_indexes": [segment["segment_index"]],
+                            "start_ms": segment["start_ms"],
+                            "end_ms": segment["end_ms"],
+                            "quote": segment["text"],
+                        }
+                    ],
+                }
+            ],
+            "concepts": [],
+            "examples": [],
+        }
+
+
 @pytest.mark.asyncio
 async def test_pipeline_marks_pack_partial_with_failed_topic_range(tmp_path: Path) -> None:
     source = SourceIdentity(source_id="youtube:abcDEF_1234", video_id="abcDEF_1234", canonical_url="https://www.youtube.com/watch?v=abcDEF_1234")
@@ -159,6 +187,52 @@ async def test_pipeline_marks_pack_partial_with_failed_topic_range(tmp_path: Pat
     assert result.pack.completion_status == "partial"
     assert result.pack.failed_topic_ids == ("full-video-topic-001",)
     assert result.pack.missing_ranges[0].start_ms == 0
+
+
+@pytest.mark.asyncio
+async def test_pipeline_keeps_only_span_validated_evidence_in_knowledge_pack(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="ko",
+        duration_ms=60_000,
+        provenance=Provenance.MANUAL_SUBTITLE,
+        segments=(
+            TranscriptSegment(
+                start_ms=0,
+                end_ms=60_000,
+                text="응답 시간이 45퍼센트 감소했습니다.",
+            ),
+        ),
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=ArtifactStore(tmp_path),
+        transcripts=TranscriptService([StaticTranscriptProvider(transcript)]),
+        harness=EvidenceCandidateHarness(),
+    )
+
+    result = await pipeline.analyze(
+        source.canonical_url,
+        AnalysisConfig(
+            language="ko",
+            depth="detailed",
+            instructions="",
+            whisper_fallback=False,
+            runtime="fake",
+            recipe_json="{}",
+        ),
+    )
+
+    claim = result.pack.topics[0].claims[0]
+    assert claim.evidence[0].text == "응답 시간이 45퍼센트 감소했습니다."
+    assert claim.evidence_refs[0].segment_indexes == (0,)
 
 
 class RecordingTranscriptService:
