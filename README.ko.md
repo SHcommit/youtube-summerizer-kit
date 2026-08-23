@@ -482,6 +482,18 @@ chew 벤치마크 실행 'https://youtu.be/VIDEO_ID' --live \
 
 라이브 벤치마크는 실제 로그인과 사용량이 발생하므로 `--live`와 기준 답안 파일을 모두 명시해야 실행됩니다. 결과는 `benchmark-results/run-*/report.json`과 `report.md`에 원자적으로 저장됩니다. 아직 실제 다국어·다양한 길이의 공개 코퍼스 결과를 제공하거나 Gemini보다 항상 우수하다고 주장하지 않습니다.
 
+관리자 전용 자막 전처리 비교는 `benchmarks/`의 고정 fixture와 스크립트를 사용합니다.
+기능 개발 전 또는 이전 릴리스에서 baseline을 저장하고, 후보 기능 구현 후 최종 리포트를 실행합니다:
+
+```bash
+benchmarks/benchmark.sh baseline --preprocessing none --concurrency 5
+benchmarks/benchmark.sh report allInOne \
+  --baseline <baseline-run-id> \
+  --target-release v0.2.0
+```
+
+저장된 근거는 `reports/performance-comparisons/transcript-preprocessing/` 아래에 남습니다. metrics 수집 단계는 LLM을 호출하지 않으며, 벤치마크 전용 의존성을 일반 패키지 설치에 추가하지 않습니다. 생성된 리포트는 전체 토큰 절감률, 영상별 그래프, stage token funnel, 품질/신뢰성/재현성 gate, 릴리스 메타데이터, 그리고 후보 경로에서 측정 가능한 변화가 없을 때의 경고를 함께 보여줍니다.
+
 ---
 
 ## 개발과 검증
