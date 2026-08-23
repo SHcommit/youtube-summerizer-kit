@@ -148,9 +148,9 @@ chew 진단 --json
 | HuggingFace (`huggingface`) | 예 | `HF_TOKEN` 환경 변수 | `HF_TOKEN` 설정 후 `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | 예 | 첫 생성 때 확인 / 기존 로컬 세션 사용 | `agy` CLI 설치 및 세션 사용 |
 
-**로컬 LLM은 완전히 선택 사항입니다.** 기본값 `runtime: frontier`는 인증된 Codex, Gemini, Claude만 선택하며 로컬 모델은 제외합니다. Ollama는 `runtime: ollama` 또는 task route로 명시 opt-in할 때만 사용합니다. 지정한 Ollama가 없으면 해당 task는 설정된 Frontier runtime으로 fallback합니다.
+**로컬 LLM은 완전히 선택 사항입니다.** 기본값 `runtime: frontier`는 인증된 Codex, Gemini, Claude만 선택하며 로컬 모델은 제외합니다. 최종 요약과 판단에는 Frontier runtime이 필요하며, 로컬 모델은 요약 task route로 사용할 수 없습니다.
 
-완전한 오프라인·로컬 환경을 원한다면 Ollama만 로컬 모델 다운로드가 필요합니다.
+Ollama는 선택적 로컬 모델 다운로드가 필요한 실행기입니다.
 
 | 구성 | 추가 디스크 용량 |
 |---|---|
@@ -195,9 +195,9 @@ language: ko
 default_profile: digest
 depth: detailed
 runtime: frontier
-task_runtimes: {} # 선택: task별 명시 runtime. 예: {topic_summary: ollama, compose: gemini}
-local_accelerator: false
-ollama_model: null
+task_runtimes: {} # 선택: task별 BYOK Frontier runtime. 예: {topic_summary: gemini, compose: codex}
+local_accelerator: false # 향후 승인된 저위험 보조 작업용
+ollama_model: null # 향후 승인된 로컬 보조 작업용
 whisper_fallback: false
 # 선택 사항: Ollama 입력 상한. 설정하지 않으면 기존 시간 기반 분절을 유지한다.
 max_input_tokens: 4096
@@ -212,7 +212,7 @@ storage_policy: compact
 기술 용어는 첫 등장에 짧게 정의하고, 모든 핵심 주장에 영상 근거를 연결한다.
 ```
 
-로컬 모델에서는 `max_input_tokens`와 `reserved_output_tokens`로 topic별 보수적 입력 상한을 opt-in할 수 있습니다. 이 값은 provider 청구 토큰이 아니므로 선택한 모델의 context window에 맞춰 설정하고, 기존 시간 기반 분절을 유지하려면 둘 다 설정하지 않습니다.
+`max_input_tokens`와 `reserved_output_tokens`로 보수적 입력 상한을 opt-in할 수 있습니다. 이 값은 provider 청구 토큰이 아니며, 기존 시간 기반 분절을 유지하려면 둘 다 설정하지 않습니다.
 
 `blog`와 `study`에서는 `output_verify: false`로 마지막 LLM 검증 호출을 생략할 수 있습니다. fixture 측정으로 품질 저하가 없음을 확인하기 전까지 기본값 `true`를 유지합니다.
 
@@ -220,7 +220,7 @@ storage_policy: compact
 
 `preprocess_transcript: true`는 여기에 보수적인 로컬 필러 제거를 추가합니다. `pip install 'chew[preprocess]'`를 설치하면 문장부호 복원과 의미 경계 힌트도 선택적으로 적용됩니다. 고정 fixture의 품질·비용 비교가 끝날 때까지 기본값은 꺼져 있습니다.
 
-`task_runtimes`는 opt-in BYOK routing입니다. map에 없는 task는 기존 `runtime`을 그대로 쓰며, 다른 provider로 자동 전환하지 않습니다. 모델 선택은 현재 전역 `ollama_model`만 지원합니다. cloud provider별 모델 선택은 adapter가 실제 적용·검증할 수 있을 때 추가합니다.
+`task_runtimes`는 opt-in BYOK Frontier routing입니다. map에 없는 task는 기존 `runtime`을 그대로 쓰며, 다른 provider로 자동 전환하지 않습니다. 로컬 runtime은 요약이나 판단 작업에 선택할 수 없습니다. cloud provider별 모델 선택은 adapter가 실제 적용·검증할 수 있을 때 추가합니다.
 
 현재 고정 영어 fixture 비교에서 보수적 필러 제거의 `cl100k_base` 절감은 `1.92%~4.94%`였습니다. 이는 provider 청구 비용이 아닌 tokenizer 비교이며, 기본 활성화 기준 10%에 미달하므로 opt-in을 유지합니다.
 
@@ -246,7 +246,7 @@ chew '유튜브_URL' --depth deep
 
 분석 설정과 출력 설정은 분리됩니다. 예를 들어 블로그 문체만 바꿨다면 자막과 소주제를 다시 분석하지 않고 기존 Knowledge Pack에서 블로그 문서만 새로 만듭니다. 프로필별로 다른 `runtime`을 지정하면 캐시되지 않은 출력 재조립에 그 실행기를 사용합니다.
 
-`task_runtimes`는 opt-in BYOK routing입니다. 각 run은 route, input budget, fallback, 선택 이유가 담긴 immutable Execution Plan을 먼저 기록합니다. map에 없는 task는 `runtime`을 유지하며, 모델 출력은 이 계획을 바꿀 수 없습니다.
+`task_runtimes`는 opt-in BYOK Frontier routing입니다. 각 run은 route, input budget, fallback, 선택 이유가 담긴 immutable Execution Plan을 먼저 기록합니다. map에 없는 task는 `runtime`을 유지하며, 모델 출력은 이 계획을 바꿀 수 없습니다. 로컬 runtime은 요약이나 판단 작업에 선택할 수 없습니다.
 
 중요 source claim의 citation은 모델이 제안한 뒤에도 raw transcript의 segment index, timestamp, quote가 일치할 때만 결과에 연결됩니다. 이 검증은 claim의 사실 여부가 아니라 원문 근거 연결만 보장합니다.
 

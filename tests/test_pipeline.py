@@ -291,6 +291,16 @@ async def test_pipeline_reuses_completed_pack_for_same_url(tmp_path: Path) -> No
     call_count = len(harness.calls)
     second = await pipeline.analyze(source.canonical_url, AnalysisConfig(language="ko", depth="detailed", instructions="", whisper_fallback=False, runtime="auto", recipe_json="{}"), title="테스트 영상")
 
+    compose_request = next(request for request in harness.requests if request.task == "compose")
+    assert compose_request.output_schema == {
+        "type": "object",
+        "properties": {
+            "overview": {"type": "string"},
+            "further_study": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["overview", "further_study"],
+        "additionalProperties": False,
+    }
     assert first.pack.overview == "전체 요약"
     assert first.run_id == second.run_id
     assert second.reused

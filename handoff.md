@@ -16,8 +16,8 @@
    it achieves the 10% adoption gate without quality regression.
 2. Compare one-pass and hierarchical analysis for short videos using the same Frontier runtime
    before changing the default analysis path.
-3. Harden the Policy/Sandbox boundary: response-size limits, endpoint validation, secret-redaction
-   tests, and a decision on per-task timeout/retry policy in `ExecutionPlan`.
+3. Complete the remaining Policy/Sandbox work: decide on per-task timeout/retry policy in
+   `ExecutionPlan` and validate evidence handling on a real Frontier run.
 
 ## Current Decision
 

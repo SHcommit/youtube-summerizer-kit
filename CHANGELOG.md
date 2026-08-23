@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Harness Response and Endpoint Boundaries**:
+  - Rejects model responses over 1 MiB, deeper than 64 JSON levels, or containing collections over 10,000 items before schema materialization.
+  - Restricts Ollama to loopback endpoints unless the caller explicitly provides an endpoint allowlist.
+  - Prevents configured Ollama routes from handling summary tasks; the Policy Layer records the Frontier fallback instead.
+  - Redacts values stored under sensitive keys in structured logs and SQLite job measurements.
+  - Normalizes Pydantic and compose schemas for Codex strict structured output, including required properties, closed objects, and default removal.
+  - Resuming a failed run now retries every downstream dependency, preventing stale chapter or compose artifacts from being reused.
 - **Documentation Lifecycle**:
   - Defined canonical roles for active improvements, completed history, deferred product opportunities, and temporary handoffs in `AGENTS.md`.
   - Added a concise `handoff.md` execution index for current priorities without duplicating roadmaps or completed history.

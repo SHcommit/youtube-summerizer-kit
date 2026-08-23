@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from chew.domain import GenerationRequest
+from chew.harness.builtin import HarnessExecutionError
 from chew.harness.ollama import OllamaHarness
 
 
@@ -85,3 +86,17 @@ async def test_ollama_harness_preserves_provider_usage_and_durations() -> None:
         "prompt_eval_duration_ns": 100,
         "eval_duration_ns": 160,
     }
+
+
+def test_ollama_harness_rejects_non_loopback_endpoint_without_allowlist() -> None:
+    with pytest.raises(HarnessExecutionError, match="loopback"):
+        OllamaHarness(endpoint="https://ollama.example.com")
+
+
+def test_ollama_harness_accepts_explicitly_allowed_endpoint() -> None:
+    harness = OllamaHarness(
+        endpoint="https://ollama.example.com",
+        allowed_endpoints=("https://ollama.example.com",),
+    )
+
+    assert harness.endpoint == "https://ollama.example.com"

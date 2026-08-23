@@ -413,7 +413,12 @@ class _AnalysisJobHandler:
             if model is not None
             else {
                 "type": "object",
+                "properties": {
+                    "overview": {"type": "string"},
+                    "further_study": {"type": "array", "items": {"type": "string"}},
+                },
                 "required": ["overview", "further_study"],
+                "additionalProperties": False,
             }
         )
         request = GenerationRequest(

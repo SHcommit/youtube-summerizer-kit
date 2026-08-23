@@ -20,18 +20,24 @@ def build_execution_plan(
 ) -> ExecutionPlan:
     """Compile explicit routing into a reproducible plan with a safe local fallback."""
 
+    if frontier_runtime_id in LOCAL_RUNTIME_IDS:
+        raise ValueError("A Frontier runtime must be selected as the final reasoning runtime")
+
     routes = dict(requested_task_runtimes)
     reason = "frontier_only"
-    if local_accelerator_requested and local_accelerator_available is False:
+    requested_local_summary = any(runtime_id in LOCAL_RUNTIME_IDS for runtime_id in routes.values())
+    if requested_local_summary:
         routes = {
             task: frontier_runtime_id
             if runtime_id in LOCAL_RUNTIME_IDS
             else runtime_id
             for task, runtime_id in routes.items()
         }
-        reason = "local_accelerator_unavailable"
-    elif local_accelerator_requested:
-        reason = "explicit_local_accelerator"
+        reason = (
+            "local_accelerator_unavailable"
+            if local_accelerator_available is False
+            else "local_summary_route_not_allowed"
+        )
 
     task_routes = tuple(
         TaskRoute(task=task, runtime_id=runtime_id)

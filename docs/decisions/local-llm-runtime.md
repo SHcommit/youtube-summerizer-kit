@@ -7,7 +7,8 @@ Must `chew` use a local Open LLM, and must that runtime be Ollama?
 ## Current Decision
 
 No. Local LLM support is optional. The product must work with a user-selected
-BYOK runtime without installing a local model.
+BYOK runtime without installing a local model. Local models do not perform
+summary or judgment tasks in the current product path.
 
 Ollama is the current local-runtime candidate because it provides model
 download, lifecycle management, and a stable localhost API. It is not part of
@@ -18,9 +19,10 @@ the core domain or the only possible local runtime.
 At first-time configuration, the user may choose one of the following:
 
 1. Use a configured BYOK runtime only. No local model download occurs.
-2. Install a small local Open LLM, such as Qwen3 4B, for local execution.
-3. Install a larger local Open LLM, such as Qwen3 8B, when local quality needs
-   justify the additional disk and memory use.
+2. Install a small local Open LLM, such as Qwen3 4B, for a future approved
+   low-risk helper task.
+3. Install a larger local Open LLM, such as Qwen3 8B, only when a measured
+   helper-task benefit justifies the additional disk and memory use.
 4. Defer the choice and change it later.
 
 The CLI must show approximate download size and require explicit confirmation
@@ -48,4 +50,5 @@ model silently.
 Do not make local execution the default based on assumptions. Compare the
 locked 39-minute and 55-minute fixtures in `IMPROVEMENTS.md` and publish the
 measured token usage, latency, repair rate, evidence quality, and memory use.
-Only then decide whether a local model should be recommended for a workflow.
+Only then decide whether a specifically bounded local helper task should be
+recommended. This does not authorize local topic, chapter, or final-summary generation.

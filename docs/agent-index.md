@@ -43,9 +43,11 @@ The codebase follows Ports & Adapters (Hexagonal) architecture. Layers may only 
 |---|---|
 | How does URL normalization / source identity work? | `src/chew/core/identity.py` |
 | What fields does a Knowledge Pack have? | `src/chew/core/models.py` — `KnowledgePack` (`completion_status`, missing ranges, runtime/model provenance) |
+| How are sensitive operational fields redacted? | `src/chew/core/redaction.py` |
 | How are jobs scheduled and retried? | `src/chew/pipeline/scheduler.py` |
 | How does chapter/topic segmentation work? | `src/chew/pipeline/segmentation.py` |
 | How are model citations validated? | `src/chew/pipeline/evidence.py` — untrusted candidates become references only after raw span validation |
+| How are Codex output schemas made strict-compatible? | `src/chew/harness/codex.py` — normalizes required fields, closed objects, and defaults before CLI execution |
 | How is runtime routing decided? | `src/chew/pipeline/policy.py` — pure Frontier-first execution-plan compiler |
 | How does optional local preprocessing work? | `src/chew/pipeline/preprocessing.py` — Strategy composer, conservative filler removal, optional punctuation and semantic boundaries |
 | How does the pipeline stitch topics → chapters → pack? | `src/chew/pipeline/engine.py` |

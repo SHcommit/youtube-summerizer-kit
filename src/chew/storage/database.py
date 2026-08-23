@@ -10,6 +10,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
+from chew.core.redaction import redact_sensitive
+
 
 @dataclass(frozen=True, slots=True)
 class JobSpec:
@@ -316,7 +318,7 @@ class Database:
                     runtime_id,
                     model,
                     json.dumps(usage, sort_keys=True),
-                    json.dumps(details, sort_keys=True),
+                    json.dumps(redact_sensitive(details), sort_keys=True),
                     _timestamp(datetime.now(UTC)),
                 ),
             )
@@ -507,16 +509,40 @@ class Database:
 
     def prepare_resume(self, run_id: str) -> int:
         with self._connect() as connection:
-            cursor = connection.execute(
-                "UPDATE jobs SET status = 'pending', worker_id = NULL, lease_expires_at = NULL "
-                "WHERE run_id = ? AND status IN ('failed', 'blocked_auth')",
+            resumable_jobs = """
+                WITH RECURSIVE resumable(job_id) AS (
+                    SELECT job_id FROM jobs
+                    WHERE run_id = ? AND status IN ('failed', 'failed_runtime', 'blocked_auth')
+                    UNION
+                    SELECT dependency.job_id
+                    FROM job_dependencies AS dependency
+                    JOIN resumable AS parent ON dependency.depends_on = parent.job_id
+                )
+            """
+            count = int(
+                connection.execute(resumable_jobs + "SELECT COUNT(*) FROM resumable", (run_id,)).fetchone()[0]
+            )
+            connection.execute(
+                """
+                WITH RECURSIVE resumable(job_id) AS (
+                    SELECT job_id FROM jobs
+                    WHERE run_id = ? AND status IN ('failed', 'failed_runtime', 'blocked_auth')
+                    UNION
+                    SELECT dependency.job_id
+                    FROM job_dependencies AS dependency
+                    JOIN resumable AS parent ON dependency.depends_on = parent.job_id
+                )
+                UPDATE jobs
+                SET status = 'pending', worker_id = NULL, lease_expires_at = NULL, result_hash = NULL
+                WHERE job_id IN (SELECT job_id FROM resumable)
+                """,
                 (run_id,),
             )
             connection.execute(
                 "UPDATE runs SET status = 'pending', updated_at = ? WHERE run_id = ?",
                 (_timestamp(datetime.now(UTC)), run_id),
             )
-        return cursor.rowcount
+        return count
 
     def renew_lease(self, job_id: str, worker_id: str, now: datetime, lease_seconds: int) -> bool:
         with self._connect() as connection:

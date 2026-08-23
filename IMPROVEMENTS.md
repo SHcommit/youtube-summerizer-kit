@@ -49,12 +49,9 @@
 Evidence span 검증과 Frontier-first `ExecutionPlan`은 구현되어 있다. 남은 작업은 문서상의
 논리 경계를 실제 강제 경계에 가깝게 만드는 것이다.
 
-1. 모든 harness 응답의 최대 크기와 JSON depth/collection 크기 상한을 설정한다.
-2. Ollama endpoint가 loopback 또는 사용자가 명시적으로 허용한 endpoint만 사용하도록 검증한다.
-3. API key와 민감 설정이 log, artifact, SQLite measurement에 남지 않는 redaction test를 추가한다.
-4. `ExecutionPlan`에 task별 timeout, retry limit, partial-result 정책을 기록할지 결정하고,
+1. `ExecutionPlan`에 task별 timeout, retry limit, partial-result 정책을 기록할지 결정하고,
    채택하면 scheduler가 해당 기록만 사용하도록 한다.
-5. 실제 Frontier run에서 invalid evidence candidate 처리와 partial result 표시를 검증한다.
+2. 실제 Frontier run에서 invalid evidence candidate 처리와 partial result 표시를 검증한다.
 
 OS container와 subprocess sandbox는 현재 범위가 아니다. MCP 또는 REST API를 다시 검토할 때
 권한 모델과 함께 별도 설계한다.

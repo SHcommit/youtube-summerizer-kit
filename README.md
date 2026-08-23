@@ -147,9 +147,9 @@ The yellow Knowledge Pack is the reuse boundary. Once created, the system can pr
 | HuggingFace (`huggingface`) | Yes | `HF_TOKEN` env var | Set `HF_TOKEN`; `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | Yes | Verified on invocation / persistent session | Install `agy` CLI |
 
-**Local LLMs are completely optional.** The default `runtime: frontier` selects an authenticated Codex, Gemini, or Claude runtime and excludes local models. Set `runtime: ollama` or opt into a task route only when you explicitly want local acceleration; an unavailable Ollama route falls back to the configured Frontier runtime.
+**Local LLMs are completely optional.** The default `runtime: frontier` selects an authenticated Codex, Gemini, or Claude runtime and excludes local models. Final summaries and judgments require a Frontier runtime; local models are not valid summary task routes.
 
-If you do want a fully local, offline setup, Ollama is the only runtime that requires a local model download:
+Ollama is the only optional runtime that requires a local model download:
 
 | Setup | Disk required |
 |---|---|
@@ -196,9 +196,9 @@ language: en
 default_profile: digest
 depth: detailed
 runtime: frontier
-task_runtimes: {} # Optional explicit task routing, e.g. {topic_summary: ollama, compose: gemini}
-local_accelerator: false
-ollama_model: null
+task_runtimes: {} # Optional BYOK Frontier routing, e.g. {topic_summary: gemini, compose: codex}
+local_accelerator: false # Reserved for a future approved low-risk helper task
+ollama_model: null # Reserved for a future approved local helper task
 whisper_fallback: false
 # Optional Ollama input ceiling. Leave unset to retain time-only segmentation.
 max_input_tokens: 4096
@@ -233,7 +233,7 @@ The Markdown body becomes an LLM instruction. Purpose-specific files such as `.c
 
 Analysis settings and output settings are fingerprinted separately. Changing only the blog voice does not repeat transcript and topic analysis—it generates a new document from the existing Knowledge Pack. A profile may also choose a different `runtime` for uncached output reassembly.
 
-For a local model, `max_input_tokens` and `reserved_output_tokens` opt in to a conservative per-topic input ceiling. They are not provider billing figures; tune them to the selected model's context window and leave both unset to preserve the default time-based segmentation.
+`max_input_tokens` and `reserved_output_tokens` opt in to a conservative input ceiling. They are not provider billing figures; leave both unset to preserve the default time-based segmentation.
 
 For `blog` and `study`, `output_verify: false` skips the final LLM verification call. Keep the default enabled until fixture measurements show that the cost saving does not reduce output quality.
 
@@ -241,7 +241,7 @@ For `blog` and `study`, `output_verify: false` skips the final LLM verification 
 
 `preprocess_transcript: true` additionally applies conservative local filler removal. With `pip install 'chew[preprocess]'`, punctuation restoration and semantic boundary hints are added when their optional dependencies are present. This is opt-in until the locked fixture comparison confirms the quality and cost tradeoff.
 
-`task_runtimes` is opt-in BYOK routing. Each run first records an immutable Execution Plan with its route, input budget, fallback, and reason. Tasks omitted from the map keep `runtime`; model output cannot change that plan. Runtime-specific model selection remains limited to the existing global `ollama_model`; cloud model selectors are not accepted until each adapter can apply and verify them.
+`task_runtimes` is opt-in BYOK Frontier routing. Each run first records an immutable Execution Plan with its route, input budget, fallback, and reason. Tasks omitted from the map keep `runtime`; model output cannot change that plan. Local runtimes cannot be selected for summary or judgment work. Cloud model selectors are not accepted until each adapter can apply and verify them.
 
 Important source claims carry model-proposed citations only after their segment index, timestamp, and quoted text match the immutable raw transcript. Citation validation anchors a claim in the source; it does not independently establish that the claim is true.
 
