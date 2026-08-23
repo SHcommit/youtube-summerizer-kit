@@ -104,7 +104,7 @@ chew summarize "https://www.youtube.com/watch?v=VIDEO_ID"
 chew auth youtube --clear
 ```
 
-Login is optional. `chew` accesses only the selected local browser when this command is invoked, retains only YouTube-domain cookies in private local storage, and never uses a proxy or remote `chew` server. YouTube can still deny unavailable, restricted, or account-limited captions. Advanced users may instead set a YouTube-only Netscape `cookies.txt` path with `youtube_cookie_file: ./youtube-cookies.txt` in `CHEW.md`.
+Login is optional. `chew auth youtube` stores only the selected browser/profile name, never cookies, Keychain values, or passwords. During caption retrieval, yt-dlp reads that selected local browser session in memory and then discards it; `chew` never uses a proxy or remote server. YouTube can still deny unavailable, restricted, or account-limited captions. Advanced users may instead set a YouTube-only Netscape `cookies.txt` path with `youtube_cookie_file: ./youtube-cookies.txt` in `CHEW.md`.
 
 Local audio and video file input also requires the `whisper` extra:
 

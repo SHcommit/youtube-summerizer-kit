@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Adds a player-bootstrap `youtubei` structured transcript provider and a direct player-response `captionTracks` provider ahead of third-party extractors.
   - Records timed-text `HTTP 429` explicitly and continues when YouTube rejects a `youtubei` request with `FAILED_PRECONDITION`.
   - Enables an installed Node.js runtime for yt-dlp and adds an explicit `youtube_cookie_file` opt-in without automatic browser-profile discovery or cookie copying.
-  - Adds `chew auth youtube` as an explicit local-browser login fallback; it retains only YouTube-domain cookies for yt-dlp caption retrieval and removes them with `--clear`.
+  - Adds `chew auth youtube` as an explicit local-browser login fallback; it retains only the selected browser/profile name, reads no credentials until caption retrieval, and removes the selection with `--clear`.
 - **Resilient transcript acquisition**:
   - Adds `pytubefix` caption extraction as an independent fallback after yt-dlp and youtube-transcript-api.
   - Preserves 429 as a rate-limit outcome, retries it with bounded backoff, and gives an actionable CLI recovery message.

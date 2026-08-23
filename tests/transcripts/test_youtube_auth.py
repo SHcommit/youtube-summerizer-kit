@@ -1,90 +1,56 @@
 from __future__ import annotations
 
-import stat
-from http.cookiejar import Cookie, CookieJar
+import json
 
 import pytest
 
-from chew.transcripts.youtube_auth import YouTubeAuthError, YouTubeAuthStore
+from chew.transcripts.youtube_auth import YouTubeAuthError, YouTubeAuthStore, YouTubeBrowserProfile
 
 
-def _cookie(domain: str, name: str, value: str) -> Cookie:
-    return Cookie(
-        version=0,
-        name=name,
-        value=value,
-        port=None,
-        port_specified=False,
-        domain=domain,
-        domain_specified=True,
-        domain_initial_dot=domain.startswith("."),
-        path="/",
-        path_specified=True,
-        secure=True,
-        expires=None,
-        discard=False,
-        comment=None,
-        comment_url=None,
-        rest={},
-        rfc2109=False,
+def test_connect_stores_only_selected_browser_profile(tmp_path) -> None:
+    store = YouTubeAuthStore(tmp_path)
+
+    profile = store.connect_from_browser("chrome", "Default")
+
+    assert profile == YouTubeBrowserProfile(browser="chrome", profile="Default")
+    assert store.profile() == profile
+    assert json.loads(store.profile_path.read_text(encoding="utf-8")) == {
+        "browser": "chrome",
+        "profile": "Default",
+    }
+
+
+def test_chrome_profiles_are_listed_from_non_secret_local_state(tmp_path) -> None:
+    chrome_state = tmp_path / "Library" / "Application Support" / "Google" / "Chrome" / "Local State"
+    chrome_state.parent.mkdir(parents=True)
+    chrome_state.write_text(
+        json.dumps({"profile": {"info_cache": {"Profile 6": {}, "Profile 10": {}}}}),
+        encoding="utf-8",
     )
 
+    profiles = YouTubeAuthStore(tmp_path, home_directory=tmp_path).available_profiles("chrome")
 
-def _mixed_cookie_jar(_: str) -> CookieJar:
-    jar = CookieJar()
-    jar.set_cookie(_cookie(".youtube.com", "SID", "youtube-secret"))
-    jar.set_cookie(_cookie(".example.com", "session", "not-youtube"))
-    return jar
+    assert profiles == ("Profile 10", "Profile 6")
 
 
-def test_connect_filters_non_youtube_domains_and_restricts_file_mode(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr("chew.transcripts.youtube_auth.extract_cookies_from_browser", _mixed_cookie_jar)
-
-    path = YouTubeAuthStore(tmp_path).connect_from_browser("chrome")
-
-    content = path.read_text(encoding="utf-8")
-    assert ".youtube.com" in content
-    assert "example.com" not in content
-    assert "not-youtube" not in content
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
-
-
-def test_connect_rejects_unsupported_browser_without_creating_cookie_file(tmp_path) -> None:
+def test_connect_rejects_unsupported_browser_without_creating_profile(tmp_path) -> None:
     store = YouTubeAuthStore(tmp_path)
 
     with pytest.raises(YouTubeAuthError, match="Unsupported browser"):
-        store.connect_from_browser("safari")
+        store.connect_from_browser("safari", "Default")
 
-    assert store.cookie_file() is None
-
-
-def test_connect_requires_youtube_login_cookie(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "chew.transcripts.youtube_auth.extract_cookies_from_browser",
-        lambda _: CookieJar(),
-    )
-
-    with pytest.raises(YouTubeAuthError, match="No YouTube login cookies"):
-        YouTubeAuthStore(tmp_path).connect_from_browser("chrome")
+    assert store.profile() is None
 
 
-def test_connect_reports_when_yt_dlp_is_not_installed(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    def missing(_: str):
-        raise ImportError("yt-dlp missing")
-
-    monkeypatch.setattr("chew.transcripts.youtube_auth.import_module", missing)
-
-    with pytest.raises(YouTubeAuthError, match="yt-dlp is required"):
-        YouTubeAuthStore(tmp_path).connect_from_browser("chrome")
+def test_connect_rejects_an_empty_profile(tmp_path) -> None:
+    with pytest.raises(YouTubeAuthError, match="Profile must not be empty"):
+        YouTubeAuthStore(tmp_path).connect_from_browser("chrome", " ")
 
 
 def test_clear_is_idempotent(tmp_path) -> None:
     store = YouTubeAuthStore(tmp_path)
     assert store.clear() is False
-    store.cookie_path.parent.mkdir(parents=True)
-    store.cookie_path.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    store.connect_from_browser("firefox", "default-release")
 
     assert store.clear() is True
     assert store.clear() is False

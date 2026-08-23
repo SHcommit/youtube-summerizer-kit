@@ -51,6 +51,12 @@ def test_project_can_explicitly_enable_optional_whisper_fallback(tmp_path: Path)
     assert load_settings(tmp_path, None).whisper_fallback is True
 
 
+def test_project_can_explicitly_enable_youtube_cookie_file(tmp_path: Path) -> None:
+    (tmp_path / "CHEW.md").write_text("---\nyoutube_cookie_file: ./youtube-cookies.txt\n---\n", encoding="utf-8")
+
+    assert load_settings(tmp_path, None).youtube_cookie_file == "./youtube-cookies.txt"
+
+
 def test_project_can_configure_token_budget_for_segmentation(tmp_path: Path) -> None:
     (tmp_path / "CHEW.md").write_text(
         "---\nmax_input_tokens: 4096\nreserved_output_tokens: 512\n---\n",

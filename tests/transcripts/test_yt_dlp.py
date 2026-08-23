@@ -6,10 +6,29 @@ import pytest
 
 from chew.domain import Provenance
 from chew.identity import normalize_youtube_url
-from chew.transcripts.yt_dlp import YtDlpSubtitleProvider
+from chew.transcripts.yt_dlp import YtDlpSubtitleProvider, yt_dlp_options
 
 SOURCE = normalize_youtube_url("https://youtu.be/abcDEF_1234")
 pytestmark = pytest.mark.asyncio
+
+
+async def test_yt_dlp_options_enable_installed_node_and_explicit_cookie_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("chew.transcripts.yt_dlp.which", lambda executable: "/usr/local/bin/node" if executable == "node" else None)
+
+    options = yt_dlp_options(cookie_file="./youtube-cookies.txt")
+
+    assert options["js_runtimes"] == {"node": {"path": "/usr/local/bin/node"}}
+    assert options["remote_components"] == {"ejs:github"}
+    assert options["cookiefile"] == "./youtube-cookies.txt"
+
+
+async def test_yt_dlp_options_use_only_the_selected_browser_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("chew.transcripts.yt_dlp.which", lambda _: None)
+
+    options = yt_dlp_options(browser_profile=("chrome", "Default"))
+
+    assert options["cookiesfrombrowser"] == ("chrome", "Default", None, None)
+    assert "cookiefile" not in options
 
 
 async def test_manual_subtitles_are_preferred_over_automatic() -> None:

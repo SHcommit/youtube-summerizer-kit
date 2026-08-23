@@ -83,8 +83,12 @@ def build_application(
     database.initialize()
     artifacts = ArtifactStore(data)
     settings = load_settings(working_directory or Path.cwd(), None)
-    managed_cookie = YouTubeAuthStore(data).cookie_file()
-    cookie_file = settings.youtube_cookie_file or (str(managed_cookie) if managed_cookie is not None else None)
+    selected_browser_profile = YouTubeAuthStore(data).profile()
+    browser_profile = (
+        (selected_browser_profile.browser, selected_browser_profile.profile)
+        if selected_browser_profile is not None
+        else None
+    )
     registry = default_registry(ollama_model=settings.ollama_model)
     harness = AutoHarness(registry)
     whisper = WhisperProvider()
@@ -92,7 +96,7 @@ def build_application(
         database=database,
         artifacts=artifacts,
         transcripts=TranscriptService(
-            default_providers(cookie_file=cookie_file),
+            default_providers(cookie_file=settings.youtube_cookie_file, browser_profile=browser_profile),
             optional_providers=(whisper,),
             local_providers=(whisper,),
         ),

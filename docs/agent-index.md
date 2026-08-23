@@ -91,7 +91,7 @@ All commands are in `src/chew/cli/main.py`. Each command has both an English nam
 | `obsidian` | `옵시디언` | Index + topic notes with `[[wikilinks]]` |
 | `status` | `상태` | Show run and job progress |
 | `resume` | `이어하기` | Resume interrupted run |
-| `auth youtube` | — | Explicitly connect, inspect, or clear a local YouTube caption login |
+| `auth youtube` | — | Select, inspect, or clear a local YouTube caption browser profile; no cookies are stored |
 | `doctor` | `진단` | Diagnose runtime installation; prints `→ Install: <cmd>` hints |
 | `serve` | `서버` | Start FastAPI `/health` + `/readiness` server (needs `[server]` extras) |
 | `storage` | `저장소` | Internal file count and usage |

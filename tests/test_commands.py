@@ -47,13 +47,14 @@ class StubYouTubeAuthStore:
     connected: bool = False
     cleared: bool = False
 
-    def connect_from_browser(self, browser: str) -> Path:
+    def connect_from_browser(self, browser: str, profile: str) -> object:
         assert browser == "chrome"
+        assert profile == "Default"
         self.connected = True
-        return Path("/private/youtube-cookies.txt")
+        return object()
 
-    def cookie_file(self) -> Path | None:
-        return Path("/private/youtube-cookies.txt") if self.connected else None
+    def profile(self) -> object | None:
+        return object() if self.connected else None
 
     def clear(self) -> bool:
         was_connected = self.connected
@@ -113,15 +114,15 @@ def test_authentication_failure_is_actionable(stub: StubApplication, tmp_path: P
     assert "codex login" in result.stdout
 
 
-def test_auth_youtube_connects_without_printing_cookie_path(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_auth_youtube_selects_a_profile_without_printing_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     store = StubYouTubeAuthStore()
     cli_main = import_module("chew.cli.main")
     monkeypatch.setattr(cli_main, "_youtube_auth_store", lambda: store)
 
-    result = CliRunner().invoke(app, ["auth", "youtube", "--from-browser", "chrome"])
+    result = CliRunner().invoke(app, ["auth", "youtube", "--from-browser", "chrome", "--profile", "Default"])
 
     assert result.exit_code == 0
-    assert "YouTube login connected" in result.stdout
+    assert "YouTube browser profile selected" in result.stdout
     assert "cookies.txt" not in result.stdout
 
 
@@ -133,7 +134,7 @@ def test_auth_youtube_clear_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> No
     result = CliRunner().invoke(app, ["auth", "youtube", "--clear"])
 
     assert result.exit_code == 0
-    assert "No YouTube login is connected" in result.stdout
+    assert "No YouTube browser profile is selected" in result.stdout
 
 
 def test_rate_limit_recommends_explicit_youtube_auth(stub: StubApplication, tmp_path: Path) -> None:

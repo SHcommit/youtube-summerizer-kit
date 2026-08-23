@@ -285,6 +285,9 @@ def _run_generation(
             )
         raise typer.Exit(2) from error
     except TranscriptUnavailable as error:
+        session_refresh_required = any(
+            "session_refresh_required" in attempt.reasons for attempt in error.attempts
+        )
         if korean and local_media:
             typer.echo(
                 "사용 가능한 음성 transcript를 만들지 못했습니다. 파일에 음성이 있는지와 오디오 품질을 확인하세요."
@@ -293,6 +296,16 @@ def _run_generation(
             typer.echo(
                 "No usable speech transcript could be created. Check that the file contains "
                 "speech and that its audio is readable."
+            )
+        elif korean and session_refresh_required:
+            typer.echo(
+                "선택한 브라우저 프로필에서 YouTube를 열어 새로고침한 뒤 같은 명령을 다시 실행하세요. "
+                "브라우저 프로필은 `chew auth youtube`에서 다시 선택할 수 있습니다."
+            )
+        elif session_refresh_required:
+            typer.echo(
+                "Open YouTube in the selected browser profile, reload the page, then run the same command again. "
+                "You can select a different profile with `chew auth youtube`."
             )
         elif korean:
             typer.echo(
@@ -544,33 +557,44 @@ app.command("진단", hidden=True)(doctor)
 @auth_app.command("youtube")
 def auth_youtube(
     from_browser: Annotated[str | None, typer.Option("--from-browser")] = None,
+    profile: Annotated[str | None, typer.Option("--profile")] = None,
     clear: Annotated[bool, typer.Option("--clear")] = False,
     status: Annotated[bool, typer.Option("--status")] = False,
 ) -> None:
-    """Connect, inspect, or remove the local YouTube caption login."""
+    """Select, inspect, or remove the local YouTube caption browser profile."""
 
-    operations = int(from_browser is not None) + int(clear) + int(status)
-    if operations != 1:
-        typer.echo("Choose exactly one of --from-browser, --status, or --clear.")
+    if int(clear) + int(status) > 1 or (from_browser is not None and (clear or status)) or (
+        profile is not None and (clear or status)
+    ):
+        typer.echo("Choose a browser profile, --status, or --clear.")
         raise typer.Exit(2)
     store = _youtube_auth_store()
     if clear:
         if store.clear():
-            typer.echo("YouTube login removed from local chew storage.")
+            typer.echo("YouTube browser profile selection removed.")
         else:
-            typer.echo("No YouTube login is connected.")
+            typer.echo("No YouTube browser profile is selected.")
         return
     if status:
-        typer.echo("YouTube login connected." if store.cookie_file() is not None else "No YouTube login is connected.")
+        selected = store.profile()
+        if selected is None:
+            typer.echo("No YouTube browser profile is selected.")
+        else:
+            typer.echo(f"YouTube browser profile selected: {selected.browser} / {selected.profile}")
         return
-    assert from_browser is not None
-    typer.echo("Connecting your local YouTube session for caption retrieval. YouTube may still restrict access.")
+    selected_browser = from_browser or typer.prompt("Browser", default="chrome")
+    if profile is None:
+        profiles = store.available_profiles(selected_browser)
+        typer.echo(f"Available profiles: {', '.join(profiles)}")
+        selected_profile = typer.prompt("Browser profile", default=profiles[0])
+    else:
+        selected_profile = profile
     try:
-        store.connect_from_browser(from_browser.lower())
+        store.connect_from_browser(selected_browser, selected_profile)
     except YouTubeAuthError as error:
-        typer.echo(f"YouTube login connection failed: {error}")
+        typer.echo(f"YouTube browser profile selection failed: {error}")
         raise typer.Exit(2) from error
-    typer.echo("YouTube login connected.")
+    typer.echo("YouTube browser profile selected. Credentials are read only during caption retrieval and are not stored.")
 
 
 app.add_typer(auth_app, name="auth", help="Connect or remove local service credentials.")

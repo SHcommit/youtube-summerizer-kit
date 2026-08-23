@@ -36,17 +36,17 @@ FAILED_PRECONDITION` is recorded as a provider failure and the chain continues t
 
 `yt-dlp` enables Node.js and its official EJS challenge component when Node.js is already installed,
 which is required for current YouTube JavaScript challenges. Cookies and proxies are never enabled automatically. A user may explicitly run
-`chew auth youtube --from-browser chrome`; only then does `chew` read the selected local browser,
-retain YouTube-domain cookies in its private local credential file, and pass that file to yt-dlp.
-The credential can be removed with `chew auth youtube --clear`. No cookie is sent to a `chew`
-server. This can expose the user's own account to YouTube enforcement and does not guarantee access.
+`chew auth youtube`, choose a local browser profile, and remove that choice with `chew auth youtube --clear`.
+`chew` stores only the browser/profile selection: it never stores cookies, Keychain values, or
+passwords. During a caption request, yt-dlp reads the selected browser session in memory and no
+cookie is sent to a `chew` server. This can expose the user's own account to YouTube enforcement and does not guarantee access.
 Advanced users may instead set `youtube_cookie_file: ./youtube-cookies.txt` in `CHEW.md`; the
 adapter reads that supplied file in place.
 
 ## Recovery Paths
 
 1. Retry after the reported delay.
-2. Optionally run `chew auth youtube --from-browser chrome` for the user's local login session.
+2. Optionally run `chew auth youtube` and choose the user's local browser profile.
 3. Optionally set `youtube_cookie_file` for a user-supplied YouTube-only cookie file.
 4. Enable `whisper_fallback: true` only after Whisper prerequisites are available.
 5. Supply local MP3/MP4 media for local transcription.

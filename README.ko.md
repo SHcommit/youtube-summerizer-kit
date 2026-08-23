@@ -105,7 +105,7 @@ chew 요약 "https://www.youtube.com/watch?v=VIDEO_ID"
 chew auth youtube --clear
 ```
 
-로그인은 선택 사항입니다. `chew`는 이 명령을 실행했을 때에만 선택한 로컬 브라우저에 접근하며, YouTube 도메인 쿠키만 개인 로컬 저장소에 보관합니다. 프록시나 원격 `chew` 서버는 사용하지 않습니다. 자막이 없거나 영상·계정이 제한된 경우에는 로그인 후에도 YouTube가 거부할 수 있습니다. 고급 사용자는 기존처럼 `CHEW.md`에 YouTube 전용 Netscape `cookies.txt` 경로를 `youtube_cookie_file: ./youtube-cookies.txt`로 직접 지정할 수도 있습니다.
+로그인은 선택 사항입니다. `chew auth youtube`는 선택한 브라우저·프로필 이름만 보관하며 쿠키, Keychain 값, 비밀번호는 저장하지 않습니다. 실제 자막을 가져올 때에만 yt-dlp가 선택된 로컬 브라우저 세션을 메모리에서 읽고 즉시 폐기합니다. 프록시나 원격 서버는 사용하지 않습니다. 자막이 없거나 영상·계정이 제한된 경우에는 로그인 후에도 YouTube가 거부할 수 있습니다. 고급 사용자는 기존처럼 `CHEW.md`에 YouTube 전용 Netscape `cookies.txt` 경로를 `youtube_cookie_file: ./youtube-cookies.txt`로 직접 지정할 수도 있습니다.
 
 로컬 오디오·영상 파일 입력에도 `whisper` extra가 필요하지만, YouTube fallback 설정을 켤 필요는 없습니다.
 

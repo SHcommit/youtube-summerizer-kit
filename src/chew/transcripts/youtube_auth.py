@@ -1,92 +1,106 @@
-"""Explicit, local-only YouTube browser-session storage for caption retrieval."""
+"""Non-secret local browser selection for authenticated YouTube captions."""
 
 from __future__ import annotations
 
-import os
-from collections.abc import Callable
-from http.cookiejar import Cookie, CookieJar, MozillaCookieJar
-from importlib import import_module
+import json
+import sys
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import cast
 
 SUPPORTED_BROWSERS = frozenset({"chrome", "chromium", "firefox"})
 
 
 class YouTubeAuthError(RuntimeError):
-    """A user-actionable error while connecting a local YouTube session."""
+    """A user-actionable error while selecting a local YouTube browser profile."""
 
 
-def extract_cookies_from_browser(browser: str) -> CookieJar:
-    """Load yt-dlp only when the optional login operation is requested."""
-
-    try:
-        extractor = cast(Callable[[str], CookieJar], import_module("yt_dlp.cookies").extract_cookies_from_browser)
-    except ImportError as error:
-        raise YouTubeAuthError("yt-dlp is required. Install: pip install 'youtube-summarizer-kit[youtube]'") from error
-    return extractor(browser)
-
-
-def _is_youtube_domain(domain: str) -> bool:
-    normalized = domain.lstrip(".").lower()
-    return normalized == "youtube.com" or normalized.endswith(".youtube.com")
-
-
-def _write_netscape_cookie_file(destination: Path, cookies: list[Cookie]) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path: Path | None = None
-    try:
-        with NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            suffix=".txt",
-            prefix="youtube-cookies-",
-            dir=destination.parent,
-            delete=False,
-        ) as temporary:
-            temporary_path = Path(temporary.name)
-        jar = MozillaCookieJar(str(temporary_path))
-        for cookie in cookies:
-            jar.set_cookie(cookie)
-        jar.save(ignore_discard=True, ignore_expires=True)
-        temporary_path.chmod(0o600)
-        temporary_path.replace(destination)
-        temporary_path = None
-    finally:
-        if temporary_path is not None:
-            temporary_path.unlink(missing_ok=True)
+@dataclass(frozen=True, slots=True)
+class YouTubeBrowserProfile:
+    browser: str
+    profile: str
 
 
 class YouTubeAuthStore:
-    """Own the filtered, local credential used only by yt-dlp caption requests."""
+    """Persist browser/profile metadata only; browser credentials are never stored."""
 
-    def __init__(self, data_directory: Path) -> None:
-        self.cookie_path = data_directory / "credentials" / "youtube-cookies.txt"
+    def __init__(self, data_directory: Path, *, home_directory: Path | None = None) -> None:
+        self.profile_path = data_directory / "credentials" / "youtube-browser-profile.json"
+        self.home_directory = home_directory or Path.home()
 
-    def connect_from_browser(self, browser: str) -> Path:
-        if browser not in SUPPORTED_BROWSERS:
+    def available_profiles(self, browser: str) -> tuple[str, ...]:
+        """List Chromium profile names from metadata only, never from cookie storage."""
+
+        normalized_browser = browser.lower().strip()
+        if normalized_browser not in {"chrome", "chromium"}:
+            return ("Default",)
+        local_state = self._chromium_local_state_path(normalized_browser)
+        if local_state is None or not local_state.is_file():
+            return ("Default",)
+        try:
+            payload = json.loads(local_state.read_text(encoding="utf-8"))
+            profiles = payload["profile"]["info_cache"]
+        except (KeyError, TypeError, ValueError, OSError):
+            return ("Default",)
+        if not isinstance(profiles, dict):
+            return ("Default",)
+        names = tuple(sorted(name for name in profiles if isinstance(name, str) and name))
+        return names or ("Default",)
+
+    def _chromium_local_state_path(self, browser: str) -> Path | None:
+        if sys.platform == "darwin":
+            directory = "Google/Chrome" if browser == "chrome" else "Chromium"
+            return self.home_directory / "Library" / "Application Support" / directory / "Local State"
+        return None
+
+    def connect_from_browser(self, browser: str, profile: str) -> YouTubeBrowserProfile:
+        normalized_browser = browser.lower().strip()
+        normalized_profile = profile.strip()
+        if normalized_browser not in SUPPORTED_BROWSERS:
             choices = ", ".join(sorted(SUPPORTED_BROWSERS))
             raise YouTubeAuthError(f"Unsupported browser: {browser}. Choose one of: {choices}.")
+        if not normalized_profile:
+            raise YouTubeAuthError("Profile must not be empty.")
+        selected = YouTubeBrowserProfile(browser=normalized_browser, profile=normalized_profile)
+        self.profile_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path: Path | None = None
         try:
-            browser_cookies = extract_cookies_from_browser(browser)
-        except YouTubeAuthError:
-            raise
-        except Exception as error:
-            raise YouTubeAuthError(
-                f"Could not access {browser} cookies. Close the browser and try again, or set youtube_cookie_file manually."
-            ) from error
-        cookies = [cookie for cookie in browser_cookies if _is_youtube_domain(cookie.domain)]
-        if not cookies:
-            raise YouTubeAuthError("No YouTube login cookies found. Sign in at youtube.com, then try again.")
-        _write_netscape_cookie_file(self.cookie_path, cookies)
-        os.chmod(self.cookie_path, 0o600)
-        return self.cookie_path
+            with NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                suffix=".json",
+                prefix="youtube-browser-profile-",
+                dir=self.profile_path.parent,
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                json.dump({"browser": selected.browser, "profile": selected.profile}, temporary, sort_keys=True)
+                temporary.write("\n")
+            temporary_path.chmod(0o600)
+            temporary_path.replace(self.profile_path)
+            temporary_path = None
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+        return selected
 
-    def cookie_file(self) -> Path | None:
-        return self.cookie_path if self.cookie_path.is_file() else None
+    def profile(self) -> YouTubeBrowserProfile | None:
+        if not self.profile_path.is_file():
+            return None
+        try:
+            payload = json.loads(self.profile_path.read_text(encoding="utf-8"))
+            browser = payload["browser"]
+            profile = payload["profile"]
+        except (KeyError, TypeError, ValueError, OSError):
+            return None
+        if not isinstance(browser, str) or not isinstance(profile, str):
+            return None
+        if browser not in SUPPORTED_BROWSERS or not profile:
+            return None
+        return YouTubeBrowserProfile(browser=browser, profile=profile)
 
     def clear(self) -> bool:
-        if self.cookie_path.is_file():
-            self.cookie_path.unlink()
+        if self.profile_path.is_file():
+            self.profile_path.unlink()
             return True
         return False

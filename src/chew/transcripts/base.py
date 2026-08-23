@@ -14,6 +14,8 @@ def provider_failure_reason(error: Exception) -> str:
         return "rate_limited"
     if status == 403 or "403" in message or "forbidden" in message:
         return "access_denied"
+    if "page needs to be reloaded" in message:
+        return "session_refresh_required"
     return f"provider_error:{type(error).__name__}"
 
 

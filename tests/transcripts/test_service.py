@@ -2,7 +2,7 @@ import pytest
 
 from chew.domain import Provenance, SourceIdentity, Transcript, TranscriptSegment
 from chew.identity import normalize_source
-from chew.transcripts.base import TranscriptProvider
+from chew.transcripts.base import TranscriptProvider, provider_failure_reason
 from chew.transcripts.service import TranscriptRateLimited, TranscriptService, TranscriptUnavailable
 
 SOURCE = SourceIdentity(
@@ -10,6 +10,10 @@ SOURCE = SourceIdentity(
     video_id="abcDEF_1234",
     canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
 )
+
+
+def test_page_reload_requirement_is_classified_as_session_refresh() -> None:
+    assert provider_failure_reason(RuntimeError("The page needs to be reloaded.")) == "session_refresh_required"
 
 
 class StubProvider:
