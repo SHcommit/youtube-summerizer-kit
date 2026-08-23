@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Documentation Lifecycle**:
+  - Defined canonical roles for active improvements, completed history, deferred product opportunities, and temporary handoffs in `AGENTS.md`.
+  - Added a concise `handoff.md` execution index for current priorities without duplicating roadmaps or completed history.
+- **Product Roadmap**:
+  - Added `PRODUCT_ROADMAP.md` to separate deferred product opportunities from active technical improvements.
 - **Evidence integrity and Frontier-first execution policy**:
   - Topic-model citations are parsed as untrusted candidates and become canonical evidence only after deterministic raw-transcript segment, timestamp, and quote validation.
   - Runs persist an immutable `ExecutionPlan` snapshot and each generation attempt records its policy fingerprint; model output cannot alter routing or token limits.

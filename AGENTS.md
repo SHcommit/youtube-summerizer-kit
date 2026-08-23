@@ -115,3 +115,10 @@ benchmarks/            # Maintainer-only post-feature validation scripts
     - Whenever you add a harness, CLI command, new layer, optional extras group, or make a schema/protocol change, you MUST update the relevant section(s) of `docs/agent-index.md` in the same commit. The sync checklist in §10 of that doc tells you exactly what to update for each change type.
     - Also keep `CHANGELOG.md` (under `## [Unreleased]`), `README.md`, and `README.ko.md` in sync as required by Rule 4.
 
+12. **Documentation Lifecycle and Handoff Discipline**:
+    - `IMPROVEMENTS.md` contains only unfinished active engineering work, its acceptance gates, and explicitly accepted operating constraints. Do not retain completed implementation descriptions there.
+    - `CHANGELOG.md` under `## [Unreleased]` is the durable record of completed meaningful behavior, architecture, CLI, and documentation changes. Move completed work there before removing it from `IMPROVEMENTS.md`.
+    - `PRODUCT_ROADMAP.md` contains deferred product opportunities. It is not an implementation queue or release commitment.
+    - `handoff.md` is a concise, continuously refreshed execution index for a new agent or session. It is not a roadmap or a duplicate status document. It may contain the branch, the next one to three objectives, uncommitted changes, verification state, and immediate next action, with links to the canonical documents.
+    - Update `handoff.md` whenever the next action, branch, verification state, or active priority changes. Keep only current execution context; remove completed-history prose.
+    - Required documentation flow: classify work as active or deferred; update the appropriate canonical document; implement and verify; record completed behavior in `CHANGELOG.md`; remove the completed item from `IMPROVEMENTS.md`; refresh the short `handoff.md` execution index.

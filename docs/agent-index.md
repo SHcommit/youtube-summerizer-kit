@@ -179,7 +179,9 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 |---|---|
 | `AGENTS.md` (= `CLAUDE.md` = `GEMINI.md`) | Core rules for AI agents; architecture layout; development guidelines |
 | `docs/agent-index.md` | **This file** — LLM wiki; start here when orienting |
-| `IMPROVEMENTS.md` | Operational roadmap — 11 improvement areas (§1–§9-11) |
+| `IMPROVEMENTS.md` | Active performance, quality, and safety work with adoption gates |
+| `PRODUCT_ROADMAP.md` | Deferred product opportunities and their reconsideration conditions |
+| `handoff.md` | Short, continuously refreshed execution index for new agent/session context |
 | `scripts/spike_token_baseline.py` / `src/chew/benchmark/metrics.py` | Maintainer-only raw-caption token baseline and pure measurement helpers; uses the locked videos and requires `yt-dlp` + `tiktoken` |
 | `scripts/report_job_measurements.py` | Read-only SQLite run profiler for provider usage, request shape, repairs, and retries |
 | `docs/decisions/local-llm-runtime.md` | Product decision: local LLM/Ollama is optional, with adoption criteria |
