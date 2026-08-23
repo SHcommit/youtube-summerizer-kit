@@ -1,0 +1,99 @@
+direction: down
+title: "BYOK Frontier + Ollama 근거 추출 파이프라인"
+
+source: "YouTube / Local media" {
+  shape: cylinder
+  style.fill: "#DCE9FF"
+}
+
+acquisition: "Transcript acquisition" {
+  subtitle: "yt-dlp · YouTube API · Whisper"
+  style.fill: "#DCE9FF"
+}
+
+raw: "Raw transcript artifact" {
+  subtitle: "immutable timestamp evidence"
+  shape: cylinder
+  style.fill: "#DCE9FF"
+}
+
+cleanup: "Deterministic cleanup" {
+  subtitle: "dedupe · whitespace · timestamp normalization"
+  style.fill: "#E8F1FF"
+}
+
+local: "로컬 가속기 (선택 사항, 최종 답변 금지)" {
+  direction: right
+  style.fill: "#FFF0C9"
+
+  embedding: "임베딩 / 검색 모델" {
+    subtitle: "예: BGE-M3 또는 Qwen3-Embedding\n구간 경계 · 중복 · 관련 원문 창 선택\n생성형 LLM 아님"
+    style.fill: "#FFF8E2"
+  }
+
+  ollama: "Ollama 로컬 생성 모델" {
+    subtitle: "예: Qwen3:4B\n주장 · 숫자 · 개체 · 질문 후보를 JSON으로 추출\n최종 요약/판단/문장 작성 금지"
+    style.fill: "#FFF8E2"
+  }
+
+  validator: "결정론적 원문 구간 검증" {
+    subtitle: "후보 인용문과 timestamp가 원문에 실제 존재하는지 확인\n생성형 LLM 아님"
+    style.fill: "#FFF8E2"
+  }
+}
+
+cards: "Evidence Cards" {
+  subtitle: "timestamp · 원문 span · 후보 유형\nFrontier에 원문을 찾게 하는 인덱스"
+  shape: document
+  style.fill: "#FFF0C9"
+}
+
+frontier: "BYOK Frontier 생성 모델 (필수)" {
+  direction: right
+  style.fill: "#D9F5DE"
+
+  topic: "주제별 판단" {
+    subtitle: "사용자 키: Gemini / Claude / Codex 중 하나\nEvidence Card + 선택된 원문 창으로 중요도와 문맥 판단"
+    style.fill: "#E8F9EB"
+  }
+
+  chapter: "챕터 통합" {
+    subtitle: "중요도 · 상충 주장 · 빠진 문맥을 종합"
+    style.fill: "#E8F9EB"
+  }
+
+  pack: "Knowledge Pack (최종 결과)" {
+    subtitle: "최종 주장 · timestamp · 후속 학습\n사용자에게 보이는 문장은 여기서만 생성"
+    shape: document
+    style.fill: "#E8F9EB"
+  }
+}
+
+outputs: "Digest · Study · Blog · Obsidian" {
+  shape: document
+  style.fill: "#DCE9FF"
+}
+
+source -> acquisition -> raw -> cleanup
+cleanup -> local.embedding -> cards
+cleanup -> local.ollama -> local.validator -> cards
+raw -> frontier.topic: "선택된 원문 근거"
+cards -> frontier.topic: "원문 탐색용 인덱스, 사실의 권위 아님"
+frontier.topic -> frontier.chapter -> frontier.pack -> outputs
+
+local.ollama -> frontier.pack: "직접 연결 금지" {
+  style.stroke: "#C3423F"
+  style.stroke-dash: 3
+}
+
+legend: "역할 경계" {
+  shape: text
+  style.font-size: 16
+  style.font-color: "#364152"
+}
+legend -> local: "Ollama: 후보 추출 / 임베딩: 검색" {
+  style.stroke-dash: 2
+}
+legend -> frontier: "Frontier: 판단 / 최종 작성" {
+  style.stroke-dash: 2
+}
