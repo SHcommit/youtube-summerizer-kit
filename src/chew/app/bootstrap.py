@@ -18,6 +18,7 @@ from chew.pipeline.outputs import OutputCompiler
 from chew.storage.artifacts import ArtifactStore
 from chew.storage.database import Database
 from chew.transcripts import TranscriptService, default_providers
+from chew.transcripts.youtube_auth import YouTubeAuthStore
 from chew.transcripts.whisper import WhisperProvider
 
 
@@ -82,6 +83,8 @@ def build_application(
     database.initialize()
     artifacts = ArtifactStore(data)
     settings = load_settings(working_directory or Path.cwd(), None)
+    managed_cookie = YouTubeAuthStore(data).cookie_file()
+    cookie_file = settings.youtube_cookie_file or (str(managed_cookie) if managed_cookie is not None else None)
     registry = default_registry(ollama_model=settings.ollama_model)
     harness = AutoHarness(registry)
     whisper = WhisperProvider()
@@ -89,7 +92,7 @@ def build_application(
         database=database,
         artifacts=artifacts,
         transcripts=TranscriptService(
-            default_providers(),
+            default_providers(cookie_file=cookie_file),
             optional_providers=(whisper,),
             local_providers=(whisper,),
         ),
