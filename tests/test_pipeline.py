@@ -233,6 +233,10 @@ async def test_pipeline_keeps_only_span_validated_evidence_in_knowledge_pack(tmp
     claim = result.pack.topics[0].claims[0]
     assert claim.evidence[0].text == "응답 시간이 45퍼센트 감소했습니다."
     assert claim.evidence_refs[0].segment_indexes == (0,)
+    measurements = database.list_job_measurements(result.run_id + ":topic:full-video-topic-001")
+    assert [measurement[1] for measurement in measurements] == ["topic_summary", "evidence_validation"]
+    assert measurements[1][5]["candidate_count"] == 1
+    assert measurements[1][5]["valid_count"] == 1
 
 
 class RecordingTranscriptService:

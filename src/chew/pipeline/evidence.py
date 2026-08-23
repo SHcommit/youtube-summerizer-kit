@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from chew.core.models import (
     Claim,
@@ -17,6 +18,16 @@ from chew.core.models import (
 )
 
 _WHITESPACE = re.compile(r"\s+")
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceValidationStats:
+    candidate_count: int
+    valid_count: int
+
+    @property
+    def invalid_count(self) -> int:
+        return self.candidate_count - self.valid_count
 
 
 def _normalized(value: str) -> str:
@@ -85,24 +96,25 @@ def materialize_topic_summary(
     transcript: Transcript,
     raw_transcript_fingerprint: str,
     allowed_segment_indexes: tuple[int, ...],
-) -> TopicSummary:
+) -> tuple[TopicSummary, EvidenceValidationStats]:
     """Keep only source claims with a validated raw-transcript citation."""
 
     claims: list[Claim] = []
+    candidate_count = 0
+    valid_count = 0
     for claim_draft in draft.claims:
-        references = tuple(
-            result.reference
-            for result in (
-                validate_evidence_candidate(
-                    candidate,
-                    transcript=transcript,
-                    raw_transcript_fingerprint=raw_transcript_fingerprint,
-                    allowed_segment_indexes=allowed_segment_indexes,
-                )
-                for candidate in claim_draft.evidence_candidates
+        results = tuple(
+            validate_evidence_candidate(
+                candidate,
+                transcript=transcript,
+                raw_transcript_fingerprint=raw_transcript_fingerprint,
+                allowed_segment_indexes=allowed_segment_indexes,
             )
-            if result.reference is not None
+            for candidate in claim_draft.evidence_candidates
         )
+        candidate_count += len(results)
+        valid_count += sum(result.valid for result in results)
+        references = tuple(result.reference for result in results if result.reference is not None)
         if claim_draft.provenance.value == "source" and not references:
             continue
         claims.append(
@@ -116,11 +128,14 @@ def materialize_topic_summary(
                 evidence_refs=references,
             )
         )
-    return TopicSummary(
-        topic_id=draft.topic_id,
-        title=draft.title,
-        summary=draft.summary,
-        claims=tuple(claims),
-        concepts=draft.concepts,
-        examples=draft.examples,
+    return (
+        TopicSummary(
+            topic_id=draft.topic_id,
+            title=draft.title,
+            summary=draft.summary,
+            claims=tuple(claims),
+            concepts=draft.concepts,
+            examples=draft.examples,
+        ),
+        EvidenceValidationStats(candidate_count=candidate_count, valid_count=valid_count),
     )

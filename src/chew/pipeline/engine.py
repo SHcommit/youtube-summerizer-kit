@@ -464,12 +464,29 @@ class _AnalysisJobHandler:
         payload = self._load(job.payload_hash)
         if job.kind == "topic":
             output = await self._generate(job, "topic_summary", TOPIC_PROMPT, payload, TopicSummaryDraft)
-            topic = materialize_topic_summary(
+            topic, evidence_stats = materialize_topic_summary(
                 TopicSummaryDraft.model_validate(output),
                 transcript=self.raw_transcript,
                 raw_transcript_fingerprint=self.raw_transcript_fingerprint,
                 allowed_segment_indexes=tuple(int(index) for index in payload["raw_segment_indexes"]),
             )
+            if evidence_stats.candidate_count:
+                self.database.record_job_measurement(
+                    job_id=job.job_id,
+                    request_id=f"{job.job_id}:evidence-validation",
+                    task="evidence_validation",
+                    runtime_id="validator",
+                    model=None,
+                    usage={},
+                    details={
+                        "candidate_count": evidence_stats.candidate_count,
+                        "valid_count": evidence_stats.valid_count,
+                        "invalid_count": evidence_stats.invalid_count,
+                        "policy_fingerprint": (
+                            self.execution_plan.plan_fingerprint if self.execution_plan is not None else ""
+                        ),
+                    },
+                )
             return self.artifacts.put_json(topic).digest
         if job.kind == "chapter":
             topic_payloads = [
