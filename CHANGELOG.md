@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Evidence integrity and Frontier-first execution policy**:
+  - Topic-model citations are parsed as untrusted candidates and become canonical evidence only after deterministic raw-transcript segment, timestamp, and quote validation.
+  - Runs persist an immutable `ExecutionPlan` snapshot and each generation attempt records its policy fingerprint; model output cannot alter routing or token limits.
+  - The default logical runtime is now `frontier`, which selects only Codex, Gemini, or Claude. Ollama remains explicit opt-in and falls back to the configured Frontier runtime when unavailable.
+  - Adds deterministic Evidence/Policy test coverage, pull-request dependency review, and a built-wheel CLI smoke test in the release workflow.
 - **Reproducible preprocessing token-baseline spike**:
   - Adds `scripts/spike_token_baseline.py`, a maintainer-only raw-caption measurement tool backed by the locked benchmark video set.
   - It records `cl100k_base` token counts, bilingual filler density, source provenance, duration verification, and current topic-segmentation counts without invoking an LLM.

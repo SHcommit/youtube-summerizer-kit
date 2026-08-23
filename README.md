@@ -147,7 +147,7 @@ The yellow Knowledge Pack is the reuse boundary. Once created, the system can pr
 | HuggingFace (`huggingface`) | Yes | `HF_TOKEN` env var | Set `HF_TOKEN`; `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | Yes | Verified on invocation / persistent session | Install `agy` CLI |
 
-**Local LLMs are completely optional.** With the default `runtime: auto`, the kit selects an installed, authenticated runtime from the Codex → Gemini → Claude → Ollama → Antigravity candidate set — Ollama is skipped automatically if it is not installed. Most users run entirely on cloud CLIs (Codex, Gemini, Claude) and never install Ollama at all.
+**Local LLMs are completely optional.** The default `runtime: frontier` selects an authenticated Codex, Gemini, or Claude runtime and excludes local models. Set `runtime: ollama` or opt into a task route only when you explicitly want local acceleration; an unavailable Ollama route falls back to the configured Frontier runtime.
 
 If you do want a fully local, offline setup, Ollama is the only runtime that requires a local model download:
 
@@ -195,8 +195,9 @@ Example `CHEW.md`:
 language: en
 default_profile: digest
 depth: detailed
-runtime: auto
+runtime: frontier
 task_runtimes: {} # Optional explicit task routing, e.g. {topic_summary: ollama, compose: gemini}
+local_accelerator: false
 ollama_model: null
 whisper_fallback: false
 # Optional Ollama input ceiling. Leave unset to retain time-only segmentation.
@@ -240,7 +241,9 @@ For `blog` and `study`, `output_verify: false` skips the final LLM verification 
 
 `preprocess_transcript: true` additionally applies conservative local filler removal. With `pip install 'chew[preprocess]'`, punctuation restoration and semantic boundary hints are added when their optional dependencies are present. This is opt-in until the locked fixture comparison confirms the quality and cost tradeoff.
 
-`task_runtimes` is opt-in BYOK routing. It never chooses another provider automatically: tasks omitted from the map keep `runtime`. Runtime-specific model selection remains limited to the existing global `ollama_model`; cloud model selectors are not accepted until each adapter can apply and verify them.
+`task_runtimes` is opt-in BYOK routing. Each run first records an immutable Execution Plan with its route, input budget, fallback, and reason. Tasks omitted from the map keep `runtime`; model output cannot change that plan. Runtime-specific model selection remains limited to the existing global `ollama_model`; cloud model selectors are not accepted until each adapter can apply and verify them.
+
+Important source claims carry model-proposed citations only after their segment index, timestamp, and quoted text match the immutable raw transcript. Citation validation anchors a claim in the source; it does not independently establish that the claim is true.
 
 The current locked English fixture comparison found only `1.92%–4.94%` `cl100k_base` reduction from conservative filler removal. It is a tokenizer comparison, not a provider billing claim, and remains below the 10% default-adoption gate.
 

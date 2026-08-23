@@ -6,6 +6,7 @@ from chew.core.identity import fingerprint
 from chew.core.models import ExecutionPlan, TaskRoute
 
 POLICY_VERSION = "frontier-first-v1"
+LOCAL_RUNTIME_IDS = frozenset({"ollama", "layered_ollama"})
 
 
 def build_execution_plan(
@@ -24,7 +25,7 @@ def build_execution_plan(
     if local_accelerator_requested and local_accelerator_available is False:
         routes = {
             task: frontier_runtime_id
-            if runtime_id == "ollama"
+            if runtime_id in LOCAL_RUNTIME_IDS
             else runtime_id
             for task, runtime_id in routes.items()
         }

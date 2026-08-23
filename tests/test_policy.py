@@ -37,6 +37,19 @@ def test_policy_replaces_unavailable_ollama_task_route_with_frontier_fallback() 
     assert plan.reason == "local_accelerator_unavailable"
 
 
+def test_policy_replaces_unavailable_layered_ollama_route_with_frontier_fallback() -> None:
+    plan = build_execution_plan(
+        frontier_runtime_id="claude",
+        requested_task_runtimes={"topic_summary": "layered_ollama"},
+        local_accelerator_requested=True,
+        local_accelerator_available=False,
+        max_input_tokens=None,
+        reserved_output_tokens=0,
+    )
+
+    assert plan.runtime_for("topic_summary") == "claude"
+
+
 def test_execution_plan_is_immutable_after_policy_decision() -> None:
     plan = build_execution_plan(
         frontier_runtime_id="claude",

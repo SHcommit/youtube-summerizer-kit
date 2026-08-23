@@ -148,7 +148,7 @@ chew 진단 --json
 | HuggingFace (`huggingface`) | 예 | `HF_TOKEN` 환경 변수 | `HF_TOKEN` 설정 후 `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | 예 | 첫 생성 때 확인 / 기존 로컬 세션 사용 | `agy` CLI 설치 및 세션 사용 |
 
-**로컬 LLM은 완전히 선택 사항입니다.** 기본값 `runtime: auto`에서는 설치되어 있고 로그인이 확인된 실행기를 Codex → Gemini → Claude → Ollama → Antigravity 순서로 선택하며, Ollama가 설치되어 있지 않으면 자동으로 건너뜁니다. 대부분의 사용자는 클라우드 CLI(Codex, Gemini, Claude)만으로 사용하며 Ollama를 설치할 필요가 없습니다.
+**로컬 LLM은 완전히 선택 사항입니다.** 기본값 `runtime: frontier`는 인증된 Codex, Gemini, Claude만 선택하며 로컬 모델은 제외합니다. Ollama는 `runtime: ollama` 또는 task route로 명시 opt-in할 때만 사용합니다. 지정한 Ollama가 없으면 해당 task는 설정된 Frontier runtime으로 fallback합니다.
 
 완전한 오프라인·로컬 환경을 원한다면 Ollama만 로컬 모델 다운로드가 필요합니다.
 
@@ -194,8 +194,9 @@ CHEW.md
 language: ko
 default_profile: digest
 depth: detailed
-runtime: auto
+runtime: frontier
 task_runtimes: {} # 선택: task별 명시 runtime. 예: {topic_summary: ollama, compose: gemini}
+local_accelerator: false
 ollama_model: null
 whisper_fallback: false
 # 선택 사항: Ollama 입력 상한. 설정하지 않으면 기존 시간 기반 분절을 유지한다.
@@ -244,6 +245,10 @@ chew '유튜브_URL' --depth deep
 본문은 LLM 지침으로 사용됩니다. `.chew/profiles/blog.md` 같은 목적별 파일에서는 문체, 독자 수준, 글의 구성 방식을 추가로 지정할 수 있습니다. 프로젝트 설정은 상위 디렉터리까지 탐색하며, 파일이 없으면 패키지에 포함된 안전한 기본 설정을 사용합니다.
 
 분석 설정과 출력 설정은 분리됩니다. 예를 들어 블로그 문체만 바꿨다면 자막과 소주제를 다시 분석하지 않고 기존 Knowledge Pack에서 블로그 문서만 새로 만듭니다. 프로필별로 다른 `runtime`을 지정하면 캐시되지 않은 출력 재조립에 그 실행기를 사용합니다.
+
+`task_runtimes`는 opt-in BYOK routing입니다. 각 run은 route, input budget, fallback, 선택 이유가 담긴 immutable Execution Plan을 먼저 기록합니다. map에 없는 task는 `runtime`을 유지하며, 모델 출력은 이 계획을 바꿀 수 없습니다.
+
+중요 source claim의 citation은 모델이 제안한 뒤에도 raw transcript의 segment index, timestamp, quote가 일치할 때만 결과에 연결됩니다. 이 검증은 claim의 사실 여부가 아니라 원문 근거 연결만 보장합니다.
 
 ---
 

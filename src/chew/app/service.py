@@ -11,7 +11,7 @@ from chew.harness.builtin import HarnessAuthenticationError
 from chew.harness.registry import HarnessRegistry
 from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
 from chew.pipeline.outputs import OutputCompiler
-from chew.pipeline.policy import build_execution_plan
+from chew.pipeline.policy import LOCAL_RUNTIME_IDS, build_execution_plan
 from chew.pipeline.preprocessing import PreprocessingStats
 from chew.storage.database import Database
 
@@ -76,7 +76,7 @@ class ApplicationService:
         output_settings: Settings,
     ) -> CommandResult:
         local_requested = analysis_settings.local_accelerator or any(
-            runtime_id == "ollama" for runtime_id in analysis_settings.task_runtimes.values()
+            runtime_id in LOCAL_RUNTIME_IDS for runtime_id in analysis_settings.task_runtimes.values()
         )
         plan = build_execution_plan(
             frontier_runtime_id=analysis_settings.runtime,

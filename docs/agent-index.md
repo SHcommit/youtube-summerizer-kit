@@ -45,6 +45,8 @@ The codebase follows Ports & Adapters (Hexagonal) architecture. Layers may only 
 | What fields does a Knowledge Pack have? | `src/chew/core/models.py` — `KnowledgePack` (`completion_status`, missing ranges, runtime/model provenance) |
 | How are jobs scheduled and retried? | `src/chew/pipeline/scheduler.py` |
 | How does chapter/topic segmentation work? | `src/chew/pipeline/segmentation.py` |
+| How are model citations validated? | `src/chew/pipeline/evidence.py` — untrusted candidates become references only after raw span validation |
+| How is runtime routing decided? | `src/chew/pipeline/policy.py` — pure Frontier-first execution-plan compiler |
 | How does optional local preprocessing work? | `src/chew/pipeline/preprocessing.py` — Strategy composer, conservative filler removal, optional punctuation and semantic boundaries |
 | How does the pipeline stitch topics → chapters → pack? | `src/chew/pipeline/engine.py` |
 | What does the SQLite schema look like? | `src/chew/storage/database.py` — `initialize()` |
@@ -63,6 +65,7 @@ All harnesses live in `src/chew/harness/`. Each implements the `Harness` protoco
 
 | runtime_id | File | Auth / Setup | Notes |
 |---|---|---|---|
+| `frontier` | logical selector | Codex, Gemini, or Claude | Default selector; excludes local runtimes |
 | `codex` | `codex.py` | `codex login` | Preflight: `codex login status` |
 | `gemini` | `gemini.py` | `gemini` login | Verified on first generation |
 | `claude` | `claude.py` | `claude auth` | Preflight: `claude auth status` |
@@ -129,6 +132,8 @@ class GenerationResult:
     usage: dict[str, int]               # provider counts/durations when available
 ```
 
+`TopicSummaryDraft` and `EvidenceCandidate` are untrusted model output. `ValidatedEvidenceRef` is created only by `pipeline/evidence.py` after matching the immutable raw transcript. `ExecutionPlan` is generated before the run and is immutable for its lifetime.
+
 ### `ApplicationService.generate()` (`app/service.py`)
 
 Entry point for the application layer. Catches `HarnessAuthenticationError` and re-raises as `AuthenticationRequired`.
@@ -146,7 +151,7 @@ pending → claimed → completed
 blocked_auth      (authentication failure — resumable after login)
 ```
 
-Key tables: `runs`, `jobs`, `job_measurements`, `artifacts`, `runtime_limits`
+Key tables: `runs`, `jobs`, `job_measurements`, `artifacts`, `runtime_limits`. `runs.execution_plan_json` stores the policy snapshot; `job_measurements.details_json` includes the policy fingerprint when a plan is present.
 
 `job_measurements` stores every generation attempt for a durable job, including repairs. For Ollama it records provider-reported input/output counts and available duration fields, plus request input/schema sizes and repair/retry flags. It does not infer provider billing.
 
