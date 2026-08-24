@@ -38,9 +38,9 @@
 ## 1.5 P0: 입력 획득 신뢰성 및 Keychain 비의존
 
 이 서비스의 첫 번째 성공 조건은 Frontier 요약 이전에 검증 가능한 raw transcript를 얻는 것이다.
-2026-08-24 실측에서 5분 fixture의 정식 `chew summarize`는 YouTube provider chain에서 3분 이상
-대기한 뒤 중단됐으며 Knowledge Pack과 Frontier 호출까지 도달하지 못했다. 브라우저 로그인 쿠키를
-읽는 방식은 macOS Keychain 접근을 유발하므로 기본 경로나 필수 복구 경로가 될 수 없다.
+완료된 provider deadline, public fallback, credential-free file input과 실측 기록은
+[`CHANGELOG.md`](CHANGELOG.md) 및
+[`docs/wiki/transcript-acquisition.md`](docs/wiki/transcript-acquisition.md)를 기준으로 한다.
 
 ### P0 원칙
 
@@ -52,25 +52,17 @@
 
 ### 남은 작업
 
-1. 각 transcript provider에 20초 deadline, 전체 acquisition에 60초 deadline을 적용한다. timeout,
-   `429`, `FAILED_PRECONDITION`, 세션 갱신 요구를 구조화된 attempt reason으로 보존하고 즉시 다음
-   provider 또는 사용자 복구 경로로 넘어간다.
-2. `chew summarize --transcript <VTT|SRT|TXT>` 입력 adapter를 추가한다. 원본 URL은 `--source-url`로
-   별도 제공받아 identity와 결과 링크를 보존하고, parser가 timestamp/language/provenance를 검증한다.
-3. 로그인 브라우저의 **보이는 YouTube 스크립트 패널만** 사용자가 명시적으로 캡처해 전달하는 browser
+1. 로그인 브라우저의 **보이는 YouTube 스크립트 패널만** 사용자가 명시적으로 캡처해 전달하는 browser
    capture adapter를 별도 설계한다. 쿠키·네트워크 요청·Keychain 접근은 금지한다.
-4. 실제 5분 fixture에서 `URL/사용자 transcript → raw snapshot → 전처리 → Frontier → Knowledge Pack`
+2. 실제 5분 fixture에서 `URL/사용자 transcript → raw snapshot → 전처리 → Frontier → Knowledge Pack`
    전체 흐름을 실행해 transcript provenance, elapsed time, Frontier usage, output evidence를 기록한다.
-5. 기존 browser-cookie `auth youtube` 경로는 P0 원칙을 만족하는 transcript input 경로가 검증될 때까지
-   기본 안내에서 제거하고, Keychain 접근이 발생할 수 있음을 명시한다.
 
 ### 완료 기준
 
-1. YouTube 공개 자막이 `429`여도 60초 이내에 실패 이유 또는 사용자 제공 transcript 경로를 반환한다.
-2. VTT/SRT/TXT 입력만으로 Chrome/Keychain/쿠키 접근 없이 Knowledge Pack과 Digest를 생성한다.
-3. 5분 fixture에서 실제 transcript 기반 end-to-end run이 Frontier output까지 완료되고 생성 artifact가
+1. VTT/SRT/TXT 입력만으로 Chrome/Keychain/쿠키 접근 없이 Knowledge Pack과 Digest를 생성한다.
+2. 5분 fixture에서 실제 transcript 기반 end-to-end run이 Frontier output까지 완료되고 생성 artifact가
    재실행 없이 재조립된다.
-4. provider outage가 있으면 quality report를 생성하지 않으며, benchmark의 두 조건은 동일 raw transcript
+3. provider outage가 있으면 quality report를 생성하지 않으며, benchmark의 두 조건은 동일 raw transcript
    snapshot을 공유한다.
 
 ## 2. 짧은 영상 Frontier 경로 선택

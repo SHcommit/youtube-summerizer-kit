@@ -49,3 +49,21 @@ async def test_auto_harness_uses_explicit_task_runtime_and_default_elsewhere() -
 
     assert topic.runtime_id == "ollama"
     assert compose.runtime_id == "gemini"
+
+
+def test_application_uses_public_transcript_providers_without_cookie_configuration(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    import chew.app.bootstrap as bootstrap
+
+    received: dict[str, object] = {}
+
+    def providers(**kwargs: object) -> tuple[object, ...]:
+        received.update(kwargs)
+        return ()
+
+    monkeypatch.setattr(bootstrap, "default_providers", providers)
+
+    bootstrap.build_application(working_directory=tmp_path, data_directory=tmp_path / "data")
+
+    assert received == {}

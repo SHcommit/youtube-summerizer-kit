@@ -97,15 +97,14 @@ pip install -e '.[youtube,dev]'
 
 선택적 `faster-whisper` fallback은 모델과 영상 오디오를 자동으로 내려받지 않도록 기본값이 비활성화되어 있습니다. 사용하려면 `pip install -e '.[youtube,whisper]'`로 설치하고 `CHEW.md`에 `whisper_fallback: true`를 지정합니다. 처음 실제로 음성 인식을 실행할 때는 `faster-whisper`가 모델을 내려받을 수 있습니다.
 
-YouTube timedtext가 `HTTP 429`를 반환하면 `yt-dlp`는 설치된 Node.js runtime과 공식 EJS challenge component를 자동으로 사용합니다. 그래도 제한되면 본인의 로컬 YouTube 로그인 세션을 명시적으로 연결합니다.
+YouTube timedtext가 `HTTP 429`를 반환하면 `yt-dlp`는 설치된 Node.js runtime과 공식 EJS challenge component를 자동으로 사용합니다. 그래도 제한되면 사용자가 확보한 스크립트를 제공합니다.
 
 ```bash
-chew auth youtube --from-browser chrome
-chew 요약 "https://www.youtube.com/watch?v=VIDEO_ID"
-chew auth youtube --clear
+chew 요약 --transcript ./captions.vtt \
+  --source-url "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-로그인은 선택 사항입니다. `chew auth youtube`는 선택한 브라우저·프로필 이름만 보관하며 쿠키, Keychain 값, 비밀번호는 저장하지 않습니다. 실제 자막을 가져올 때에만 yt-dlp가 선택된 로컬 브라우저 세션을 메모리에서 읽고 즉시 폐기합니다. 프록시나 원격 서버는 사용하지 않습니다. 자막이 없거나 영상·계정이 제한된 경우에는 로그인 후에도 YouTube가 거부할 수 있습니다. 고급 사용자는 기존처럼 `CHEW.md`에 YouTube 전용 Netscape `cookies.txt` 경로를 `youtube_cookie_file: ./youtube-cookies.txt`로 직접 지정할 수도 있습니다.
+`chew`는 자막 복구를 위해 브라우저 쿠키, Keychain 값, 비밀번호, 프록시 credential을 읽지 않습니다. VTT/SRT의 cue timing은 보존하며 일반 TXT 줄에는 결정적인 시간 범위를 부여합니다. 영상·계정이 제한된 경우 YouTube가 자막을 거부할 수 있습니다. provider 제한과 오류 이유는 [자막 획득 문서](docs/wiki/transcript-acquisition.md)를 참고하세요.
 
 로컬 오디오·영상 파일 입력에도 `whisper` extra가 필요하지만, YouTube fallback 설정을 켤 필요는 없습니다.
 
@@ -209,7 +208,6 @@ task_runtimes: {} # 선택: task별 BYOK Frontier runtime. 예: {topic_summary: 
 local_accelerator: false # 향후 승인된 저위험 보조 작업용
 ollama_model: null # 향후 승인된 로컬 보조 작업용
 whisper_fallback: false
-youtube_cookie_file: null # 고급 설정: 직접 지정하는 YouTube 전용 cookies.txt 경로
 # 선택 사항: Ollama 입력 상한. 설정하지 않으면 기존 시간 기반 분절을 유지한다.
 max_input_tokens: 4096
 reserved_output_tokens: 512

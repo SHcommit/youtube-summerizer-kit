@@ -140,10 +140,13 @@ class AnalysisPipeline:
         url: str,
         config: AnalysisConfig,
         *,
+        transcript: Transcript | None = None,
         title: str | None = None,
         chapters: tuple[Chapter, ...] = (),
     ) -> AnalysisResult:
         source = normalize_source(url)
+        if transcript is not None and transcript.source != source:
+            raise ValueError("provided transcript source does not match analysis URL")
         request_key = fingerprint(
             {
                 "segmentation": 1,
@@ -163,6 +166,7 @@ class AnalysisPipeline:
                     "recipe": 1,
                 },
                 "schema": 1,
+                "provided_transcript": fingerprint(transcript) if transcript is not None else None,
             }
         )
         reusable = self.database.find_reusable_run(source.source_id, request_key)
@@ -174,7 +178,7 @@ class AnalysisPipeline:
                 )
                 return AnalysisResult(reusable, pack, True)
 
-        cached_hash = self.database.get_cached_transcript(source.source_id, config.language)
+        cached_hash = None if transcript is not None else self.database.get_cached_transcript(source.source_id, config.language)
         if cached_hash is not None:
             try:
                 transcript = Transcript.model_validate(
@@ -182,7 +186,9 @@ class AnalysisPipeline:
                 )
             except (ArtifactCorruptError, ValidationError):
                 cached_hash = None
-        if cached_hash is None:
+        if transcript is not None:
+            self.artifacts.put_json(transcript)
+        elif cached_hash is None:
             with telemetry.span("chew.transcript_acquisition", {"source": source.canonical_url or source.source_id}):
                 resolution = await self.transcripts.resolve(
                     source,
@@ -197,6 +203,7 @@ class AnalysisPipeline:
                     transcript_ref.digest,
                     fingerprint(transcript),
                 )
+        assert transcript is not None
         raw_transcript_hash = fingerprint(transcript)
         analysis_transcript = normalize_transcript(transcript) if config.normalize_transcript else transcript
         preprocessing_stats: PreprocessingStats | None = None

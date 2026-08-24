@@ -143,7 +143,7 @@ def test_rate_limit_recommends_explicit_youtube_auth(stub: StubApplication, tmp_
     result = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])
 
     assert result.exit_code == 2
-    assert "chew auth youtube --from-browser chrome" in result.stdout
+    assert "--transcript" in result.stdout
 
 
 def test_english_authentication_failure_is_in_english(stub: StubApplication, tmp_path: Path) -> None:

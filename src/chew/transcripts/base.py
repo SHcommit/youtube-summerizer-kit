@@ -10,6 +10,8 @@ def provider_failure_reason(error: Exception) -> str:
 
     status = getattr(error, "status_code", None) or getattr(error, "code", None)
     message = str(error).casefold()
+    if "failed_precondition" in message:
+        return "failed_precondition"
     if status == 429 or "429" in message or "too many requests" in message or "rate limit" in message:
         return "rate_limited"
     if status == 403 or "403" in message or "forbidden" in message:

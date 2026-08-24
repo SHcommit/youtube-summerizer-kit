@@ -32,7 +32,7 @@ src/chew/
 │
 ├── transcripts/       # Layer 5: Data Input Adapters (Transcripts & Speech-to-Text)
 │   ├── base.py / service.py / validation.py
-│   └── [youtube_api, yt_dlp, whisper].py
+│   └── [youtube_api, yt_dlp, user_input, whisper].py
 │
 ├── app/               # Layer 6: Application Service & Container Bootstrap
 │   ├── service.py     (Application use-case orchestrator)
@@ -122,3 +122,5 @@ benchmarks/            # Maintainer-only post-feature validation scripts
     - `handoff.md` is a concise, continuously refreshed execution index for a new agent or session. It is not a roadmap or a duplicate status document. It may contain the branch, the next one to three objectives, uncommitted changes, verification state, and immediate next action, with links to the canonical documents.
     - Update `handoff.md` whenever the next action, branch, verification state, or active priority changes. Keep only current execution context; remove completed-history prose.
     - Required documentation flow: classify work as active or deferred; update the appropriate canonical document; implement and verify; record completed behavior in `CHANGELOG.md`; remove the completed item from `IMPROVEMENTS.md`; refresh the short `handoff.md` execution index.
+    - `docs/wiki/` contains durable operational decisions and reproducible external-service failures.
+      Add a short index entry in `docs/agent-index.md`; do not duplicate the full history in `handoff.md`.
