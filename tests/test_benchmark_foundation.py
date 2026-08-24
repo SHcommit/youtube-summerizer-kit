@@ -61,11 +61,34 @@ def test_documented_benchmark_scripts_show_help_from_repo_root() -> None:
         assert "usage:" in result.stdout
 
 
+def test_canonical_lock_includes_the_korean_lecture_with_its_caption_language() -> None:
+    locked = load_video_lock(REPO_ROOT / "benchmarks" / "videos.lock.json")
+    korean_lecture = next(
+        video
+        for video in locked.videos
+        if video.key == "youtube_ko_45m46s_for_benchmark"
+    )
+
+    assert korean_lecture.youtube_id == "YcA31dmSNMk"
+    assert korean_lecture.language == "ko"
+    assert korean_lecture.duration_seconds == 2746
+
+
+def test_metrics_runner_counts_korean_and_english_fillers() -> None:
+    assert run_preprocessing._count_fillers("음 어 um you know") == 4
+
+
 @pytest.mark.asyncio
 async def test_metrics_runner_uses_transcript_resolution_service() -> None:
     service = ResolvingTranscriptService()
 
-    row = await run_preprocessing._measure_video("youtube_en_4m35s_for_benchmark", "c4GaJKprGEs", service, "detailed")
+    row = await run_preprocessing._measure_video(
+        "youtube_en_4m35s_for_benchmark",
+        "c4GaJKprGEs",
+        "en",
+        service,
+        "detailed",
+    )
 
     assert row["status"] == "success"
     assert row["transcript_provider"] == "fake-provider"
@@ -75,12 +98,28 @@ async def test_metrics_runner_uses_transcript_resolution_service() -> None:
 
 
 @pytest.mark.asyncio
+async def test_metrics_runner_uses_the_locked_korean_language() -> None:
+    service = ResolvingTranscriptService()
+
+    await run_preprocessing._measure_video(
+        "youtube_ko_45m46s_for_benchmark",
+        "YcA31dmSNMk",
+        "ko",
+        service,
+        "detailed",
+    )
+
+    assert service.calls[0][1] == "ko"
+
+
+@pytest.mark.asyncio
 async def test_metrics_runner_records_stage_latencies_for_post_feature_validation() -> None:
     service = ResolvingTranscriptService()
 
     row = await run_preprocessing._measure_video(
         "youtube_en_4m35s_for_benchmark",
         "c4GaJKprGEs",
+        "en",
         service,
         "detailed",
         preprocessing="current",
@@ -162,12 +201,14 @@ def test_video_lock_rejects_duplicate_video_keys(tmp_path: Path) -> None:
                         "key": "youtube_en_4m35s_for_benchmark",
                         "youtube_id": "c4GaJKprGEs",
                         "title": "First",
+                        "language": "en",
                         "duration_seconds": 275,
                     },
                     {
                         "key": "youtube_en_4m35s_for_benchmark",
                         "youtube_id": "ZIaOBAjvc38",
                         "title": "Second",
+                        "language": "en",
                         "duration_seconds": 2340,
                     },
                 ],
@@ -177,6 +218,30 @@ def test_video_lock_rejects_duplicate_video_keys(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ValueError, match="duplicate video key"):
+        load_video_lock(lock_path)
+
+
+def test_video_lock_requires_a_language(tmp_path: Path) -> None:
+    lock_path = tmp_path / "videos.lock.json"
+    lock_path.write_text(
+        json.dumps(
+            {
+                "locked_at": "2026-08-24",
+                "verification_method": "yt-dlp",
+                "videos": [
+                    {
+                        "key": "youtube_ko_45m46s_for_benchmark",
+                        "youtube_id": "YcA31dmSNMk",
+                        "title": "Korean lecture",
+                        "duration_seconds": 2746,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="language"):
         load_video_lock(lock_path)
 
 
@@ -606,6 +671,7 @@ def test_metrics_payload_preserves_release_metadata_and_stage_counts(tmp_path: P
                         "key": "youtube_en_4m35s_for_benchmark",
                         "youtube_id": "c4GaJKprGEs",
                         "title": "Locked title",
+                        "language": "en",
                         "duration_seconds": 275,
                     }
                 ],

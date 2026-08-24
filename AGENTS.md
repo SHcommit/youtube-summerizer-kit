@@ -57,7 +57,7 @@ reports/               # Central Benchmarking & Performance Observability Report
 
 benchmarks/            # Maintainer-only post-feature validation scripts
 ├── benchmark.sh       (Friendly wrapper: report allInOne, baseline, quality, render)
-├── videos.lock.json   (Canonical five-video preprocessing fixture)
+├── videos.lock.json   (Canonical locked preprocessing-video catalog)
 └── *.py               (Metrics, quality validation, and Markdown/HTML report rendering)
 ```
 

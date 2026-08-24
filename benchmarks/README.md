@@ -17,7 +17,7 @@ Do not publish mock values. Only promote reviewed real artifacts to
 
 | File | Purpose |
 |---|---|
-| `videos.lock.json` | Canonical five-video benchmark fixture |
+| `videos.lock.json` | Canonical locked benchmark-video catalog |
 | `benchmark.sh` | Friendly shell wrapper around the long `uv run --isolated --with ...` commands |
 | `run_preprocessing.py` | Metrics-only baseline/current run; no LLM calls |
 | `benchmark_report.py` | One-command current run + report rendering |
@@ -36,8 +36,10 @@ command fails instead of overwriting it.
 
 ## Locked Videos
 
-The canonical fixture is `benchmarks/videos.lock.json`. It contains five
-verified English videos from about five minutes to just under three hours.
+The canonical catalog is `benchmarks/videos.lock.json`. It contains five
+verified English videos from about five minutes to just under three hours and
+one verified Korean lecture fixture. Each entry declares the caption language
+the runner requests; a catalog-wide language override is deliberately not used.
 
 Unavailable transcripts must remain visible as failed entries in `metrics.json`.
 Do not silently substitute another video or transcript source.
@@ -309,7 +311,7 @@ stage token funnel, per-video graphs, and saved state/release metadata.
 Before promoting a report:
 
 - Confirm baseline/current lock hashes match.
-- Confirm all five videos succeeded.
+- Confirm every locked video succeeded.
 - Confirm no substitutions occurred.
 - Confirm quality covers every compared video.
 - Confirm the report is based on real artifacts, not mock data.

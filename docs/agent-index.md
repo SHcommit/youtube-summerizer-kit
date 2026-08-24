@@ -141,6 +141,10 @@ class GenerationResult:
 `OutputCompiler` sends complete strict object schemas for `output_outline`, `output_compose`, and
 `output_verify`, so Codex can reassemble an existing Knowledge Pack without re-running analysis.
 
+The maintainer preprocessing catalog (`benchmarks/videos.lock.json`) is parsed as `BenchmarkVideo`.
+Every entry requires a stable key, YouTube ID, title, caption `language`, and verified duration;
+measurement runners request the entry-specific language rather than applying a catalog-wide default.
+
 ### `ApplicationService.generate()` (`app/service.py`)
 
 Entry point for the application layer. Catches `HarnessAuthenticationError` and re-raises as `AuthenticationRequired`.

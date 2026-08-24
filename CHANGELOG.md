@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Korean lecture benchmark fixture**: adds the publicly captioned 45m46s Korean lecture
+  `youtube_ko_45m46s_for_benchmark` to the locked maintainer preprocessing catalog. It is a
+  reproducibility input only; no live Frontier benchmark or quality claim was run.
 - **Bounded, credential-free transcript recovery**:
   - Public transcript providers now have 20-second individual deadlines and a 60-second
     acquisition budget with structured timeout and YouTube failure reasons.
@@ -26,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Documents provider order, credential-free boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
 
 ### Changed
+- **Per-video benchmark caption language**: each locked benchmark entry now declares its requested
+  caption language. Both preprocessing measurement paths use that value, and the obsolete duplicate
+  report-side lock file was removed in favor of `benchmarks/videos.lock.json`. Filler metrics now
+  reuse the product's Korean and English filler definitions.
 - **Named maintainer benchmark inputs**: renamed locked YouTube fixture keys to the explicit
   `youtube_en_<duration>_for_benchmark` form, making their dedicated benchmark role clear without
   conflating them with product URLs or a particular synthesis path.

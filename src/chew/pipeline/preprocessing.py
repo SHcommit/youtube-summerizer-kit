@@ -64,7 +64,8 @@ def _token_estimate(transcript: Transcript) -> int:
     return sum(len(segment.text.split()) for segment in transcript.segments)
 
 
-def _filler_count(text: str) -> int:
+def count_fillers(text: str) -> int:
+    """Count filler phrases recognized by the built-in removal strategy."""
     return len(_KO_FILLERS.findall(text)) + len(_EN_FILLERS.findall(text))
 
 
@@ -187,8 +188,8 @@ class TranscriptPreprocessor:
             processed_segment_count=len(transcript.segments),
             original_token_estimate=_token_estimate(original),
             processed_token_estimate=_token_estimate(transcript),
-            removed_filler_count=sum(_filler_count(segment.text) for segment in original.segments)
-            - sum(_filler_count(segment.text) for segment in transcript.segments),
+            removed_filler_count=sum(count_fillers(segment.text) for segment in original.segments)
+            - sum(count_fillers(segment.text) for segment in transcript.segments),
             applied_strategies=tuple(applied),
         )
 

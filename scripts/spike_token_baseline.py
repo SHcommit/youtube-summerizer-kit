@@ -47,8 +47,7 @@ class ComparisonRow:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("baseline", "compare"), required=True)
-    parser.add_argument("--language", default="en", help="Caption language requested from YouTube (default: en).")
-    parser.add_argument("--lock-file", type=Path, default=ROOT / "reports" / "benchmark-videos.lock.json")
+    parser.add_argument("--lock-file", type=Path, default=ROOT / "benchmarks" / "videos.lock.json")
     parser.add_argument("--output", type=Path, help="Override the generated Markdown report path.")
     return parser.parse_args()
 
@@ -72,8 +71,11 @@ def _load_videos(lock_file: Path) -> list[dict[str, Any]]:
     return videos
 
 
-async def _fetch_transcript(video: dict[str, Any], language: str) -> Transcript:
+async def _fetch_transcript(video: dict[str, Any]) -> Transcript:
     video_id = video["youtube_id"]
+    language = video.get("language")
+    if not isinstance(language, str) or not language:
+        raise ValueError(f"Benchmark video {video_id} has no language")
     source = normalize_youtube_url(f"https://www.youtube.com/watch?v={video_id}")
     transcript = await YtDlpSubtitleProvider(caption_kind="both").fetch(source, language)
     if transcript is None:
@@ -173,13 +175,13 @@ async def _run() -> int:
     videos = _load_videos(args.lock_file)
     if args.mode == "baseline":
         rows = [
-            _baseline_row(video, await _fetch_transcript(video, args.language), encoder)
+            _baseline_row(video, await _fetch_transcript(video), encoder)
             for video in videos
         ]
         report = _render_baseline(args.lock_file, rows)
         output = args.output or ROOT / "reports" / "token-baseline.md"
     else:
-        rows = [await _compare_video(video, args.language, encoder) for video in videos]
+        rows = [await _compare_video(video, str(video["language"]), encoder) for video in videos]
         report = _render_comparison(args.lock_file, rows)
         output = args.output or ROOT / "reports" / "token-comparison.md"
     output.parent.mkdir(parents=True, exist_ok=True)

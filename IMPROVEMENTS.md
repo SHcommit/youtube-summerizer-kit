@@ -21,10 +21,13 @@
 
 ### 남은 작업
 
-1. 한국어 대화형·강의형 fixture를 추가하고 39분, 55분 영상의 baseline과 candidate를 다시 측정한다.
-2. 같은 Frontier runtime/model, prompt fingerprint, concurrency에서 raw와 processed 경로를 비교한다.
-3. token/cost, 전체 시간, evidence recall, timestamp accuracy, missing range, unsupported claim을 함께 기록한다.
-4. `reports/performance-comparisons/` 아래 검토된 보고서에 기본값 채택 여부를 명시한다.
+1. 한국어 대화형 fixture를 추가한다. 한국어 강의 fixture
+   `youtube_ko_45m46s_for_benchmark`는 lock에 추가되었지만, baseline/candidate 측정은
+   배포 직전 통합 gate까지 실행하지 않는다.
+2. 39분, 55분 영상과 한국어 fixture의 baseline과 candidate를 같은 조건에서 측정한다.
+3. 같은 Frontier runtime/model, prompt fingerprint, concurrency에서 raw와 processed 경로를 비교한다.
+4. token/cost, 전체 시간, evidence recall, timestamp accuracy, missing range, unsupported claim을 함께 기록한다.
+5. `reports/performance-comparisons/` 아래 검토된 보고서에 기본값 채택 여부를 명시한다.
 
 ### 채택 기준
 

@@ -105,6 +105,14 @@ TXT uses deterministic 30-second sequential ranges because it contains no native
 - This proves public acquisition can work on the fixture but is not a reliability guarantee.
   The run deliberately stopped before Frontier synthesis; it is not a Knowledge Pack benchmark.
 
+### 2026-08-24: Korean lecture preprocessing fixture
+
+- Fixture: `https://www.youtube.com/watch?v=YcA31dmSNMk`
+  (`youtube_ko_45m46s_for_benchmark`, 2,746 seconds, `ko`).
+- Anonymous public metadata lookup confirmed Korean automatic caption tracks (`ko`, `ko-orig`);
+  no manual subtitle track was published. This is sufficient for the credential-free preprocessing
+  fixture catalog, not a reliability guarantee or a completed Frontier benchmark.
+
 ### 2026-08-24: Five-minute URL-to-Knowledge-Pack execution
 
 - Fixture: `https://www.youtube.com/watch?v=c4GaJKprGEs`
