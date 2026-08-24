@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Documents provider order, credential-free boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
 
 ### Changed
+- **Reviewed benchmark-reference guardrail**: quality references now require non-empty claims and
+  evidence, valid source metadata, positive durations/tolerances, and in-range timestamps. Invalid
+  files are rejected by the CLI before a live provider call.
 - **Per-video benchmark caption language**: each locked benchmark entry now declares its requested
   caption language. Both preprocessing measurement paths use that value, and the obsolete duplicate
   report-side lock file was removed in favor of `benchmarks/videos.lock.json`. Filler metrics now

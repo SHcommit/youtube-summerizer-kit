@@ -727,7 +727,16 @@ def benchmark_run(
             else "A ground-truth JSON file is required with --reference."
         )
         raise typer.Exit(2)
-    benchmark_reference = BenchmarkReference.from_json(reference.read_text(encoding="utf-8"))
+    try:
+        benchmark_reference = BenchmarkReference.from_json(reference.read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError) as error:
+        typer.echo(
+            f"잘못된 benchmark reference: {error}"
+            if _is_korean(context)
+            else f"Invalid benchmark reference: {error}"
+        )
+        raise typer.Exit(2) from error
+
     async def _run_benchmark() -> BenchmarkReport:
         if short_video:
             spec = await short_video_benchmark_spec(

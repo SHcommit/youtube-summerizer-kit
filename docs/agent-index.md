@@ -145,6 +145,10 @@ The maintainer preprocessing catalog (`benchmarks/videos.lock.json`) is parsed a
 Every entry requires a stable key, YouTube ID, title, caption `language`, and verified duration;
 measurement runners request the entry-specific language rather than applying a catalog-wide default.
 
+`BenchmarkReference` is a human-reviewed quality artifact, not generated output. It requires
+non-empty source metadata and claims with transcript evidence and in-range timestamps; CLI parsing
+rejects structurally invalid references before any `--live` provider call.
+
 ### `ApplicationService.generate()` (`app/service.py`)
 
 Entry point for the application layer. Catches `HarnessAuthenticationError` and re-raises as `AuthenticationRequired`.

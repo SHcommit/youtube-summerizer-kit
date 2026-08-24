@@ -498,6 +498,11 @@ model output. The project ships no reusable live-reference answer: maintainers c
 one for the selected URL. `benchmarks/videos.lock.json` similarly locks maintainer preprocessing
 inputs for reproducibility; it does not limit normal `chew` URL input.
 
+The reference must contain at least one non-empty claim with transcript evidence and an in-range
+timestamp. Invalid metadata, empty claims, blank evidence, and out-of-range timestamps are rejected
+before any live provider call. This is structural validation only; a human reviewer remains
+responsible for the claims' factual accuracy.
+
 Live benchmarks require both `--live` and an explicit reference file because they use real login sessions and quota. Reports are written atomically to `benchmark-results/run-*/report.json` and `report.md`. The project does not yet publish a multilingual, multi-duration benchmark corpus or claim that it always outperforms Gemini.
 
 Maintainer-only transcript preprocessing comparisons use the locked fixture and scripts in `benchmarks/`.

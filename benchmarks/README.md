@@ -45,6 +45,23 @@ deliberately not used.
 Unavailable transcripts must remain visible as failed entries in `metrics.json`.
 Do not silently substitute another video or transcript source.
 
+## Quality Reference Review
+
+Live Frontier comparisons require a separate, human-reviewed JSON reference for
+the exact normalized YouTube URL. The project deliberately ships no completed
+reference answers and never generates them from an LLM. A reviewer must inspect
+the source transcript and record at least one independently supported claim:
+
+- `source_id`, `language`, and positive `duration_ms`
+- non-empty `claims` entries with `text`, transcript `evidence`, and
+  `timestamp_ms`
+- a positive `tolerance_ms` when the default 30 seconds is unsuitable
+
+The parser rejects empty claims, blank text or evidence, invalid numeric values,
+and timestamps outside the reference duration before a `--live` run can create
+a provider call. This validates the review artifact's structure, not the truth
+of its content; the reviewer remains responsible for that judgment.
+
 ## Recommended Workflow
 
 ### 1. Capture the baseline first

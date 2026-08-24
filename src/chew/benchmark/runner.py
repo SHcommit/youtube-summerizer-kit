@@ -36,6 +36,16 @@ class ReferenceClaim:
     timestamp_ms: int
     tolerance_ms: int = 30_000
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.text, str) or not self.text.strip():
+            raise ValueError("reference claim text must be non-empty")
+        if not isinstance(self.evidence, str) or not self.evidence.strip():
+            raise ValueError("reference claim evidence must be non-empty")
+        if isinstance(self.timestamp_ms, bool) or not isinstance(self.timestamp_ms, int) or self.timestamp_ms < 0:
+            raise ValueError("reference claim timestamp_ms must be a non-negative integer")
+        if isinstance(self.tolerance_ms, bool) or not isinstance(self.tolerance_ms, int) or self.tolerance_ms <= 0:
+            raise ValueError("reference claim tolerance_ms must be a positive integer")
+
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkReference:
@@ -44,14 +54,44 @@ class BenchmarkReference:
     duration_ms: int
     claims: tuple[ReferenceClaim, ...]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_id, str) or not self.source_id.strip():
+            raise ValueError("reference source_id must be non-empty")
+        if not isinstance(self.language, str) or not self.language.strip():
+            raise ValueError("reference language must be non-empty")
+        if isinstance(self.duration_ms, bool) or not isinstance(self.duration_ms, int) or self.duration_ms <= 0:
+            raise ValueError("reference duration_ms must be a positive integer")
+        if not self.claims:
+            raise ValueError("reference requires at least one claim")
+        if any(claim.timestamp_ms > self.duration_ms for claim in self.claims):
+            raise ValueError("reference claim timestamp_ms must be within the reference duration")
+
     @classmethod
     def from_json(cls, value: str) -> BenchmarkReference:
         payload = json.loads(value)
+        if not isinstance(payload, dict):
+            raise ValueError("benchmark reference must be a JSON object")
+        claims = payload.get("claims")
+        if not isinstance(claims, list):
+            raise ValueError("reference claims must be a list")
+        source_id = payload.get("source_id")
+        language = payload.get("language")
+        duration_ms = payload.get("duration_ms")
+        if not isinstance(source_id, str) or not isinstance(language, str):
+            raise ValueError("reference source_id and language must be strings")
+        if isinstance(duration_ms, bool) or not isinstance(duration_ms, int):
+            raise ValueError("reference duration_ms must be an integer")
+        try:
+            parsed_claims = tuple(ReferenceClaim(**claim) for claim in claims if isinstance(claim, dict))
+        except TypeError as error:
+            raise ValueError("reference claims must contain text, evidence, and timestamp_ms") from error
+        if len(parsed_claims) != len(claims):
+            raise ValueError("reference claims must be objects")
         return cls(
-            source_id=str(payload["source_id"]),
-            language=str(payload["language"]),
-            duration_ms=int(payload["duration_ms"]),
-            claims=tuple(ReferenceClaim(**claim) for claim in payload["claims"]),
+            source_id=source_id,
+            language=language,
+            duration_ms=duration_ms,
+            claims=parsed_claims,
         )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -99,6 +100,73 @@ def test_live_benchmark_requires_explicit_opt_in() -> None:
     )
     assert result.exit_code == 2
     assert "--live" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    (
+        (
+            {
+                "source_id": "youtube:abcDEF_1234",
+                "language": "ko",
+                "duration_ms": 60_000,
+                "claims": [],
+            },
+            "at least one claim",
+        ),
+        (
+            {
+                "source_id": "youtube:abcDEF_1234",
+                "language": "ko",
+                "duration_ms": 60_000,
+                "claims": [{"text": "claim", "evidence": "quote", "timestamp_ms": 60_001}],
+            },
+            "within the reference duration",
+        ),
+        (
+            {
+                "source_id": "youtube:abcDEF_1234",
+                "language": "ko",
+                "duration_ms": 60_000,
+                "claims": [{"text": " ", "evidence": "quote", "timestamp_ms": 10_000}],
+            },
+            "text must be non-empty",
+        ),
+    ),
+)
+def test_reference_rejects_invalid_review_data(payload: dict[str, object], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        BenchmarkReference.from_json(json.dumps(payload))
+
+
+def test_live_benchmark_rejects_invalid_reference_before_a_live_call(tmp_path: Path) -> None:
+    reference = tmp_path / "invalid-reference.json"
+    reference.write_text(
+        json.dumps(
+            {
+                "source_id": "youtube:abcDEF_1234",
+                "language": "ko",
+                "duration_ms": 60_000,
+                "claims": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "benchmark",
+            "run",
+            "https://youtu.be/abcDEF_1234",
+            "--live",
+            "--reference",
+            str(reference),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid benchmark reference" in result.stdout
 
 
 @pytest.mark.asyncio
