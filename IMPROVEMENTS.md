@@ -45,9 +45,19 @@
 15분 이하 영상은 계층 요약의 호출·schema·중간 output 오버헤드가 이득보다 클 수 있다.
 같은 Frontier runtime으로 단일 요약과 계층 요약을 비교해 더 단순한 기본 경로를 선택한다.
 
+**현재 결과:** `2026-08-24`에 사용자 승인 reference로 공개 영어 자동자막 영상
+[`aBUniZHgCnE`](https://www.youtube.com/watch?v=aBUniZHgCnE) (14분 34초)을 Codex로 3회씩
+비교했다. 동일 raw transcript snapshot을 사용했지만 단일 경로의 중앙 latency/usage는
+16.952초/29,192, 계층 경로는 57.744초/348,963이었다. 계층 경로의 key-point recall과
+timestamp accuracy 중앙값은 각각 0.25였고, 두 경로의 evidence coverage는 0.0이었다.
+reference-evidence 정합성과 경로 간 prompt fingerprint가 아직 비교 기준을 만족하지 않으므로,
+이 결과로 기본 경로를 바꾸지 않는다.
+
 1. 같은 transcript, Frontier runtime/model, prompt version에서 두 경로의 provider usage와 전체 시간을 비교한다.
 2. overview 품질, evidence coverage, timestamp accuracy, key-claim recall을 함께 검토한다.
 3. 단일 경로가 비용·시간에서 유리하면서 품질이 저하되지 않을 때만 짧은 영상의 기본 경로로 채택한다.
+4. reference evidence가 실제 출력 인용과 비교 가능하도록 검토하고, 같은 비교 prompt 정책을
+   명시한 뒤 재실행한다.
 
 ## 3. 보류: 자연어 입력 해석
 

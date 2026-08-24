@@ -19,6 +19,8 @@
    independently human-reviewed JSON references for the Korean fixtures, long-video preprocessing,
    and 4m35s short-video conditions. Run the remaining Frontier benchmarks only as the integrated
    pre-deployment gate.
+3. Repair the short-video benchmark's evidence-reference comparability and make its prompt-policy
+   comparison explicit before using it for a default-path decision.
 
 ## Active Constraints
 
@@ -79,6 +81,12 @@
   with labels such as `English · 2h 00m`; the persisted keys remain unchanged. Full verification:
   `293 passed, 2 skipped`; Ruff and mypy passed. A regenerated five-video Plotly report is under
   `/tmp/chew-benchmark-five-labels.g8XKJ2/current/report.html`.
+- User-approved short-video benchmark run `benchmark-results/run-7022e011212b/` compared the
+  anonymously acquired 14m34s English transcript for `aBUniZHgCnE` across three Codex repeats per
+  path. Single-pass median latency/usage was `16.952s`/`29,192`; hierarchical was
+  `57.744s`/`348,963`. Both had zero evidence coverage, and the paths carry different prompt
+  fingerprints, so this is not a default-path decision. Keep the reference-evidence/prompt-policy
+  repair as the immediate prerequisite for rerunning it.
 - A result-path audit found no hard-coded summary, claim, or evidence content under `src/chew`.
   Static result strings are only renderer structure and state/provenance labels; every semantic
   result value comes from a Knowledge Pack and validated transcript evidence.
