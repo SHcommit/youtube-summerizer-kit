@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Bounded, credential-free transcript recovery**:
+  - Public transcript providers now have 20-second individual deadlines and a 60-second
+    acquisition budget with structured timeout and YouTube failure reasons.
+  - `chew summarize --transcript <VTT|SRT|TXT> --source-url <URL>` accepts user-provided raw
+    transcript evidence without browser cookies, Keychain access, proxies, or third-party
+    transcript-site fallback.
+  - Application bootstrap no longer supplies browser profile or cookie configuration to the
+    default transcript provider chain.
 - **YouTube caption acquisition hardening**:
   - Adds a player-bootstrap `youtubei` structured transcript provider and a direct player-response `captionTracks` provider ahead of third-party extractors.
   - Records timed-text `HTTP 429` explicitly and continues when YouTube rejects a `youtubei` request with `FAILED_PRECONDITION`.

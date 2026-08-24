@@ -1,57 +1,72 @@
-# Transcript Acquisition Reliability
+# Transcript Acquisition
 
-`chew` treats transcript acquisition as a recoverable input stage before any Frontier synthesis.
-No model request is made until one immutable raw transcript snapshot is available.
+## Purpose
 
-## Provider Order
+This page is the durable operational record for caption acquisition. It records reproducible
+provider behavior, bounded recovery decisions, and rejected approaches. Keep current-session
+next actions in [`handoff.md`](../../handoff.md), not here.
 
-1. YouTube player bootstrap `youtubei/v1/get_transcript` structured segments
-2. Direct YouTube player `captionTracks` discovery, then signed timed-text VTT retrieval
-3. `yt-dlp` manual captions
-4. `yt-dlp` automatic captions
+## Product Boundary
+
+- `chew` never uses a proxy service, proxy rotation, third-party transcript website, browser
+  cookie store, password, or macOS Keychain for transcript recovery.
+- Public YouTube caption providers are best-effort. A user-provided VTT, SRT, or TXT file is the
+  supported recovery path and is marked `USER_PROVIDED` provenance.
+- The final synthesis remains the user's configured Frontier runtime; acquisition does not make
+  any LLM routing decision.
+
+## Provider Order and Limits
+
+1. `youtubei-transcript`
+2. `youtube-timedtext`
+3. `yt-dlp-manual`
+4. `yt-dlp-automatic`
 5. `youtube-transcript-api`
-6. `pytubefix` captions
-7. Optional local Whisper after audio acquisition, or local media supplied by the user
+6. `pytubefix`
 
-The first accepted transcript is normalized, content-addressed, and reused for all analysis
-and output generation. Providers record their provenance; transcript-derived artifacts never
-replace the immutable raw snapshot.
+Each provider has a 20-second deadline. The public chain has a 60-second monotonic budget.
+`rate_limited` retries once with bounded exponential delay only when the remaining global budget
+permits it. Attempt reasons are retained in `TranscriptUnavailable` and never include credentials.
 
-## Failure Policy
+## Failure Meanings
 
-- `rate_limited`: retry the same provider once with bounded exponential delay, then continue to
-  independent providers.
-- `access_denied`: continue to the next provider; do not treat it as absent captions.
-- `not_available`: continue normally.
-- all providers rate-limited: return a distinct error with a retry delay. Do not invoke an LLM or
-  fabricate a report.
+| Reason | Meaning | Recovery |
+|---|---|---|
+| `rate_limited` | YouTube returned `429` or equivalent throttling text. | Retry later, or provide VTT/SRT/TXT. |
+| `failed_precondition` | The unofficial `youtubei` operation rejected its prerequisites. | Continue to the next provider; do not treat it as a public API contract. |
+| `session_refresh_required` | yt-dlp reported that a browser session needs reload. | Do not read a browser session; provide VTT/SRT/TXT. |
+| `provider_timeout` | One adapter exceeded 20 seconds. | Continue to the next provider. |
+| `acquisition_timeout` | The 60-second public budget expired. | Stop and offer VTT/SRT/TXT. |
 
-The direct provider makes the input boundary explicit: a public watch response can contain a
-caption track while its `api/timedtext` VTT request returns `HTTP 429 Too Many Requests`.
-The direct provider records that as `rate_limited` and does not invoke an LLM.
+## User Recovery
 
-The `youtubei` provider uses the watch page's bootstrapped API key, client context, and transcript
-endpoint params. It is an independent best-effort path, not an official public API. A `400
-FAILED_PRECONDITION` is recorded as a provider failure and the chain continues to caption tracks.
+```bash
+chew summarize --transcript ./captions.vtt \
+  --source-url 'https://www.youtube.com/watch?v=VIDEO_ID'
+```
 
-`yt-dlp` enables Node.js and its official EJS challenge component when Node.js is already installed,
-which is required for current YouTube JavaScript challenges. Cookies and proxies are never enabled automatically. A user may explicitly run
-`chew auth youtube`, choose a local browser profile, and remove that choice with `chew auth youtube --clear`.
-`chew` stores only the browser/profile selection: it never stores cookies, Keychain values, or
-passwords. During a caption request, yt-dlp reads the selected browser session in memory and no
-cookie is sent to a `chew` server. This can expose the user's own account to YouTube enforcement and does not guarantee access.
-Advanced users may instead set `youtube_cookie_file: ./youtube-cookies.txt` in `CHEW.md`; the
-adapter reads that supplied file in place.
+`--source-url` preserves YouTube source identity and output links. VTT/SRT timing is retained.
+TXT uses deterministic 30-second sequential ranges because it contains no native timing.
 
-## Recovery Paths
+## Dated Execution Record
 
-1. Retry after the reported delay.
-2. Optionally run `chew auth youtube` and choose the user's local browser profile.
-3. Optionally set `youtube_cookie_file` for a user-supplied YouTube-only cookie file.
-4. Enable `whisper_fallback: true` only after Whisper prerequisites are available.
-5. Supply local MP3/MP4 media for local transcription.
-6. Prefer a local MP3/MP4 input until dedicated VTT/SRT/TXT transcript-file input is implemented.
+### 2026-08-24: Five-minute fixture
 
-For a fair benchmark, resolve and cache one raw transcript before comparing one-pass and
-hierarchical Frontier paths. A provider outage invalidates the benchmark instead of producing a
-quality claim from mismatched inputs.
+- Fixture: `https://www.youtube.com/watch?v=c4GaJKprGEs`.
+- Earlier public attempts observed `HTTP 429`, `400 FAILED_PRECONDITION`, no usable caption
+  track, and yt-dlp's `The page needs to be reloaded` browser-session error. A browser-profile
+  path was rejected because it can trigger Keychain access.
+- Cache-bypassed provider-chain run after deadline implementation completed in **23.1 seconds**.
+  `youtubei-transcript` returned an HTTP error, `youtube-timedtext` and `yt-dlp-manual` had no
+  usable result, and `yt-dlp-automatic` returned **75** caption segments.
+- This proves public acquisition can work on the fixture but is not a reliability guarantee.
+  The run deliberately stopped before Frontier synthesis; it is not a Knowledge Pack benchmark.
+
+## Rejected Approaches
+
+- Browser cookie/profile extraction: may access OS credential storage and is not required for the
+  supported product path.
+- Central, residential, or rotating proxies: paid, operationally fragile, and do not resolve all
+  `429`, session, or `FAILED_PRECONDITION` cases.
+- Third-party transcript websites as a fallback: violates source/provenance and availability
+  guarantees. They may be used only for maintainer diagnosis, never as product transport.

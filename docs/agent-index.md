@@ -46,7 +46,7 @@ The codebase follows Ports & Adapters (Hexagonal) architecture. Layers may only 
 | How are sensitive operational fields redacted? | `src/chew/core/redaction.py` |
 | How are jobs scheduled and retried? | `src/chew/pipeline/scheduler.py` |
 | How does chapter/topic segmentation work? | `src/chew/pipeline/segmentation.py` |
-| How are caption failures, fallbacks, and explicit YouTube login handled? | `docs/wiki/transcript-acquisition.md`, `src/chew/transcripts/service.py`, `src/chew/transcripts/youtube_timedtext.py`, `src/chew/transcripts/youtube_auth.py` |
+| How are caption failures, fallbacks, and user-provided transcript files handled? | `docs/wiki/transcript-acquisition.md`, `src/chew/transcripts/service.py`, `src/chew/transcripts/user_input.py`, `src/chew/transcripts/youtube_timedtext.py` |
 | How are model citations validated? | `src/chew/pipeline/evidence.py` — untrusted candidates become references only after raw span validation |
 | How are Codex output schemas made strict-compatible? | `src/chew/harness/codex.py` — normalizes required fields, closed objects, and defaults before CLI execution |
 | How is runtime routing decided? | `src/chew/pipeline/policy.py` — pure Frontier-first execution-plan compiler |
@@ -91,7 +91,6 @@ All commands are in `src/chew/cli/main.py`. Each command has both an English nam
 | `obsidian` | `옵시디언` | Index + topic notes with `[[wikilinks]]` |
 | `status` | `상태` | Show run and job progress |
 | `resume` | `이어하기` | Resume interrupted run |
-| `auth youtube` | — | Select, inspect, or clear a local YouTube caption browser profile; no cookies are stored |
 | `doctor` | `진단` | Diagnose runtime installation; prints `→ Install: <cmd>` hints |
 | `serve` | `서버` | Start FastAPI `/health` + `/readiness` server (needs `[server]` extras) |
 | `storage` | `저장소` | Internal file count and usage |
@@ -186,6 +185,7 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | `IMPROVEMENTS.md` | Active performance, quality, and safety work with adoption gates |
 | `PRODUCT_ROADMAP.md` | Deferred product opportunities and their reconsideration conditions |
 | `handoff.md` | Short, continuously refreshed execution index for new agent/session context |
+| `docs/wiki/transcript-acquisition.md` | Durable transcript failures, provider decisions, and recovery rules |
 | `scripts/spike_token_baseline.py` / `src/chew/benchmark/metrics.py` | Maintainer-only raw-caption token baseline and pure measurement helpers; uses the locked videos and requires `yt-dlp` + `tiktoken` |
 | `scripts/report_job_measurements.py` | Read-only SQLite run profiler for provider usage, request shape, repairs, and retries |
 | `docs/decisions/local-llm-runtime.md` | Product decision: local LLM/Ollama is optional, with adoption criteria |
@@ -204,7 +204,7 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 
 | Change type | What to update |
 |---|---|
-| New CLI command | `cli/main.py` + command table in this doc (§5) + `README.md` + `README.ko.md` + `CHANGELOG.md` |
+| New CLI command or option | `cli/main.py` + command table in this doc (§5) + `README.md` + `README.ko.md` + `CHANGELOG.md` |
 | New harness | `harness/<name>.py` + `registry.py` + `bootstrap.py` + harness table in this doc (§4) + `README.md` runtime table + `README.ko.md` + `CHANGELOG.md` + `assets/architecture/*.mmd` |
 | New layer or module | Update layer map in this doc (§2) + `AGENTS.md` architecture layout + `CHANGELOG.md` |
 | New extras group | `pyproject.toml` + optional extras table in this doc (§8) + `README.md` |

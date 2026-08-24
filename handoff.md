@@ -5,16 +5,16 @@
 
 ## Branch and State
 
-- Branch: `feat/ollama-summary-efficiency`
+- Branch: `feat/transcript-acquisition-resilience`
 - Active roadmap: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
 
 ## Next Priorities
 
-1. Complete P0 transcript acquisition: remove browser credential/Keychain dependency from the
-   default recovery path, add per-provider and global deadlines, then add VTT/SRT/TXT user
-   transcript input. Verify a 5-minute fixture reaches Frontier and creates a Knowledge Pack.
+1. Complete P0 transcript acquisition end-to-end: use a user-provided VTT/SRT/TXT for the
+   five-minute fixture and verify Frontier, Knowledge Pack, and reassembly artifacts. Browser
+   visible-panel capture remains design-only; it must not access cookies or Keychain.
 2. Run reviewed Korean and long-video preprocessing benchmarks only after P0 can supply the same
    raw transcript snapshot to both paths. Keep preprocessing opt-in unless it achieves the 10%
    adoption gate without quality regression.
@@ -27,16 +27,11 @@
 ## Latest Transcript Acquisition Result
 
 - Fixture: `https://www.youtube.com/watch?v=c4GaJKprGEs` (about five minutes).
-- Tried public `youtubei`, direct `captionTracks` timed-text, yt-dlp manual/automatic captions,
-  `youtube-transcript-api`, and `pytubefix`; local requests encountered `400 FAILED_PRECONDITION`,
-  `HTTP 429`, or no usable caption result.
-- Tried yt-dlp browser-session mode. Whole-Chrome auto-discovery exceeded one minute; selecting a
-  single Chrome profile avoided that scan but YouTube returned `The page needs to be reloaded`.
-  Browser-session mode can invoke macOS Keychain, so it is not an acceptable default recovery path.
-- A full `chew summarize` run was stopped after about three and a half minutes in transcript
-  acquisition. No raw snapshot, Frontier request, Knowledge Pack, or user output was produced.
-- A third-party public transcript endpoint did return VTT for diagnosis, proving captions exist,
-  but it is not a product fallback and must not be used to claim end-to-end success.
+- Cache-bypassed public provider chain completed in 23.1 seconds. `youtubei` returned an HTTP
+  error, timed-text and manual captions had no usable result, and `yt-dlp-automatic` returned 75
+  segments. This was acquisition-only, not a Frontier or Knowledge Pack success claim.
+- Earlier failures and rejected browser-session/proxy approaches are in
+  [`docs/wiki/transcript-acquisition.md`](docs/wiki/transcript-acquisition.md).
 
 ## Current Decision
 
@@ -47,7 +42,8 @@
 
 ## Verification and Working Tree
 
-- Last documentation check: `git diff --check` passed.
+- Last focused checks: transcript service, CLI, application, and bootstrap tests passed; full
+  suite and type checks remain required before integration.
 - Untracked benchmark-report directories exist under
   `reports/performance-comparisons/transcript-preprocessing/`; inspect before staging and do not
   include them accidentally.

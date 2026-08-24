@@ -203,6 +203,7 @@ class AnalysisPipeline:
                     transcript_ref.digest,
                     fingerprint(transcript),
                 )
+        assert transcript is not None
         raw_transcript_hash = fingerprint(transcript)
         analysis_transcript = normalize_transcript(transcript) if config.normalize_transcript else transcript
         preprocessing_stats: PreprocessingStats | None = None

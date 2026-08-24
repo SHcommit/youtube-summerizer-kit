@@ -96,15 +96,14 @@ pip install -e '.[youtube,dev]'
 
 The optional `faster-whisper` fallback is disabled by default so installation does not download a speech model or video audio. To enable it, install `pip install -e '.[youtube,whisper]'` and set `whisper_fallback: true` in `CHEW.md`. The first enabled transcription may download a model through `faster-whisper`.
 
-For a YouTube `HTTP 429` timed-text response, `yt-dlp` automatically enables an installed Node.js runtime and its official EJS challenge component. If it persists, explicitly connect your own local YouTube session:
+For a YouTube `HTTP 429` timed-text response, `yt-dlp` automatically enables an installed Node.js runtime and its official EJS challenge component. If it persists, provide a transcript you obtained yourself:
 
 ```bash
-chew auth youtube --from-browser chrome
-chew summarize "https://www.youtube.com/watch?v=VIDEO_ID"
-chew auth youtube --clear
+chew summarize --transcript ./captions.vtt \
+  --source-url "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-Login is optional. `chew auth youtube` stores only the selected browser/profile name, never cookies, Keychain values, or passwords. During caption retrieval, yt-dlp reads that selected local browser session in memory and then discards it; `chew` never uses a proxy or remote server. YouTube can still deny unavailable, restricted, or account-limited captions. Advanced users may instead set a YouTube-only Netscape `cookies.txt` path with `youtube_cookie_file: ./youtube-cookies.txt` in `CHEW.md`.
+`chew` does not read browser cookies, Keychain values, passwords, or proxy credentials for caption recovery. VTT/SRT cue timings are preserved; plain TXT lines receive deterministic ranges. YouTube can still deny unavailable, restricted, or account-limited captions. See [transcript acquisition](docs/wiki/transcript-acquisition.md) for provider limits and failure reasons.
 
 Local audio and video file input also requires the `whisper` extra:
 
@@ -210,7 +209,6 @@ task_runtimes: {} # Optional BYOK Frontier routing, e.g. {topic_summary: gemini,
 local_accelerator: false # Reserved for a future approved low-risk helper task
 ollama_model: null # Reserved for a future approved local helper task
 whisper_fallback: false
-youtube_cookie_file: null # Advanced override: explicit YouTube-only cookies.txt path
 # Optional Ollama input ceiling. Leave unset to retain time-only segmentation.
 max_input_tokens: 4096
 reserved_output_tokens: 512
