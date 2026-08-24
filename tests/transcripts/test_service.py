@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 
 from chew.domain import Provenance, SourceIdentity, Transcript, TranscriptSegment
 from chew.identity import normalize_source
@@ -30,6 +31,13 @@ class StubProvider:
 class RateLimitedProvider(StubProvider):
     def attempt_reasons(self) -> tuple[str, ...]:
         return ("rate_limited",)
+
+
+class SlowProvider(StubProvider):
+    async def fetch(self, source: SourceIdentity, language: str) -> Transcript | None:
+        self.calls += 1
+        await asyncio.sleep(1)
+        return self.result
 
 
 def candidate(end_ms: int) -> Transcript:
@@ -78,6 +86,20 @@ async def test_service_preserves_rate_limit_after_configured_retries() -> None:
     assert provider.calls == 2
     assert captured.value.retry_after_seconds == 1
     assert captured.value.attempts[0].reasons == ("rate_limited",)
+
+
+@pytest.mark.asyncio
+async def test_service_skips_provider_that_exceeds_its_deadline() -> None:
+    slow = SlowProvider("slow", None)
+    good = StubProvider("good", candidate(10_000))
+
+    resolution = await TranscriptService(
+        [slow, good], provider_timeout_seconds=0.01
+    ).resolve(SOURCE, "ko")
+
+    assert resolution.provider == "good"
+    assert resolution.attempts[0].provider == "slow"
+    assert resolution.attempts[0].reasons == ("provider_timeout",)
 
 
 @pytest.mark.asyncio
