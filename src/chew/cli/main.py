@@ -15,13 +15,13 @@ from pathlib import Path
 from typing import Annotated, Any, Protocol, cast
 
 import typer
-from platformdirs import user_data_path
 
 from chew.app.config import ConfigurationError
 from chew.app.retention import CleanupPlan, RetentionPlanner
 from chew.app.service import AuthenticationRequired, CommandResult, RunStatus
 from chew.benchmark.runner import (
     BenchmarkReference,
+    BenchmarkReport,
     BenchmarkRunner,
     benchmark_catalog,
     live_benchmark_spec,
@@ -34,11 +34,10 @@ from chew.core.identity import (
     normalize_youtube_url,
 )
 from chew.log import configure_logging
-from chew.telemetry import telemetry
+from chew.telemetry import TelemetryManager
 from chew.transcripts.service import TranscriptRateLimited, TranscriptUnavailable
 from chew.transcripts.user_input import UserTranscriptInputError
 from chew.transcripts.whisper import WhisperDependencyMissing
-from chew.transcripts.youtube_auth import YouTubeAuthError, YouTubeAuthStore
 
 
 class Application(Protocol):
@@ -64,7 +63,6 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode=None,
 )
-auth_app = typer.Typer(no_args_is_help=True)
 
 
 @app.callback()
@@ -106,11 +104,6 @@ def _retention_factory() -> RetentionPlanner:
     from chew.app.bootstrap import build_retention_planner
 
     return build_retention_planner()
-
-
-def _youtube_auth_store() -> YouTubeAuthStore:
-    data = Path(user_data_path("youtube-summarizer-kit", appauthor=False))
-    return YouTubeAuthStore(data)
 
 
 KOREAN_COMMANDS = {
@@ -451,7 +444,7 @@ def trace_ui(
     open_browser: Annotated[bool, typer.Option("--open/--no-open", "-b")] = True,
 ) -> None:
     """OpenTelemetry visual performance & tracing web UI dashboard."""
-    report_path = telemetry.export_markdown_report("reports/trace_report.md")
+    report_path = TelemetryManager().export_markdown_report("reports/trace_report.md")
     abs_path = report_path.resolve()
     typer.echo(f"OpenTelemetry Trace Report: file://{abs_path}")
     typer.echo("Jaeger OpenTelemetry UI: http://localhost:16686")
@@ -574,52 +567,6 @@ def doctor(
 
 app.command("doctor", help="Diagnose AI runtime installation and authentication.")(doctor)
 app.command("진단", hidden=True)(doctor)
-
-
-@auth_app.command("youtube")
-def auth_youtube(
-    from_browser: Annotated[str | None, typer.Option("--from-browser")] = None,
-    profile: Annotated[str | None, typer.Option("--profile")] = None,
-    clear: Annotated[bool, typer.Option("--clear")] = False,
-    status: Annotated[bool, typer.Option("--status")] = False,
-) -> None:
-    """Select, inspect, or remove the local YouTube caption browser profile."""
-
-    if int(clear) + int(status) > 1 or (from_browser is not None and (clear or status)) or (
-        profile is not None and (clear or status)
-    ):
-        typer.echo("Choose a browser profile, --status, or --clear.")
-        raise typer.Exit(2)
-    store = _youtube_auth_store()
-    if clear:
-        if store.clear():
-            typer.echo("YouTube browser profile selection removed.")
-        else:
-            typer.echo("No YouTube browser profile is selected.")
-        return
-    if status:
-        selected = store.profile()
-        if selected is None:
-            typer.echo("No YouTube browser profile is selected.")
-        else:
-            typer.echo(f"YouTube browser profile selected: {selected.browser} / {selected.profile}")
-        return
-    selected_browser = from_browser or typer.prompt("Browser", default="chrome")
-    if profile is None:
-        profiles = store.available_profiles(selected_browser)
-        typer.echo(f"Available profiles: {', '.join(profiles)}")
-        selected_profile = typer.prompt("Browser profile", default=profiles[0])
-    else:
-        selected_profile = profile
-    try:
-        store.connect_from_browser(selected_browser, selected_profile)
-    except YouTubeAuthError as error:
-        typer.echo(f"YouTube browser profile selection failed: {error}")
-        raise typer.Exit(2) from error
-    typer.echo("YouTube browser profile selected. Credentials are read only during caption retrieval and are not stored.")
-
-
-app.add_typer(auth_app, name="auth", help="Connect or remove local service credentials.")
 
 
 def serve(
@@ -781,17 +728,24 @@ def benchmark_run(
         )
         raise typer.Exit(2)
     benchmark_reference = BenchmarkReference.from_json(reference.read_text(encoding="utf-8"))
-    spec_factory = short_video_benchmark_spec if short_video else live_benchmark_spec
-    report = asyncio.run(
-        BenchmarkRunner().run(
-            spec_factory(
+    async def _run_benchmark() -> BenchmarkReport:
+        if short_video:
+            spec = await short_video_benchmark_spec(
                 url,
                 reference=benchmark_reference,
                 repeats=repeats,
                 configured_runtime=runtime,
             )
-        )
-    )
+        else:
+            spec = live_benchmark_spec(
+                url,
+                reference=benchmark_reference,
+                repeats=repeats,
+                configured_runtime=runtime,
+            )
+        return await BenchmarkRunner().run(spec)
+
+    report = asyncio.run(_run_benchmark())
     _, markdown_path = write_benchmark_report(report, output)
     typer.echo(markdown_path)
 

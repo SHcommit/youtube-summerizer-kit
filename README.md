@@ -103,7 +103,7 @@ chew summarize --transcript ./captions.vtt \
   --source-url "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-`chew` does not read browser cookies, Keychain values, passwords, or proxy credentials for caption recovery. VTT/SRT cue timings are preserved; plain TXT lines receive deterministic ranges. YouTube can still deny unavailable, restricted, or account-limited captions. See [transcript acquisition](docs/wiki/transcript-acquisition.md) for provider limits and failure reasons.
+`chew` has no browser-login, cookie-file, or browser-profile transcript fallback and does not read browser cookies, Keychain values, passwords, or proxy credentials for caption recovery. VTT/SRT cue timings are preserved; plain TXT lines receive deterministic ranges. YouTube can still deny unavailable, restricted, or account-limited captions. See [transcript acquisition](docs/wiki/transcript-acquisition.md) for provider limits and failure reasons.
 
 Local audio and video file input also requires the `whisper` extra:
 
@@ -490,7 +490,7 @@ chew benchmark run 'https://www.youtube.com/watch?v=c4GaJKprGEs' --live --short-
 
 The benchmark compares direct Gemini URL analysis using a minimal prompt and shared schema against the hierarchical pipeline using Gemini and the configured runtime. It evaluates claim and evidence recall, timestamp accuracy, long-duration coverage, and unsupported claims against a reference file. Each result states whether its input was `video_url` or `transcript`, so Gemini's multimodal input advantage is not mistaken for pipeline quality.
 
-`--short-video` instead compares a single-pass transcript request with hierarchical synthesis using the same configured Frontier runtime. It is the decision path for short videos and must use a reviewed reference file; its report does not claim a result until both conditions run successfully.
+`--short-video` resolves one public transcript snapshot before either condition starts, then compares a single-pass transcript request with hierarchical synthesis using that same snapshot and configured Frontier runtime across every repeat. It is the decision path for short videos and must use a reviewed reference file; caption resolution failure starts no live condition and writes no report.
 
 Live benchmarks require both `--live` and an explicit reference file because they use real login sessions and quota. Reports are written atomically to `benchmark-results/run-*/report.json` and `report.md`. The project does not yet publish a multilingual, multi-duration benchmark corpus or claim that it always outperforms Gemini.
 

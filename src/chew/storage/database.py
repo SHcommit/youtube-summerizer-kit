@@ -149,28 +149,30 @@ class Database:
                 );
                 """
             )
-            columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(runs)").fetchall()}
-            if "request_key" not in columns:
-                connection.execute("ALTER TABLE runs ADD COLUMN request_key TEXT NOT NULL DEFAULT ''")
-            if "recipe_json" not in columns:
-                connection.execute("ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''")
-            if "source_locator" not in columns:
-                connection.execute("ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''")
-            if "execution_plan_json" not in columns:
-                connection.execute("ALTER TABLE runs ADD COLUMN execution_plan_json TEXT NOT NULL DEFAULT ''")
-            measurement_columns = {
-                str(row[1]) for row in connection.execute("PRAGMA table_info(job_measurements)").fetchall()
-            }
-            if "details_json" not in measurement_columns:
-                connection.execute("ALTER TABLE job_measurements ADD COLUMN details_json TEXT NOT NULL DEFAULT '{}'")
-            connection.execute(
-                "CREATE INDEX IF NOT EXISTS runs_reuse_idx ON runs(source_id, request_key, updated_at DESC)"
-            )
-            connection.execute(
-                "CREATE INDEX IF NOT EXISTS job_measurements_job_idx "
-                "ON job_measurements(job_id, measurement_id)"
-            )
-            connection.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
+            for version in range(current_version + 1, self.SCHEMA_VERSION + 1):
+                self._apply_migration(connection, version)
+                connection.execute(f"PRAGMA user_version = {version}")
+
+    @staticmethod
+    def _has_column(connection: sqlite3.Connection, table: str, column: str) -> bool:
+        return column in {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
+
+    def _apply_migration(self, connection: sqlite3.Connection, version: int) -> None:
+        if version == 1:
+            return
+        if version == 2 and not self._has_column(connection, "runs", "request_key"):
+            connection.execute("ALTER TABLE runs ADD COLUMN request_key TEXT NOT NULL DEFAULT ''")
+        elif version == 3 and not self._has_column(connection, "runs", "recipe_json"):
+            connection.execute("ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''")
+        elif version == 4 and not self._has_column(connection, "runs", "source_locator"):
+            connection.execute("ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''")
+        elif version == 5 and not self._has_column(connection, "runs", "execution_plan_json"):
+            connection.execute("ALTER TABLE runs ADD COLUMN execution_plan_json TEXT NOT NULL DEFAULT ''")
+        elif version == 6 and not self._has_column(connection, "job_measurements", "details_json"):
+            connection.execute("ALTER TABLE job_measurements ADD COLUMN details_json TEXT NOT NULL DEFAULT '{}'")
+        elif version == 7:
+            connection.execute("CREATE INDEX IF NOT EXISTS runs_reuse_idx ON runs(source_id, request_key, updated_at DESC)")
+            connection.execute("CREATE INDEX IF NOT EXISTS job_measurements_job_idx ON job_measurements(job_id, measurement_id)")
 
     def journal_mode(self) -> str:
         with self._connect() as connection:

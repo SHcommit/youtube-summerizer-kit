@@ -45,8 +45,9 @@ The codebase follows Ports & Adapters (Hexagonal) architecture. Layers may only 
 | What fields does a Knowledge Pack have? | `src/chew/core/models.py` — `KnowledgePack` (`completion_status`, missing ranges, runtime/model provenance) |
 | How are sensitive operational fields redacted? | `src/chew/core/redaction.py` |
 | How are jobs scheduled and retried? | `src/chew/pipeline/scheduler.py` |
+| How are run traces isolated? | `src/chew/telemetry.py`, `src/chew/app/bootstrap.py` — injected manager with `ContextVar` collectors |
 | How does chapter/topic segmentation work? | `src/chew/pipeline/segmentation.py` |
-| How are caption failures, fallbacks, and user-provided transcript files handled? | `docs/wiki/transcript-acquisition.md`, `src/chew/transcripts/service.py`, `src/chew/transcripts/user_input.py`, `src/chew/transcripts/youtube_timedtext.py` |
+| How are credential-free caption failures, public fallbacks, and user-provided transcript files handled? | `docs/wiki/transcript-acquisition.md`, `src/chew/transcripts/service.py`, `src/chew/transcripts/user_input.py`, `src/chew/transcripts/youtube_timedtext.py`, `src/chew/transcripts/yt_dlp.py` |
 | How are model citations validated? | `src/chew/pipeline/evidence.py` — untrusted candidates become references only after raw span validation |
 | How are Codex output schemas made strict-compatible? | `src/chew/harness/codex.py` — normalizes required fields, closed objects, and defaults before CLI execution |
 | How is runtime routing decided? | `src/chew/pipeline/policy.py` — pure Frontier-first execution-plan compiler |
@@ -95,7 +96,7 @@ All commands are in `src/chew/cli/main.py`. Each command has both an English nam
 | `serve` | `서버` | Start FastAPI `/health` + `/readiness` server (needs `[server]` extras) |
 | `storage` | `저장소` | Internal file count and usage |
 | `cleanup` | `정리` | Preview or apply retention policy |
-| `benchmark` | `벤치마크` | Reference-based quality benchmark; `--short-video` compares same-transcript Frontier paths |
+| `benchmark` | `벤치마크` | Reference-based quality benchmark; `--short-video` resolves one raw snapshot before comparing Frontier paths |
 | `benchmark-dashboard` | — | Generate `reports/trace_report.md` from OTel spans |
 
 ---
@@ -135,7 +136,10 @@ class GenerationResult:
     usage: dict[str, int]               # provider counts/durations when available
 ```
 
-`TopicSummaryDraft` and `EvidenceCandidate` are untrusted model output. `ValidatedEvidenceRef` is created only by `pipeline/evidence.py` after matching the immutable raw transcript. `ExecutionPlan` is generated before the run and is immutable for its lifetime.
+`TopicSummaryDraft` and `EvidenceCandidate` are untrusted model output. `ValidatedEvidenceRef` is created only by `pipeline/evidence.py` after matching the immutable raw transcript. `ExecutionPlan` is generated before the run and is immutable for its lifetime. It records routing, token budgets, normal runtime retries (2 attempts), and 429 recovery (3 attempts, a 60-second per-job budget, and a 5-second full-jitter cap); explicit resume starts a fresh in-memory 429 budget.
+
+`OutputCompiler` sends complete strict object schemas for `output_outline`, `output_compose`, and
+`output_verify`, so Codex can reassemble an existing Knowledge Pack without re-running analysis.
 
 ### `ApplicationService.generate()` (`app/service.py`)
 
@@ -158,7 +162,7 @@ Key tables: `runs`, `jobs`, `job_measurements`, `artifacts`, `runtime_limits`. `
 
 `job_measurements` stores every generation attempt for a durable job, including repairs. For Ollama it records provider-reported input/output counts and available duration fields, plus request input/schema sizes and repair/retry flags. It does not infer provider billing.
 
-Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive successes via `note_runtime_success()` restore it by 1.
+Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive successes via `note_runtime_success()` restore it by 1. Scheduler 429 recovery follows the immutable execution-plan limits and ends a persistent provider rate limit as `failed_runtime` rather than returning a job to pending indefinitely.
 
 ---
 

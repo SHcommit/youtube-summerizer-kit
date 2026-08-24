@@ -16,6 +16,16 @@ from chew.benchmark import (
     short_video_benchmark_spec,
 )
 from chew.cli import app
+from chew.core.models import (
+    GenerationRequest,
+    GenerationResult,
+    Provenance,
+    SourceIdentity,
+    Transcript,
+    TranscriptSegment,
+)
+from chew.harness.base import HarnessCapabilities, HarnessProbe
+from chew.transcripts.service import TranscriptResolution
 
 
 class Runner:
@@ -91,7 +101,10 @@ def test_live_benchmark_requires_explicit_opt_in() -> None:
     assert "--live" in result.stdout
 
 
-def test_short_video_benchmark_uses_same_transcript_frontier_conditions() -> None:
+@pytest.mark.asyncio
+async def test_short_video_benchmark_resolves_one_snapshot_for_all_conditions_and_repeats(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     reference = BenchmarkReference(
         source_id="youtube:abcDEF_1234",
         language="en",
@@ -99,13 +112,87 @@ def test_short_video_benchmark_uses_same_transcript_frontier_conditions() -> Non
         claims=(ReferenceClaim("claim", "evidence", 10_000),),
     )
 
-    spec = short_video_benchmark_spec(
-        "https://www.youtube.com/watch?v=abcDEF_1234",
-        reference=reference,
-        configured_runtime="codex",
+    source = SourceIdentity(
+        source_id=reference.source_id,
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="en",
+        duration_ms=275_000,
+        provenance=Provenance.AUTO_SUBTITLE,
+        segments=(TranscriptSegment(start_ms=0, end_ms=275_000, text="shared snapshot evidence"),),
     )
 
-    assert spec.repeats == 3
+    class RecordingTranscriptService:
+        calls = 0
+
+        def __init__(self, providers: object) -> None:
+            del providers
+
+        async def resolve(
+            self, source: SourceIdentity, language: str, *, include_optional: bool = False
+        ) -> TranscriptResolution:
+            type(self).calls += 1
+            assert source == transcript.source
+            assert language == transcript.language
+            assert include_optional is False
+            return TranscriptResolution(transcript, "fixture", ())
+
+    class FakeHarness:
+        runtime_id = "codex"
+
+        async def probe(self) -> HarnessProbe:
+            return HarnessProbe(
+                runtime_id="codex",
+                available=True,
+                auth_ready=True,
+                version="fixture",
+                capabilities=HarnessCapabilities(max_concurrency=1),
+                detail=None,
+            )
+
+        async def generate(self, request: GenerationRequest) -> GenerationResult:
+            if request.task == "topic_summary":
+                output: dict[str, object] = {
+                    "topic_id": request.input["topic_id"],
+                    "title": request.input["title"],
+                    "summary": "topic",
+                    "claims": [],
+                    "concepts": [],
+                    "examples": [],
+                }
+            elif request.task == "chapter_summary":
+                output = {
+                    "chapter_id": request.input["chapter_id"],
+                    "title": request.input["title"],
+                    "summary": "chapter",
+                    "topic_ids": request.input["topic_ids"],
+                }
+            else:
+                output = {"overview": "overview", "further_study": []}
+            return GenerationResult(request_id=request.request_id, output=output, runtime_id="codex")
+
+    class FakeRegistry:
+        async def select(self, runtime_id: str) -> FakeHarness:
+            assert runtime_id == "codex"
+            return FakeHarness()
+
+    monkeypatch.setattr("chew.transcripts.TranscriptService", RecordingTranscriptService)
+    monkeypatch.setattr("chew.transcripts.default_providers", lambda: ())
+    monkeypatch.setattr("chew.harness.registry.default_registry", FakeRegistry)
+
+    spec = await short_video_benchmark_spec(
+        "https://www.youtube.com/watch?v=abcDEF_1234",
+        reference=reference,
+        repeats=2,
+        configured_runtime="codex",
+    )
+    await BenchmarkRunner().run(spec)
+
+    assert RecordingTranscriptService.calls == 1
+    assert spec.repeats == 2
     assert [(condition.condition_id, condition.input_method) for condition in spec.conditions] == [
         ("frontier-single-pass", "transcript"),
         ("frontier-hierarchical", "transcript"),

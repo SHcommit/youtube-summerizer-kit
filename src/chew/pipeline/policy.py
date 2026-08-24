@@ -52,6 +52,10 @@ def build_execution_plan(
         "local_accelerator_available": local_accelerator_available,
         "max_input_tokens": max_input_tokens,
         "reserved_output_tokens": reserved_output_tokens,
+        "max_runtime_attempts": 2,
+        "max_rate_limit_attempts": 3,
+        "rate_limit_budget_ms": 60_000,
+        "rate_limit_backoff_cap_ms": 5_000,
         "reason": reason,
     }
     return ExecutionPlan(
@@ -63,6 +67,10 @@ def build_execution_plan(
         local_accelerator_available=local_accelerator_available,
         max_input_tokens=max_input_tokens,
         reserved_output_tokens=reserved_output_tokens,
+        max_runtime_attempts=2,
+        max_rate_limit_attempts=3,
+        rate_limit_budget_ms=60_000,
+        rate_limit_backoff_cap_ms=5_000,
         reason=reason,
         plan_fingerprint=fingerprint(fingerprint_payload),
     )

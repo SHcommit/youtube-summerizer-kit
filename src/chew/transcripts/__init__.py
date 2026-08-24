@@ -11,14 +11,12 @@ from chew.transcripts.youtubei import YouTubeiTranscriptProvider
 from chew.transcripts.yt_dlp import YtDlpSubtitleProvider
 
 
-def default_providers(
-    *, whisper: bool = False, cookie_file: str | None = None, browser_profile: tuple[str, str] | None = None
-) -> tuple[TranscriptProvider, ...]:
+def default_providers(*, whisper: bool = False) -> tuple[TranscriptProvider, ...]:
     providers: list[TranscriptProvider] = [
         YouTubeiTranscriptProvider(),
         YouTubeTimedTextProvider(),
-        YtDlpSubtitleProvider(caption_kind="manual", cookie_file=cookie_file, browser_profile=browser_profile),
-        YtDlpSubtitleProvider(caption_kind="automatic", cookie_file=cookie_file, browser_profile=browser_profile),
+        YtDlpSubtitleProvider(caption_kind="manual"),
+        YtDlpSubtitleProvider(caption_kind="automatic"),
         YouTubeApiTranscriptProvider(),
         PytubeFixTranscriptProvider(),
     ]

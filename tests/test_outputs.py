@@ -98,6 +98,7 @@ class OutputHarness:
     def __init__(self) -> None:
         self.tasks: list[str] = []
         self.preferences: list[str] = []
+        self.requests: list[GenerationRequest] = []
 
     def set_preference(self, runtime_id: str) -> None:
         self.preferences.append(runtime_id)
@@ -114,6 +115,7 @@ class OutputHarness:
 
     async def generate(self, request: GenerationRequest) -> GenerationResult:
         self.tasks.append(request.task)
+        self.requests.append(request)
         output: dict[str, object]
         if request.task == "output_outline":
             output = {"sections": ["문제", "핵심", "적용"]}
@@ -145,6 +147,35 @@ async def test_blog_uses_plan_compose_verify_and_profile_changes_cache_key(tmp_p
     assert harness.tasks[:3] == ["output_outline", "output_compose", "output_verify"]
     assert "사용자 톤 블로그" in first.files[0].read_text(encoding="utf-8")
     assert first.cache_key != second.cache_key
+
+
+@pytest.mark.asyncio
+async def test_blog_requests_complete_object_schemas_for_strict_runtimes(tmp_path: Path) -> None:
+    harness = OutputHarness()
+
+    await OutputCompiler(harness).compile(pack(), "blog", Settings(), tmp_path / "blog")
+
+    schemas = {request.task: request.output_schema for request in harness.requests}
+    assert schemas == {
+        "output_outline": {
+            "type": "object",
+            "properties": {"sections": {"type": "array", "items": {"type": "string"}}},
+            "required": ["sections"],
+            "additionalProperties": False,
+        },
+        "output_compose": {
+            "type": "object",
+            "properties": {"markdown": {"type": "string"}},
+            "required": ["markdown"],
+            "additionalProperties": False,
+        },
+        "output_verify": {
+            "type": "object",
+            "properties": {"markdown": {"type": "string"}, "valid": {"type": "boolean"}},
+            "required": ["markdown", "valid"],
+            "additionalProperties": False,
+        },
+    }
 
 
 @pytest.mark.asyncio

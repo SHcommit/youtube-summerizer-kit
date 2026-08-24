@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -40,27 +39,6 @@ class StubApplication:
 
     def diagnostics(self) -> dict[str, object]:
         return {"runtimes": [{"id": "codex", "available": True}]}
-
-
-@dataclass
-class StubYouTubeAuthStore:
-    connected: bool = False
-    cleared: bool = False
-
-    def connect_from_browser(self, browser: str, profile: str) -> object:
-        assert browser == "chrome"
-        assert profile == "Default"
-        self.connected = True
-        return object()
-
-    def profile(self) -> object | None:
-        return object() if self.connected else None
-
-    def clear(self) -> bool:
-        was_connected = self.connected
-        self.connected = False
-        self.cleared = True
-        return was_connected
 
 
 @pytest.fixture
@@ -114,30 +92,13 @@ def test_authentication_failure_is_actionable(stub: StubApplication, tmp_path: P
     assert "codex login" in result.stdout
 
 
-def test_auth_youtube_selects_a_profile_without_printing_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = StubYouTubeAuthStore()
-    cli_main = import_module("chew.cli.main")
-    monkeypatch.setattr(cli_main, "_youtube_auth_store", lambda: store)
+def test_cli_does_not_offer_youtube_browser_authentication() -> None:
+    result = CliRunner().invoke(app, ["auth", "youtube", "--status"])
 
-    result = CliRunner().invoke(app, ["auth", "youtube", "--from-browser", "chrome", "--profile", "Default"])
-
-    assert result.exit_code == 0
-    assert "YouTube browser profile selected" in result.stdout
-    assert "cookies.txt" not in result.stdout
+    assert result.exit_code == 2
 
 
-def test_auth_youtube_clear_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = StubYouTubeAuthStore()
-    cli_main = import_module("chew.cli.main")
-    monkeypatch.setattr(cli_main, "_youtube_auth_store", lambda: store)
-
-    result = CliRunner().invoke(app, ["auth", "youtube", "--clear"])
-
-    assert result.exit_code == 0
-    assert "No YouTube browser profile is selected" in result.stdout
-
-
-def test_rate_limit_recommends_explicit_youtube_auth(stub: StubApplication, tmp_path: Path) -> None:
+def test_rate_limit_recommends_user_provided_transcript(stub: StubApplication, tmp_path: Path) -> None:
     stub.error = TranscriptRateLimited((), retry_after_seconds=60)
 
     result = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])

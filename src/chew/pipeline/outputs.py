@@ -23,7 +23,7 @@ OUTPUT_RECIPE_FINGERPRINT = fingerprint(
         "outline_task": "output_outline",
         "compose_task": "output_compose",
         "verify_task": "output_verify",
-        "schema_version": 1,
+        "schema_version": 2,
     }
 )
 
@@ -190,7 +190,12 @@ class OutputCompiler:
                 request_id=f"{trace_id}:outline",
                 task="output_outline",
                 input={"pack": source, "profile": profile, "instructions": settings.instructions},
-                output_schema={"type": "object", "required": ["sections"]},
+                output_schema={
+                    "type": "object",
+                    "properties": {"sections": {"type": "array", "items": {"type": "string"}}},
+                    "required": ["sections"],
+                    "additionalProperties": False,
+                },
                 trace_id=trace_id,
             )
         )
@@ -204,7 +209,12 @@ class OutputCompiler:
                     "profile": profile,
                     "instructions": settings.instructions,
                 },
-                output_schema={"type": "object", "required": ["markdown"]},
+                output_schema={
+                    "type": "object",
+                    "properties": {"markdown": {"type": "string"}},
+                    "required": ["markdown"],
+                    "additionalProperties": False,
+                },
                 trace_id=trace_id,
             )
         )
@@ -218,7 +228,12 @@ class OutputCompiler:
                 request_id=f"{trace_id}:verify",
                 task="output_verify",
                 input={"pack": source, "markdown": markdown, "profile": profile},
-                output_schema={"type": "object", "required": ["markdown", "valid"]},
+                output_schema={
+                    "type": "object",
+                    "properties": {"markdown": {"type": "string"}, "valid": {"type": "boolean"}},
+                    "required": ["markdown", "valid"],
+                    "additionalProperties": False,
+                },
                 trace_id=trace_id,
             )
         )

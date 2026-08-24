@@ -157,6 +157,10 @@ class ExecutionPlan(FrozenModel):
     local_accelerator_available: bool | None = None
     max_input_tokens: int | None = Field(default=None, gt=0)
     reserved_output_tokens: int = Field(default=0, ge=0)
+    max_runtime_attempts: int = Field(default=2, ge=1)
+    max_rate_limit_attempts: int = Field(default=3, ge=1)
+    rate_limit_budget_ms: int = Field(default=60_000, gt=0)
+    rate_limit_backoff_cap_ms: int = Field(default=5_000, ge=0)
     reason: str = Field(min_length=1)
     plan_fingerprint: str = Field(min_length=1)
 

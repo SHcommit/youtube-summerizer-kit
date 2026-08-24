@@ -16,6 +16,7 @@ from chew.pipeline.outputs import OutputCompiler
 from chew.pipeline.policy import LOCAL_RUNTIME_IDS, build_execution_plan
 from chew.pipeline.preprocessing import PreprocessingStats
 from chew.storage.database import Database
+from chew.telemetry import TelemetryManager
 from chew.transcripts.user_input import UserTranscriptProvider
 
 
@@ -54,12 +55,14 @@ class ApplicationService:
         *,
         working_directory: Path | None = None,
         registry: HarnessRegistry | None = None,
+        telemetry: TelemetryManager | None = None,
     ) -> None:
         self.pipeline = pipeline
         self.compiler = compiler
         self.database = database
         self.working_directory = working_directory or Path.cwd()
         self.registry = registry
+        self.telemetry = telemetry
 
     async def generate(
         self,
@@ -82,6 +85,25 @@ class ApplicationService:
         return await self._generate(url, profile, destination, analysis_settings, output_settings, transcript=transcript)
 
     async def _generate(
+        self,
+        url: str,
+        profile: str,
+        destination: Path,
+        analysis_settings: Settings,
+        output_settings: Settings,
+        *,
+        transcript: Transcript | None = None,
+    ) -> CommandResult:
+        if self.telemetry is None:
+            return await self._generate_in_scope(
+                url, profile, destination, analysis_settings, output_settings, transcript=transcript
+            )
+        with self.telemetry.run():
+            return await self._generate_in_scope(
+                url, profile, destination, analysis_settings, output_settings, transcript=transcript
+            )
+
+    async def _generate_in_scope(
         self,
         url: str,
         profile: str,

@@ -19,12 +19,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **YouTube caption acquisition hardening**:
   - Adds a player-bootstrap `youtubei` structured transcript provider and a direct player-response `captionTracks` provider ahead of third-party extractors.
   - Records timed-text `HTTP 429` explicitly and continues when YouTube rejects a `youtubei` request with `FAILED_PRECONDITION`.
-  - Enables an installed Node.js runtime for yt-dlp and adds an explicit `youtube_cookie_file` opt-in without automatic browser-profile discovery or cookie copying.
-  - Adds `chew auth youtube` as an explicit local-browser login fallback; it retains only the selected browser/profile name, reads no credentials until caption retrieval, and removes the selection with `--clear`.
+  - Enables an installed Node.js runtime for anonymous public yt-dlp caption retrieval.
 - **Resilient transcript acquisition**:
   - Adds `pytubefix` caption extraction as an independent fallback after yt-dlp and youtube-transcript-api.
   - Preserves 429 as a rate-limit outcome, retries it with bounded backoff, and gives an actionable CLI recovery message.
-  - Documents provider order, opt-in credential boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
+  - Documents provider order, credential-free boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
+
+### Changed
+- **Run-local telemetry injection**: removes the global telemetry singleton. `ApplicationContainer`
+  injects telemetry into the pipeline, and `ApplicationService` opens a `ContextVar`-isolated
+  collector for each generate or resume run so concurrent traces do not share span buffers.
+- **P0 transcript snapshot integrity**: short-video Frontier benchmark preparation now resolves
+  public captions once before any condition runs and injects that immutable snapshot into every
+  single-pass and hierarchical repeat. A resolution failure therefore produces no live condition
+  and no quality report.
+- **Frontier evidence and partial-result validation**: a live Codex run rejected an invalid
+  transcript-evidence candidate, and a controlled live Codex pipeline run confirmed that a failed
+  topic produces an explicit partial result with its missing timestamp range while remaining
+  chapter and compose work completes.
+- **Transcript recovery scope**: rejects visible-panel browser capture and OCR as product fallback
+  work. Public URL acquisition remains the normal path, while explicit VTT/SRT/TXT input remains
+  the sole credential-free recovery mechanism.
+- **Bounded runtime rate-limit recovery**: `ExecutionPlan` now records the normal runtime retry
+  ceiling (2 attempts) and 429 policy (3 attempts, a 60-second per-job budget, and full-jitter
+  waits capped at 5 seconds). Persistent rate limits now end as `failed_runtime`; topic failures
+  retain partial-result behavior, while critical jobs remain terminal. An explicit `chew resume`
+  starts a new in-memory rate-limit budget.
+- **Strict credential-free transcript acquisition**: removed the `chew auth youtube` command, browser-profile store, `youtube_cookie_file` configuration, and yt-dlp cookie/browser options. Built-in provider construction now supports only anonymous public caption retrieval; invalid legacy configuration fails explicitly.
+- **Strict Codex output composition schemas**: output outline, compose, and verification requests now declare complete object properties, allowing cached Knowledge Packs to be reassembled through Codex structured output.
+- **P0 URL-path validation**: the locked five-minute fixture completed public transcript acquisition, Frontier synthesis, Knowledge Pack generation, Digest export, and cached Blog reassembly without browser credentials.
 - **Short-video Frontier benchmark**:
   - Adds `chew benchmark run --short-video` to compare one-pass and hierarchical synthesis using the same transcript and configured Frontier runtime.
   - Records provider usage, latency, evidence coverage, timestamp accuracy, and unsupported claims without mixing in direct video-URL input.

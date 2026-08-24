@@ -425,7 +425,7 @@ def live_benchmark_spec(
     )
 
 
-def short_video_benchmark_spec(
+async def short_video_benchmark_spec(
     url: str,
     *,
     reference: BenchmarkReference,
@@ -448,6 +448,13 @@ def short_video_benchmark_spec(
     source = normalize_youtube_url(url)
     if reference.source_id != source.source_id:
         raise ValueError("benchmark reference source_id does not match URL")
+    transcript = (
+        await TranscriptService(default_providers()).resolve(
+            source,
+            reference.language,
+            include_optional=False,
+        )
+    ).transcript
     registry = default_registry()
     runtime_lock = Lock()
 
@@ -458,9 +465,6 @@ def short_video_benchmark_spec(
     def single_pass() -> ConditionRunner:
         async def observe(_: str) -> BenchmarkObservation:
             selected = await selected_runtime()
-            transcript = (
-                await TranscriptService(default_providers()).resolve(source, reference.language, include_optional=False)
-            ).transcript
             request = GenerationRequest(
                 request_id=str(uuid4()),
                 task="benchmark_single_pass_transcript",
@@ -520,6 +524,7 @@ def short_video_benchmark_spec(
                         runtime=configured_runtime,
                         recipe_json="{}",
                     ),
+                    transcript=transcript,
                 )
             points = [
                 {

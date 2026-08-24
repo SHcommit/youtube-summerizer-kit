@@ -6,10 +6,11 @@ import os
 import time
 from collections import deque
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 try:
     from opentelemetry import trace
@@ -39,12 +40,28 @@ class SpanRecord:
         self.duration_ms = max(0.0, (self.end_time - self.start_time) * 1000)
 
 
+class Telemetry(Protocol):
+    def span(self, name: str, attributes: dict[str, Any] | None = None) -> AbstractContextManager[SpanRecord]: ...
+
+
+class NullTelemetry:
+    @contextmanager
+    def span(self, name: str, attributes: dict[str, Any] | None = None) -> Generator[SpanRecord, None, None]:
+        yield SpanRecord(name=name, start_time=time.time(), attributes=attributes or {})
+
+
+@dataclass
+class _RunCollector:
+    spans: deque[SpanRecord] = field(default_factory=lambda: deque(maxlen=10_000))
+    active_spans: list[SpanRecord] = field(default_factory=list)
+
+
 class TelemetryManager:
     """Manages OpenTelemetry tracing and local span collection for UI dashboard rendering."""
 
     def __init__(self) -> None:
-        self.spans: deque[SpanRecord] = deque(maxlen=10_000)
-        self._active_spans: list[SpanRecord] = []
+        self._default_collector = _RunCollector()
+        self._collector: ContextVar[_RunCollector | None] = ContextVar("chew_telemetry_collector", default=None)
         self.tracer = None
 
         if HAS_OPENTELEMETRY:
@@ -60,11 +77,25 @@ class TelemetryManager:
             trace.set_tracer_provider(provider)
             self.tracer = trace.get_tracer("chew.telemetry")
 
+    @property
+    def spans(self) -> deque[SpanRecord]:
+        collector = self._collector.get()
+        return self._default_collector.spans if collector is None else collector.spans
+
+    @contextmanager
+    def run(self) -> Generator[TelemetryManager, None, None]:
+        token = self._collector.set(_RunCollector())
+        try:
+            yield self
+        finally:
+            self._collector.reset(token)
+
     @contextmanager
     def span(self, name: str, attributes: dict[str, Any] | None = None) -> Generator[SpanRecord, None, None]:
         start_time = time.time()
         record = SpanRecord(name=name, start_time=start_time, attributes=attributes or {})
-        self._active_spans.append(record)
+        collector = self._collector.get() or self._default_collector
+        collector.active_spans.append(record)
 
         otel_span = None
         if self.tracer is not None:
@@ -83,9 +114,9 @@ class TelemetryManager:
             raise
         finally:
             record.finish()
-            if record in self._active_spans:
-                self._active_spans.remove(record)
-            self.spans.append(record)
+            if record in collector.active_spans:
+                collector.active_spans.remove(record)
+            collector.spans.append(record)
             if otel_span is not None:
                 otel_span.end()
 
@@ -140,7 +171,3 @@ class TelemetryManager:
             attr_str = ", ".join(f"{k}: {v}" for k, v in s.attributes.items()) if s.attributes else "-"
             lines.append(f"| `{s.name}` | {s.duration_ms:.1f} ms | +{rel_start:.1f} ms | {s.status} | {attr_str} |")
         return lines
-
-
-# Global singleton instance for easy import across chew
-telemetry = TelemetryManager()

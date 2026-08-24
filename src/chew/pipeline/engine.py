@@ -39,7 +39,7 @@ from chew.pipeline.scheduler import Scheduler
 from chew.pipeline.segmentation import SegmentationPolicy, SegmentManifest, segment_transcript
 from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 from chew.storage.database import Database, JobRecord, JobSpec
-from chew.telemetry import telemetry
+from chew.telemetry import NullTelemetry, Telemetry
 from chew.transcripts.service import TranscriptService
 from chew.transcripts.validation import normalize_transcript
 
@@ -128,12 +128,14 @@ class AnalysisPipeline:
         transcripts: TranscriptService,
         harness: Harness,
         concurrency: int = 2,
+        telemetry: Telemetry | None = None,
     ) -> None:
         self.database = database
         self.artifacts = artifacts
         self.transcripts = transcripts
         self.harness = harness
         self.concurrency = concurrency
+        self.telemetry = telemetry or NullTelemetry()
 
     async def analyze(
         self,
@@ -189,7 +191,7 @@ class AnalysisPipeline:
         if transcript is not None:
             self.artifacts.put_json(transcript)
         elif cached_hash is None:
-            with telemetry.span("chew.transcript_acquisition", {"source": source.canonical_url or source.source_id}):
+            with self.telemetry.span("chew.transcript_acquisition", {"source": source.canonical_url or source.source_id}):
                 resolution = await self.transcripts.resolve(
                     source,
                     config.language,
@@ -216,7 +218,7 @@ class AnalysisPipeline:
             self.artifacts.put_json(analysis_transcript)
         transcript_hash = fingerprint(analysis_transcript)
         selected_chapters = chapters or transcript.chapters
-        with telemetry.span(
+        with self.telemetry.span(
             "chew.segmentation",
             {
                 "raw_chapters": len(transcript.chapters),
@@ -328,8 +330,9 @@ class AnalysisPipeline:
             handler,
             global_concurrency=self.concurrency,
             runtime_limits={self.harness.runtime_id: self.concurrency},
+            execution_plan=config.execution_plan,
         )
-        with telemetry.span(
+        with self.telemetry.span(
             "chew.dag_scheduler",
             {
                 "total_jobs": len(graph),

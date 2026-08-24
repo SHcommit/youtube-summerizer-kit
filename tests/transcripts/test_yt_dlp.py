@@ -12,23 +12,20 @@ SOURCE = normalize_youtube_url("https://youtu.be/abcDEF_1234")
 pytestmark = pytest.mark.asyncio
 
 
-async def test_yt_dlp_options_enable_installed_node_and_explicit_cookie_file(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_yt_dlp_options_enable_installed_node_without_credential_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("chew.transcripts.yt_dlp.which", lambda executable: "/usr/local/bin/node" if executable == "node" else None)
 
-    options = yt_dlp_options(cookie_file="./youtube-cookies.txt")
+    options = yt_dlp_options()
 
     assert options["js_runtimes"] == {"node": {"path": "/usr/local/bin/node"}}
     assert options["remote_components"] == {"ejs:github"}
-    assert options["cookiefile"] == "./youtube-cookies.txt"
-
-
-async def test_yt_dlp_options_use_only_the_selected_browser_profile(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("chew.transcripts.yt_dlp.which", lambda _: None)
-
-    options = yt_dlp_options(browser_profile=("chrome", "Default"))
-
-    assert options["cookiesfrombrowser"] == ("chrome", "Default", None, None)
     assert "cookiefile" not in options
+    assert "cookiesfrombrowser" not in options
+
+
+async def test_yt_dlp_options_reject_credential_arguments() -> None:
+    with pytest.raises(TypeError):
+        yt_dlp_options(cookie_file="./youtube-cookies.txt")  # type: ignore[call-arg]
 
 
 async def test_manual_subtitles_are_preferred_over_automatic() -> None:

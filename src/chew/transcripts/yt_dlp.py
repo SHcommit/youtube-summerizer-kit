@@ -18,31 +18,22 @@ from chew.transcripts.base import provider_failure_reason
 Extractor = Callable[[str], Mapping[str, Any]]
 
 
-def yt_dlp_options(
-    *, cookie_file: str | None = None, browser_profile: tuple[str, str] | None = None
-) -> dict[str, Any]:
-    """Build yt-dlp options for reliable, explicitly authorized caption reads."""
+def yt_dlp_options() -> dict[str, Any]:
+    """Build yt-dlp options for anonymous public caption reads."""
 
     options: dict[str, Any] = {"quiet": True, "no_warnings": True, "skip_download": True}
     if node_path := which("node"):
         options["js_runtimes"] = {"node": {"path": node_path}}
         options["remote_components"] = {"ejs:github"}
-    if cookie_file is not None:
-        options["cookiefile"] = cookie_file
-    elif browser_profile is not None:
-        browser, profile = browser_profile
-        options["cookiesfrombrowser"] = (browser, profile, None, None)
     return options
 
 
-def _default_extract(
-    url: str, *, cookie_file: str | None = None, browser_profile: tuple[str, str] | None = None
-) -> Mapping[str, Any]:
+def _default_extract(url: str) -> Mapping[str, Any]:
     try:
         youtube_dl = import_module("yt_dlp").YoutubeDL
     except ImportError as error:
         raise RuntimeError("yt-dlp가 필요합니다: pip install youtube-summarizer-kit[youtube]") from error
-    options = yt_dlp_options(cookie_file=cookie_file, browser_profile=browser_profile)
+    options = yt_dlp_options()
     with youtube_dl(options) as downloader:
         value = downloader.extract_info(url, download=False)
         return cast(Mapping[str, Any], downloader.sanitize_info(value))
@@ -149,12 +140,8 @@ class YtDlpSubtitleProvider:
         extractor: Extractor | None = None,
         *,
         caption_kind: Literal["manual", "automatic", "both"] = "both",
-        cookie_file: str | None = None,
-        browser_profile: tuple[str, str] | None = None,
     ) -> None:
-        self.extractor = extractor or (
-            lambda url: _default_extract(url, cookie_file=cookie_file, browser_profile=browser_profile)
-        )
+        self.extractor = extractor or _default_extract
         self.caption_kind = caption_kind
         self.name = f"yt-dlp-{caption_kind}"
         self._attempt_metadata: ContextVar[tuple[str | None, tuple[Chapter, ...]]] = ContextVar(

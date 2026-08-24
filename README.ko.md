@@ -104,7 +104,7 @@ chew 요약 --transcript ./captions.vtt \
   --source-url "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-`chew`는 자막 복구를 위해 브라우저 쿠키, Keychain 값, 비밀번호, 프록시 credential을 읽지 않습니다. VTT/SRT의 cue timing은 보존하며 일반 TXT 줄에는 결정적인 시간 범위를 부여합니다. 영상·계정이 제한된 경우 YouTube가 자막을 거부할 수 있습니다. provider 제한과 오류 이유는 [자막 획득 문서](docs/wiki/transcript-acquisition.md)를 참고하세요.
+`chew`는 브라우저 로그인, cookie-file, 브라우저 프로필 기반 자막 fallback을 제공하지 않으며 자막 복구를 위해 브라우저 쿠키, Keychain 값, 비밀번호, 프록시 credential을 읽지 않습니다. VTT/SRT의 cue timing은 보존하며 일반 TXT 줄에는 결정적인 시간 범위를 부여합니다. 영상·계정이 제한된 경우 YouTube가 자막을 거부할 수 있습니다. provider 제한과 오류 이유는 [자막 획득 문서](docs/wiki/transcript-acquisition.md)를 참고하세요.
 
 로컬 오디오·영상 파일 입력에도 `whisper` extra가 필요하지만, YouTube fallback 설정을 켤 필요는 없습니다.
 
@@ -498,7 +498,7 @@ chew 벤치마크 실행 'https://www.youtube.com/watch?v=c4GaJKprGEs' --live --
 
 비교 조건은 Gemini 직접 URL 분석(단순 프롬프트·동일 스키마)과 계층형 파이프라인(Gemini·설정 실행기)입니다. 기준 답안의 주장·근거·타임스탬프와 비교해 recall, 근거 coverage, timestamp accuracy, 장시간 구간 coverage, unsupported claim을 계산합니다. 입력 방식이 `video_url`인지 `transcript`인지 분리 표기하여 Gemini의 멀티모달 이점을 파이프라인 품질로 오인하지 않습니다.
 
-`--short-video`는 같은 configured Frontier runtime에 같은 transcript를 넣는 단일 요약과 계층 합성을 비교합니다. 짧은 영상의 기본 경로 판단용이며, 사람이 검토한 reference 파일이 필요합니다. 두 조건이 모두 성공하기 전에는 결과를 채택하지 않습니다.
+`--short-video`는 두 조건을 시작하기 전에 공개 transcript snapshot을 한 번만 확보하고, 모든 반복에서 같은 snapshot과 configured Frontier runtime으로 단일 요약·계층 합성을 비교합니다. 짧은 영상의 기본 경로 판단용이며, 사람이 검토한 reference 파일이 필요합니다. 자막 확보에 실패하면 live condition이나 report를 만들지 않습니다.
 
 라이브 벤치마크는 실제 로그인과 사용량이 발생하므로 `--live`와 기준 답안 파일을 모두 명시해야 실행됩니다. 결과는 `benchmark-results/run-*/report.json`과 `report.md`에 원자적으로 저장됩니다. 아직 실제 다국어·다양한 길이의 공개 코퍼스 결과를 제공하거나 Gemini보다 항상 우수하다고 주장하지 않습니다.
 

@@ -27,7 +27,6 @@ class Settings(BaseModel):
     local_accelerator: bool = False
     ollama_model: str | None = None
     whisper_fallback: bool = False
-    youtube_cookie_file: str | None = None
     max_input_tokens: int | None = Field(default=None, gt=0)
     reserved_output_tokens: int = Field(default=0, ge=0)
     output_verify: bool = True
@@ -79,7 +78,10 @@ def _merge(settings: Settings, path: Path) -> Settings:
     update = dict(metadata)
     prior = settings.instructions.strip()
     update["instructions"] = "\n\n".join(part for part in (prior, body) if part)
-    return settings.model_copy(update=update)
+    try:
+        return Settings.model_validate({**settings.model_dump(), **update})
+    except ValidationError as error:
+        raise ConfigurationError(f"Invalid configuration: {error}") from error
 
 
 def load_settings(start: Path, profile: str | None) -> Settings:

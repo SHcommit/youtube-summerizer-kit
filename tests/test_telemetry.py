@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 from collections import deque
+
+import pytest
 
 from chew.telemetry import TelemetryManager
 
@@ -23,3 +26,19 @@ def test_old_spans_evicted_when_maxlen_exceeded() -> None:
     names = {s.name for s in mgr.spans}
     assert "s0" not in names
     assert "s10000" in names
+
+
+@pytest.mark.asyncio
+async def test_run_scopes_keep_concurrent_span_collectors_isolated() -> None:
+    manager = TelemetryManager()
+
+    async def record(name: str) -> tuple[str, ...]:
+        with manager.run():
+            with manager.span(name):
+                await asyncio.sleep(0)
+            return tuple(span.name for span in manager.spans)
+
+    first, second = await asyncio.gather(record("first"), record("second"))
+
+    assert first == ("first",)
+    assert second == ("second",)

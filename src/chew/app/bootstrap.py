@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from pathlib import Path
 
 from platformdirs import user_data_path
@@ -17,6 +18,7 @@ from chew.pipeline.engine import AnalysisPipeline
 from chew.pipeline.outputs import OutputCompiler
 from chew.storage.artifacts import ArtifactStore
 from chew.storage.database import Database
+from chew.telemetry import TelemetryManager
 from chew.transcripts import TranscriptService, default_providers
 from chew.transcripts.whisper import WhisperProvider
 
@@ -74,9 +76,15 @@ class AutoHarness:
             return await selected.generate(request)
 
 
-def build_application(
+@dataclass(frozen=True, slots=True)
+class ApplicationContainer:
+    application: ApplicationService
+    telemetry: TelemetryManager
+
+
+def build_container(
     *, working_directory: Path | None = None, data_directory: Path | None = None
-) -> ApplicationService:
+) -> ApplicationContainer:
     data = data_directory or Path(user_data_path("youtube-summarizer-kit", appauthor=False))
     database = Database(data / "state.sqlite3")
     database.initialize()
@@ -85,23 +93,29 @@ def build_application(
     registry = default_registry(ollama_model=settings.ollama_model)
     harness = AutoHarness(registry)
     whisper = WhisperProvider()
+    telemetry = TelemetryManager()
     pipeline = AnalysisPipeline(
         database=database,
         artifacts=artifacts,
-        transcripts=TranscriptService(
-            default_providers(),
-            optional_providers=(whisper,),
-            local_providers=(whisper,),
-        ),
+        transcripts=TranscriptService(default_providers(), optional_providers=(whisper,), local_providers=(whisper,)),
         harness=harness,
+        telemetry=telemetry,
     )
-    return ApplicationService(
+    application = ApplicationService(
         pipeline,
         OutputCompiler(harness, database=database, artifacts=artifacts),
         database,
         working_directory=working_directory,
         registry=registry,
+        telemetry=telemetry,
     )
+    return ApplicationContainer(application, telemetry)
+
+
+def build_application(
+    *, working_directory: Path | None = None, data_directory: Path | None = None
+) -> ApplicationService:
+    return build_container(working_directory=working_directory, data_directory=data_directory).application
 
 
 def build_retention_planner(data_directory: Path | None = None) -> RetentionPlanner:

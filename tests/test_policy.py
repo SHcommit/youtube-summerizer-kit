@@ -18,6 +18,10 @@ def test_policy_keeps_frontier_as_default_route_and_records_budget() -> None:
     assert plan.runtime_for("compose") == "gemini"
     assert plan.fallback_runtime_id == "gemini"
     assert plan.max_input_tokens == 3_200
+    assert plan.max_runtime_attempts == 2
+    assert plan.max_rate_limit_attempts == 3
+    assert plan.rate_limit_budget_ms == 60_000
+    assert plan.rate_limit_backoff_cap_ms == 5_000
     assert plan.reason == "frontier_only"
     assert plan.plan_fingerprint
 
