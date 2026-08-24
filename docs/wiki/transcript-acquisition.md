@@ -113,6 +113,14 @@ TXT uses deterministic 30-second sequential ranges because it contains no native
   no manual subtitle track was published. This is sufficient for the credential-free preprocessing
   fixture catalog, not a reliability guarantee or a completed Frontier benchmark.
 
+### 2026-08-24: Korean conversational preprocessing fixture
+
+- Fixture: `https://www.youtube.com/watch?v=wVJrspYo-18`
+  (`youtube_ko_38m48s_for_benchmark`, 2,328 seconds, `ko`).
+- Anonymous public metadata lookup confirmed Korean automatic caption tracks (`ko`, `ko-orig`);
+  no manual subtitle track was published. This is a credential-free fixture-catalog check only,
+  not a completed Frontier benchmark or a quality claim.
+
 ### 2026-08-24: Five-minute URL-to-Knowledge-Pack execution
 
 - Fixture: `https://www.youtube.com/watch?v=c4GaJKprGEs`

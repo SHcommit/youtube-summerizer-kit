@@ -61,17 +61,16 @@ def test_documented_benchmark_scripts_show_help_from_repo_root() -> None:
         assert "usage:" in result.stdout
 
 
-def test_canonical_lock_includes_the_korean_lecture_with_its_caption_language() -> None:
+def test_canonical_lock_includes_korean_fixtures_with_their_caption_languages() -> None:
     locked = load_video_lock(REPO_ROOT / "benchmarks" / "videos.lock.json")
-    korean_lecture = next(
-        video
-        for video in locked.videos
-        if video.key == "youtube_ko_45m46s_for_benchmark"
-    )
+    by_key = {video.key: video for video in locked.videos}
 
-    assert korean_lecture.youtube_id == "YcA31dmSNMk"
-    assert korean_lecture.language == "ko"
-    assert korean_lecture.duration_seconds == 2746
+    assert by_key["youtube_ko_45m46s_for_benchmark"].youtube_id == "YcA31dmSNMk"
+    assert by_key["youtube_ko_45m46s_for_benchmark"].language == "ko"
+    assert by_key["youtube_ko_45m46s_for_benchmark"].duration_seconds == 2746
+    assert by_key["youtube_ko_38m48s_for_benchmark"].youtube_id == "wVJrspYo-18"
+    assert by_key["youtube_ko_38m48s_for_benchmark"].language == "ko"
+    assert by_key["youtube_ko_38m48s_for_benchmark"].duration_seconds == 2328
 
 
 def test_metrics_runner_counts_korean_and_english_fillers() -> None:

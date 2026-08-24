@@ -12,20 +12,20 @@
 
 ## Next Priorities
 
-1. Review and lock one Korean conversational fixture, then prepare independently human-reviewed
-   quality references for the Korean lecture, long-video preprocessing, and 4m35s short-video
-   conditions. Run the Frontier benchmarks only as the integrated pre-deployment gate.
+1. Prepare independently human-reviewed quality references for the Korean fixtures, long-video
+   preprocessing, and 4m35s short-video conditions. Run the Frontier benchmarks only as the
+   integrated pre-deployment gate.
 
 ## Active Constraints
 
 - `benchmarks/videos.lock.json` contains the Korean lecture fixture
-  `youtube_ko_45m46s_for_benchmark` plus English fixtures: `youtube_en_4m35s_for_benchmark`,
+  `youtube_ko_45m46s_for_benchmark`, Korean conversational fixture
+  `youtube_ko_38m48s_for_benchmark`, plus English fixtures: `youtube_en_4m35s_for_benchmark`,
   `youtube_en_39m00s_for_benchmark`, `youtube_en_55m48s_for_benchmark`,
-  `youtube_en_2h00m09s_for_benchmark`, and `youtube_en_2h49m45s_for_benchmark`. It still lacks a
-  Korean conversational fixture. Do not substitute an arbitrary URL; review and lock it before the
-  preprocessing adoption benchmark. A locked fixture is a reproducibility target for maintainer
-  benchmarks, not a user-input restriction. Its matching quality reference must be independently
-  human-reviewed; the project ships no reusable live-reference answer.
+  `youtube_en_2h00m09s_for_benchmark`, and `youtube_en_2h49m45s_for_benchmark`. A locked fixture
+  is a reproducibility target for maintainer benchmarks, not a user-input restriction. Its matching
+  quality reference must be independently human-reviewed; the project ships no reusable
+  live-reference answer.
 - Each lock entry has a required caption `language`; both preprocessing measurement paths request
   that entry-specific language. The Korean lecture has publicly available automatic `ko` captions,
   but this does not establish an availability guarantee.
@@ -56,6 +56,8 @@
 - `3bac530` adds the Korean lecture catalog and per-video caption-language handling. Full
   verification is current: `287 passed, 2 skipped`; Ruff and mypy passed. The metadata and
   caption-track check used anonymous public yt-dlp only; no live Frontier benchmark was run.
+- Korean conversational fixture catalog work is pending commit. The same anonymous public metadata
+  and caption-track check confirmed `ko`/`ko-orig`; no live Frontier benchmark was run.
 - A result-path audit found no hard-coded summary, claim, or evidence content under `src/chew`.
   Static result strings are only renderer structure and state/provenance labels; every semantic
   result value comes from a Knowledge Pack and validated transcript evidence.

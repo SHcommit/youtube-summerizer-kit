@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Korean conversational benchmark fixture**: adds the publicly captioned 38m48s Korean
+  conversational fixture `youtube_ko_38m48s_for_benchmark` to the locked maintainer preprocessing
+  catalog. It is a reproducibility input only; no live Frontier benchmark or quality claim was run.
 - **Korean lecture benchmark fixture**: adds the publicly captioned 45m46s Korean lecture
   `youtube_ko_45m46s_for_benchmark` to the locked maintainer preprocessing catalog. It is a
   reproducibility input only; no live Frontier benchmark or quality claim was run.

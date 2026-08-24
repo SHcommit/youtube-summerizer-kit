@@ -38,8 +38,9 @@ command fails instead of overwriting it.
 
 The canonical catalog is `benchmarks/videos.lock.json`. It contains five
 verified English videos from about five minutes to just under three hours and
-one verified Korean lecture fixture. Each entry declares the caption language
-the runner requests; a catalog-wide language override is deliberately not used.
+two verified Korean fixtures (lecture and conversational). Each entry declares
+the caption language the runner requests; a catalog-wide language override is
+deliberately not used.
 
 Unavailable transcripts must remain visible as failed entries in `metrics.json`.
 Do not silently substitute another video or transcript source.
