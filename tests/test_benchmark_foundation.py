@@ -358,7 +358,7 @@ def test_report_data_detects_per_video_effect_even_when_totals_cancel_out() -> N
     current = _metrics_payload("current-1", 900, 1.0)
     baseline["videos"].append(
         {
-            "key": "39m_en",
+            "key": "youtube_en_39m00s_for_benchmark",
             "status": "success",
             "substituted": False,
             "raw_input_tokens": 1000,
@@ -369,7 +369,7 @@ def test_report_data_detects_per_video_effect_even_when_totals_cancel_out() -> N
     )
     current["videos"].append(
         {
-            "key": "39m_en",
+            "key": "youtube_en_39m00s_for_benchmark",
             "status": "success",
             "substituted": False,
             "raw_input_tokens": 1000,
@@ -515,7 +515,7 @@ def test_report_data_rejects_quality_with_missing_video_keys() -> None:
     current = _metrics_payload("current-1", 700, 0.9)
     baseline["videos"].append(
         {
-            "key": "39m_en",
+            "key": "youtube_en_39m00s_for_benchmark",
             "status": "success",
             "substituted": False,
             "raw_input_tokens": 2000,
@@ -526,7 +526,7 @@ def test_report_data_rejects_quality_with_missing_video_keys() -> None:
     )
     current["videos"].append(
         {
-            "key": "39m_en",
+            "key": "youtube_en_39m00s_for_benchmark",
             "status": "success",
             "substituted": False,
             "raw_input_tokens": 2000,
@@ -551,7 +551,7 @@ def test_report_data_rejects_quality_with_missing_video_keys() -> None:
 
     assert report["decision"]["status"] == "reject"
     assert report["dimensions"][2]["status"] == "fail"
-    assert any("Quality keys differ: missing 39m_en" in risk for risk in report["risks"])
+    assert any("Quality keys differ: missing youtube_en_39m00s_for_benchmark" in risk for risk in report["risks"])
 
 
 def test_report_renders_previous_current_change_and_state_sections() -> None:

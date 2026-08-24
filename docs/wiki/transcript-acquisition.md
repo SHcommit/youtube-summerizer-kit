@@ -139,7 +139,8 @@ TXT uses deterministic 30-second sequential ranges because it contains no native
 
 ### 2026-08-24: Representative long-video fixture
 
-- Fixture: `https://www.youtube.com/watch?v=ZIaOBAjvc38` (`39m_en`, 2,340 seconds in the
+- Fixture: `https://www.youtube.com/watch?v=ZIaOBAjvc38`
+  (`youtube_en_39m00s_for_benchmark`, 2,340 seconds in the
   locked fixture catalog; this is the current representative video near the requested 30-minute
   class).
 - Cache-bypassed provider-chain run completed in **16.82 seconds**. `youtubei-transcript`

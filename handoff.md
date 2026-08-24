@@ -18,13 +18,13 @@
 
 ## Active Constraints
 
-- `benchmarks/videos.lock.json` currently contains only English fixtures (`5m`, `39m`, `1h`,
-  `2h`, `2h50m`). It has no Korean conversational/lecture fixture or 55-minute fixture. Do not
-  substitute an arbitrary URL; review and lock the missing fixtures before the preprocessing
-  adoption benchmark. A locked fixture is a reproducibility target for maintainer benchmarks, not
-  a user-input restriction. Its matching quality reference must be independently human-reviewed;
-  the project ships no reusable live-reference answer. The 275-second fixture key is
-  `youtube_en_4m35s_for_benchmark`.
+- `benchmarks/videos.lock.json` currently contains only English fixtures: `youtube_en_4m35s_for_benchmark`,
+  `youtube_en_39m00s_for_benchmark`, `youtube_en_55m48s_for_benchmark`,
+  `youtube_en_2h00m09s_for_benchmark`, and `youtube_en_2h49m45s_for_benchmark`. It has no Korean
+  conversational/lecture fixture. Do not substitute an arbitrary URL; review and lock the missing
+  fixtures before the preprocessing adoption benchmark. A locked fixture is a reproducibility
+  target for maintainer benchmarks, not a user-input restriction. Its matching quality reference
+  must be independently human-reviewed; the project ships no reusable live-reference answer.
 - `ExecutionPlan` records normal-runtime retry (2 attempts) and 429 policy (3 attempts, 60-second
   budget, 5-second full-jitter cap). The scheduler resets that in-memory 429 budget for an explicit
   `chew resume`. Generation subprocess timeout remains the separate `GenerationRequest` default.
