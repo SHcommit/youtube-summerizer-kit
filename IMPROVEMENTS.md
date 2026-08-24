@@ -38,9 +38,9 @@
 ## 1.5 P0: 입력 획득 신뢰성 및 Keychain 비의존
 
 이 서비스의 첫 번째 성공 조건은 Frontier 요약 이전에 검증 가능한 raw transcript를 얻는 것이다.
-2026-08-24 cache-bypassed provider-chain 실측에서 5분 fixture는 `yt-dlp-automatic`으로 23.1초에
-75개 segment를 반환했다. YouTube 응답은 시점·네트워크별로 달라질 수 있으므로, 상세 결과와 실패
-원인은 [`docs/wiki/transcript-acquisition.md`](docs/wiki/transcript-acquisition.md)에 보존한다.
+완료된 provider deadline, public fallback, credential-free file input과 실측 기록은
+[`CHANGELOG.md`](CHANGELOG.md) 및
+[`docs/wiki/transcript-acquisition.md`](docs/wiki/transcript-acquisition.md)를 기준으로 한다.
 
 ### P0 원칙
 
