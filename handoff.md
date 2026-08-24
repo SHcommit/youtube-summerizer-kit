@@ -12,10 +12,13 @@
 
 ## Next Priorities
 
-1. Review `benchmarks/reference-drafts/` and transcribe approved candidates into independently
-   human-reviewed JSON references for the Korean fixtures, long-video preprocessing, and 4m35s
-   short-video conditions. Reference structure is preflight-validated; run the Frontier benchmarks
-   only as the integrated pre-deployment gate.
+1. Review [`anthropic_en_14m34s_short_frontier.md`](benchmarks/reference-drafts/anthropic_en_14m34s_short_frontier.md)
+   and transcribe approved claims into an independently human-reviewed JSON reference. Then run the
+   same public-caption snapshot through `chew benchmark run --live --short-video` using Codex.
+2. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
+   independently human-reviewed JSON references for the Korean fixtures, long-video preprocessing,
+   and 4m35s short-video conditions. Run the remaining Frontier benchmarks only as the integrated
+   pre-deployment gate.
 
 ## Active Constraints
 
