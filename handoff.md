@@ -30,6 +30,8 @@
 - Cache-bypassed public provider chain completed in 23.1 seconds. `youtubei` returned an HTTP
   error, timed-text and manual captions had no usable result, and `yt-dlp-automatic` returned 75
   segments. This was acquisition-only, not a Frontier or Knowledge Pack success claim.
+- Cache-bypassed `39m_en` completed in 16.82 seconds with `yt-dlp-automatic`: 836 segments and
+  2,340,000 ms duration. It was also acquisition-only.
 - Earlier failures and rejected browser-session/proxy approaches are in
   [`docs/wiki/transcript-acquisition.md`](docs/wiki/transcript-acquisition.md).
 

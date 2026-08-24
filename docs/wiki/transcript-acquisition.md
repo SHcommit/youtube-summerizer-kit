@@ -62,6 +62,17 @@ TXT uses deterministic 30-second sequential ranges because it contains no native
 - This proves public acquisition can work on the fixture but is not a reliability guarantee.
   The run deliberately stopped before Frontier synthesis; it is not a Knowledge Pack benchmark.
 
+### 2026-08-24: Representative long-video fixture
+
+- Fixture: `https://www.youtube.com/watch?v=ZIaOBAjvc38` (`39m_en`, 2,340 seconds in the
+  locked fixture catalog; this is the current representative video near the requested 30-minute
+  class).
+- Cache-bypassed provider-chain run completed in **16.82 seconds**. `youtubei-transcript`
+  returned an HTTP error, timed-text and manual captions had no usable result, and
+  `yt-dlp-automatic` returned **836** segments with a 2,340,000 ms duration.
+- This was transcript acquisition only. It did not invoke Frontier and must not be reported as a
+  summary-quality or end-to-end benchmark.
+
 ## Rejected Approaches
 
 - Browser cookie/profile extraction: may access OS credential storage and is not required for the
