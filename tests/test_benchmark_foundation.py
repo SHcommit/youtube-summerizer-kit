@@ -65,7 +65,7 @@ def test_documented_benchmark_scripts_show_help_from_repo_root() -> None:
 async def test_metrics_runner_uses_transcript_resolution_service() -> None:
     service = ResolvingTranscriptService()
 
-    row = await run_preprocessing._measure_video("5m_en", "c4GaJKprGEs", service, "detailed")
+    row = await run_preprocessing._measure_video("youtube_en_4m35s_for_benchmark", "c4GaJKprGEs", service, "detailed")
 
     assert row["status"] == "success"
     assert row["transcript_provider"] == "fake-provider"
@@ -79,7 +79,7 @@ async def test_metrics_runner_records_stage_latencies_for_post_feature_validatio
     service = ResolvingTranscriptService()
 
     row = await run_preprocessing._measure_video(
-        "5m_en",
+        "youtube_en_4m35s_for_benchmark",
         "c4GaJKprGEs",
         service,
         "detailed",
@@ -109,7 +109,7 @@ def test_report_and_quality_scripts_refuse_to_overwrite_artifacts(tmp_path: Path
             {
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "evidence_recall": 1.0,
                         "timestamp_accuracy": 1.0,
                         "unsupported_claims": 0,
@@ -159,13 +159,13 @@ def test_video_lock_rejects_duplicate_video_keys(tmp_path: Path) -> None:
                 "verification_method": "yt-dlp",
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "youtube_id": "c4GaJKprGEs",
                         "title": "First",
                         "duration_seconds": 275,
                     },
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "youtube_id": "ZIaOBAjvc38",
                         "title": "Second",
                         "duration_seconds": 2340,
@@ -204,7 +204,7 @@ def test_comparison_requires_matching_lock_hash_and_successful_videos(tmp_path: 
         "lock_file_sha256": "same-lock",
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "status": "success",
                 "substituted": False,
             }
@@ -217,7 +217,7 @@ def test_comparison_requires_matching_lock_hash_and_successful_videos(tmp_path: 
         "lock_file_sha256": "different-lock",
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "status": "failed",
                 "substituted": False,
             }
@@ -229,7 +229,7 @@ def test_comparison_requires_matching_lock_hash_and_successful_videos(tmp_path: 
     assert eligibility.eligible is False
     assert eligibility.reasons == (
         "lock_file_sha256 differs",
-        "current video 5m_en status is failed",
+        "current video youtube_en_4m35s_for_benchmark status is failed",
     )
 
 
@@ -238,7 +238,7 @@ def test_quality_gate_fails_for_low_recall_and_unsupported_claims() -> None:
         {
             "videos": [
                 {
-                    "key": "5m_en",
+                    "key": "youtube_en_4m35s_for_benchmark",
                     "evidence_recall": 0.75,
                     "timestamp_accuracy": 0.95,
                     "unsupported_claims": 1,
@@ -250,8 +250,8 @@ def test_quality_gate_fails_for_low_recall_and_unsupported_claims() -> None:
 
     assert result.passed is False
     assert result.failures == (
-        "5m_en evidence_recall 0.7500 below floor 0.9000",
-        "5m_en unsupported_claims 1 above floor 0",
+        "youtube_en_4m35s_for_benchmark evidence_recall 0.7500 below floor 0.9000",
+        "youtube_en_4m35s_for_benchmark unsupported_claims 1 above floor 0",
     )
 
 
@@ -269,7 +269,7 @@ def test_report_data_calculates_token_reduction_from_saved_metrics(tmp_path: Pat
                 "lock_file_sha256": "same-lock",
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "status": "success",
                         "substituted": False,
                         "raw_input_tokens": 1000,
@@ -291,7 +291,7 @@ def test_report_data_calculates_token_reduction_from_saved_metrics(tmp_path: Pat
                 "lock_file_sha256": "same-lock",
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "status": "success",
                         "substituted": False,
                         "raw_input_tokens": 1000,
@@ -310,7 +310,7 @@ def test_report_data_calculates_token_reduction_from_saved_metrics(tmp_path: Pat
     assert report["eligible"] is True
     assert report["videos"] == [
         {
-            "key": "5m_en",
+            "key": "youtube_en_4m35s_for_benchmark",
             "baseline_tokens": 1000,
             "current_tokens": 700,
             "token_delta": -300,
@@ -334,7 +334,7 @@ def test_report_data_summarizes_totals_and_warns_when_candidate_has_no_measurabl
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 1.0,
                 "timestamp_accuracy": 1.0,
                 "unsupported_claims": 0,
@@ -392,7 +392,7 @@ def test_report_data_marks_quality_failure_as_reject() -> None:
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.72,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -414,7 +414,7 @@ def test_report_data_marks_speed_regression_as_revise_despite_token_win() -> Non
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.96,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -438,7 +438,7 @@ def test_decision_summary_does_not_claim_token_win_when_speed_regresses_without_
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 1.0,
                 "timestamp_accuracy": 1.0,
                 "unsupported_claims": 0,
@@ -459,7 +459,7 @@ def test_report_data_uses_saved_quality_gate_decision() -> None:
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.96,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -472,7 +472,7 @@ def test_report_data_uses_saved_quality_gate_decision() -> None:
         },
         "quality_gate": {
             "passed": False,
-            "failures": ["5m_en evidence_recall 0.9600 below floor 0.9900"],
+            "failures": ["youtube_en_4m35s_for_benchmark evidence_recall 0.9600 below floor 0.9900"],
         },
     }
 
@@ -481,7 +481,7 @@ def test_report_data_uses_saved_quality_gate_decision() -> None:
     assert report["decision"]["status"] == "reject"
     assert report["quality_gate"] == {
         "passed": False,
-        "failures": ["5m_en evidence_recall 0.9600 below floor 0.9900"],
+        "failures": ["youtube_en_4m35s_for_benchmark evidence_recall 0.9600 below floor 0.9900"],
     }
     assert report["dimensions"][2]["status"] == "fail"
 
@@ -491,7 +491,7 @@ def test_report_data_rejects_quality_from_a_different_current_run() -> None:
         "current_run_id": "current-other",
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 1.0,
                 "timestamp_accuracy": 1.0,
                 "unsupported_claims": 0,
@@ -538,7 +538,7 @@ def test_report_data_rejects_quality_with_missing_video_keys() -> None:
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.96,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -566,7 +566,7 @@ def test_report_renders_previous_current_change_and_state_sections() -> None:
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.96,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -603,7 +603,7 @@ def test_metrics_payload_preserves_release_metadata_and_stage_counts(tmp_path: P
                 "verification_method": "fixture",
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "youtube_id": "c4GaJKprGEs",
                         "title": "Locked title",
                         "duration_seconds": 275,
@@ -632,7 +632,7 @@ def test_metrics_payload_preserves_release_metadata_and_stage_counts(tmp_path: P
         },
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "youtube_id": "c4GaJKprGEs",
                 "locked_title": "Locked title",
                 "locked_duration_seconds": 275,
@@ -824,7 +824,7 @@ def _metrics_payload(run_id: str, processed_tokens: int, latency_seconds: float)
         "lock_file_sha256": "same-lock",
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "status": "success",
                 "substituted": False,
                 "raw_input_tokens": 1000,

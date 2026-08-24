@@ -107,7 +107,8 @@ TXT uses deterministic 30-second sequential ranges because it contains no native
 
 ### 2026-08-24: Five-minute URL-to-Knowledge-Pack execution
 
-- Fixture: `https://www.youtube.com/watch?v=c4GaJKprGEs` (`5m_en`).
+- Fixture: `https://www.youtube.com/watch?v=c4GaJKprGEs`
+  (`youtube_en_4m35s_for_benchmark`).
 - The credential-free public path produced an `auto_subtitle` raw snapshot with **75** segments,
   a **275,000 ms** duration, and SHA-256
   `bbf138a6357609c99ba1bdda059c7c6cf71c673765e24fa55502876908ab2b75`.

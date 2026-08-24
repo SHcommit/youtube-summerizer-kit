@@ -23,7 +23,8 @@
   substitute an arbitrary URL; review and lock the missing fixtures before the preprocessing
   adoption benchmark. A locked fixture is a reproducibility target for maintainer benchmarks, not
   a user-input restriction. Its matching quality reference must be independently human-reviewed;
-  the project ships no reusable live-reference answer.
+  the project ships no reusable live-reference answer. The 275-second fixture key is
+  `youtube_en_4m35s_for_benchmark`.
 - `ExecutionPlan` records normal-runtime retry (2 attempts) and 429 policy (3 attempts, 60-second
   budget, 5-second full-jitter cap). The scheduler resets that in-memory 429 budget for an explicit
   `chew resume`. Generation subprocess timeout remains the separate `GenerationRequest` default.

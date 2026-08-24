@@ -3,7 +3,7 @@
   "verification_method": "uv run --extra youtube yt-dlp --get-id --get-title --get-duration",
   "videos": [
     {
-      "key": "5m_en",
+      "key": "youtube_en_4m35s_for_benchmark",
       "youtube_id": "c4GaJKprGEs",
       "title": "Stop Hunting in Trading Exists! But it is Just Not What You Expect it to Be",
       "duration_seconds": 275

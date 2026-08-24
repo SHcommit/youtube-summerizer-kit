@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Documents provider order, credential-free boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
 
 ### Changed
+- **Named maintainer benchmark input**: renamed the 275-second YouTube fixture key to
+  `youtube_en_4m35s_for_benchmark`, making its dedicated benchmark role explicit without
+  conflating it with a product URL or a particular synthesis path.
 - **Explicit schema migration history**: SQLite schema upgrades now execute named, idempotent
   version steps through v7, including the existing run and measurement indexes, rather than
   relying on implicit current-schema creation for evolution.

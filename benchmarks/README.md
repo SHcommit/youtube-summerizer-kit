@@ -131,7 +131,7 @@ shape for reviewed quality data:
 {
   "videos": [
     {
-      "key": "5m_en",
+      "key": "youtube_en_4m35s_for_benchmark",
       "evidence_recall": 0.95,
       "timestamp_accuracy": 0.9,
       "unsupported_claims": 0
