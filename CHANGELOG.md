@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Documents provider order, credential-free boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
 
 ### Changed
+- **Explicit schema migration history**: SQLite schema upgrades now execute named, idempotent
+  version steps through v7, including the existing run and measurement indexes, rather than
+  relying on implicit current-schema creation for evolution.
+- **Canonical segmentation depth values**: removed localized Korean depth aliases from chapter
+  coalescing so only documented canonical configuration values affect segmentation behavior.
 - **Run-local telemetry injection**: removes the global telemetry singleton. `ApplicationContainer`
   injects telemetry into the pipeline, and `ApplicationService` opens a `ContextVar`-isolated
   collector for each generate or resume run so concurrent traces do not share span buffers.

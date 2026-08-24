@@ -15,14 +15,15 @@
 1. Complete remaining functional and policy work before any end-to-end Frontier benchmark. Run the
    reviewed Korean/long-video preprocessing and 4m35s short-video benchmarks only as the integrated
    pre-deployment gate.
-2. Formalize SQLite migrations as versioned steps, then remove hard-coded Korean segmentation keywords.
 
 ## Active Constraints
 
 - `benchmarks/videos.lock.json` currently contains only English fixtures (`5m`, `39m`, `1h`,
   `2h`, `2h50m`). It has no Korean conversational/lecture fixture or 55-minute fixture. Do not
   substitute an arbitrary URL; review and lock the missing fixtures before the preprocessing
-  adoption benchmark.
+  adoption benchmark. A locked fixture is a reproducibility target for maintainer benchmarks, not
+  a user-input restriction. Its matching quality reference must be independently human-reviewed;
+  the project ships no reusable live-reference answer.
 - `ExecutionPlan` records normal-runtime retry (2 attempts) and 429 policy (3 attempts, 60-second
   budget, 5-second full-jitter cap). The scheduler resets that in-memory 429 budget for an explicit
   `chew resume`. Generation subprocess timeout remains the separate `GenerationRequest` default.
@@ -43,10 +44,13 @@
 
 ## Verification and Working Tree
 
-- Uncommitted credential-boundary refactor removes the browser auth command/profile store,
-  yt-dlp cookie and browser options, and the `youtube_cookie_file` setting. Fresh verification:
-  `278 passed, 2 skipped`; Ruff and mypy pass, including mypy with telemetry/server extras. A
-  static scan found no credential-option implementation in `src/chew`.
+- `0baee5d` contains the credential-boundary, transcript pipeline, bounded-runtime-policy,
+  telemetry, P0 benchmark-snapshot, and migration work. Full verification at that point was
+  `282 passed, 2 skipped`; Ruff and mypy passed. `e4d11c6` removes localized Korean segmentation
+  depth aliases; its focused tests, Ruff, and mypy passed.
+- A result-path audit found no hard-coded summary, claim, or evidence content under `src/chew`.
+  Static result strings are only renderer structure and state/provenance labels; every semantic
+  result value comes from a Knowledge Pack and validated transcript evidence.
 - The five-minute URL path completed under run `d2e4a1f7-9ab7-442a-9084-9a6129f7021d`; its
   `auto_subtitle` raw artifact, Knowledge Pack, Digest, and cached Blog reassembly are recorded
   in [`docs/wiki/transcript-acquisition.md`](docs/wiki/transcript-acquisition.md). The output

@@ -492,6 +492,12 @@ The benchmark compares direct Gemini URL analysis using a minimal prompt and sha
 
 `--short-video` resolves one public transcript snapshot before either condition starts, then compares a single-pass transcript request with hierarchical synthesis using that same snapshot and configured Frontier runtime across every repeat. It is the decision path for short videos and must use a reviewed reference file; caption resolution failure starts no live condition and writes no report.
 
+A reference file is human-reviewed ground truth for the exact URL: its `source_id` must match the
+normalized URL, and its claims, quotations, and timestamps must be reviewed independently of any
+model output. The project ships no reusable live-reference answer: maintainers create and review
+one for the selected URL. `benchmarks/videos.lock.json` similarly locks maintainer preprocessing
+inputs for reproducibility; it does not limit normal `chew` URL input.
+
 Live benchmarks require both `--live` and an explicit reference file because they use real login sessions and quota. Reports are written atomically to `benchmark-results/run-*/report.json` and `report.md`. The project does not yet publish a multilingual, multi-duration benchmark corpus or claim that it always outperforms Gemini.
 
 Maintainer-only transcript preprocessing comparisons use the locked fixture and scripts in `benchmarks/`.

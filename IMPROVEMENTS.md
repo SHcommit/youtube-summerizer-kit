@@ -46,14 +46,7 @@
 2. overview 품질, evidence coverage, timestamp accuracy, key-claim recall을 함께 검토한다.
 3. 단일 경로가 비용·시간에서 유리하면서 품질이 저하되지 않을 때만 짧은 영상의 기본 경로로 채택한다.
 
-## 3. 낮은 우선순위 기술 부채
-
-- SQLite migration을 버전별 migration 체계로 정식화
-- segmentation의 하드코딩 한국어 키워드 제거
-
-이 항목은 benchmark 완료와 sandbox 보강보다 우선하지 않는다.
-
-## 4. 보류: 자연어 입력 해석
+## 3. 보류: 자연어 입력 해석
 
 `chew야 <URL> 이거 정리해줘` 같은 자연어를 현재 CLI 명령과 옵션으로만 구조화하는
 `IntentParser`를 검토한다. 기본 경로는 결정적 URL·옵션 추출을 사용하며, 이후 opt-in local LLM은
@@ -63,7 +56,7 @@
 
 이 항목은 현재 구현하지 않는다.
 
-## 5. 보류: Agent 세션과 외부 호출 대기 최적화
+## 4. 보류: Agent 세션과 외부 호출 대기 최적화
 
 대화형 session tree는 기존 run/job 재개 상태와 분리해, 사용자 메시지·해석된 명령·부모 session node·연결된
 run ID·output artifact만 참조한다. 실행 중인 `ExecutionPlan`이나 run의 불변 정책을 session이 변경하지
