@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Documents provider order, credential-free boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
 
 ### Changed
+- **Readable benchmark display labels**: Markdown, HTML, and Plotly per-video reports now show
+  compact language-and-duration labels such as `English · 2h 00m` while preserving the immutable
+  fixture key in locks, metrics, and quality comparisons.
 - **Reviewed benchmark-reference guardrail**: quality references now require non-empty claims and
   evidence, valid source metadata, positive durations/tolerances, and in-range timestamps. Invalid
   files are rejected by the CLI before a live provider call.

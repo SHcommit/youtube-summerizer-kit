@@ -658,6 +658,26 @@ def test_report_renders_previous_current_change_and_state_sections() -> None:
     assert "border-left" not in html
 
 
+def test_display_video_label_uses_language_and_duration() -> None:
+    assert render_report.display_video_label("youtube_en_2h00m09s_for_benchmark") == "English · 2h 00m"
+    assert render_report.display_video_label("youtube_en_4m35s_for_benchmark") == "English · 4m 35s"
+    assert render_report.display_video_label("youtube_ko_45m46s_for_benchmark") == "Korean · 45m 46s"
+    assert render_report.display_video_label("custom-video") == "custom-video"
+
+
+def test_report_renders_display_labels_without_changing_fixture_keys() -> None:
+    report = build_report_data(_metrics_payload("baseline-1", 1000, 1.0), _metrics_payload("current-1", 700, 0.9))
+
+    markdown = render_report.render_markdown(report)
+    html = render_report.render_html(report)
+
+    assert report["videos"][0]["key"] == "youtube_en_4m35s_for_benchmark"
+    assert "English · 4m 35s" in markdown
+    assert "English · 4m 35s" in html
+    assert "youtube_en_4m35s_for_benchmark" not in markdown
+    assert "youtube_en_4m35s_for_benchmark" not in html
+
+
 def test_metrics_payload_preserves_release_metadata_and_stage_counts(tmp_path: Path) -> None:
     lock_path = tmp_path / "videos.lock.json"
     lock_path.write_text(
