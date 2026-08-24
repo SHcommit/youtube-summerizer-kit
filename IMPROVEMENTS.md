@@ -16,12 +16,14 @@
 
 ## 1. 자막 전처리 채택 벤치마크
 
-**현재 결과:** 잠금된 영어 fixture에서 보수적 필러 제거는 약 2.2% token reduction을 보였다.
-품질 평가는 아직 없으므로 `preprocess_transcript` 기본값은 계속 `false`다.
+**현재 결과:** `2026-08-24`에 원래 잠금된 5개 영어 fixture를 metrics-only로 다시 측정했다.
+보수적 필러 제거는 79,788에서 78,056 token으로 **2.2%** 감소했고 모든 영상이 같은 lock으로
+성공했다. 이는 tokenizer 측정이며 provider 비용은 아니다. Frontier 품질 평가는 아직 없으므로
+`preprocess_transcript` 기본값은 계속 `false`다.
 
 ### 남은 작업
 
-1. 39분, 55분 영상과 한국어 강의·대화형 fixture의 baseline과 candidate를 같은 조건에서 측정한다.
+1. 한국어 강의·대화형 fixture의 baseline과 candidate를 같은 조건에서 측정한다.
 2. 같은 Frontier runtime/model, prompt fingerprint, concurrency에서 raw와 processed 경로를 비교한다.
 3. token/cost, 전체 시간, evidence recall, timestamp accuracy, missing range, unsupported claim을 함께 기록한다.
 4. `benchmarks/reference-drafts/`의 후보를 사람이 승인한 뒤 executable JSON reference로 전사한다.

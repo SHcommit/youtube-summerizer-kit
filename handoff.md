@@ -62,9 +62,15 @@
 - `79e5e8e` adds benchmark-reference validation. Full verification at that point was
   `291 passed, 2 skipped`; Ruff and mypy passed. Invalid references now fail before a live provider
   call; this does not replace the required human content review.
-- AI-assisted, non-executable reference drafts are pending commit. Focused benchmark tests pass
-  (`39 passed`), as do Ruff and mypy. The source captions were retrieved anonymously with public
+- `c474f93` adds AI-assisted, non-executable reference drafts. Focused benchmark tests passed
+  (`39 passed`), as did Ruff and mypy. The source captions were retrieved anonymously with public
   yt-dlp; no browser credentials, local profile, or live Frontier benchmark were used.
+- The latest five-English-video metrics-only run found `origin/develop` already up to date. Baseline
+  `baseline-20260824T075239Z` and current
+  `current-20260824T075339Z` used the same temporary five-video lock; all videos succeeded and
+  current preprocessing reduced tokenizer input from 79,788 to 78,056 (2.2%) with 0.232 seconds of
+  aggregate preprocessing latency. Quality was not evaluated, so the report status is `revise` and
+  no default-adoption decision follows.
 - A result-path audit found no hard-coded summary, claim, or evidence content under `src/chew`.
   Static result strings are only renderer structure and state/provenance labels; every semantic
   result value comes from a Knowledge Pack and validated transcript evidence.

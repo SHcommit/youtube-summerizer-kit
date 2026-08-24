@@ -1,0 +1,269 @@
+{
+  "created_at": "2026-08-24T07:54:07.192421+00:00",
+  "git_sha": "c474f93c43f27cbd96b54e9ae55fd4004270aad4",
+  "label": "current",
+  "lock_file": "/tmp/chew-benchmark-five.lock.json",
+  "lock_file_sha256": "0e2dbb9bf6251f6d3c14bfd402bd0344ace58d856891ceb13907a78c4ce85e68",
+  "release": {
+    "baseline_commit": "unknown",
+    "baseline_tag": "unknown",
+    "candidate_commit": "c474f93c43f27cbd96b54e9ae55fd4004270aad4",
+    "candidate_ref": "feat/improvements-next-step",
+    "report_version": "benchmark-report/v1",
+    "target_release": "feat-improvements-next-step"
+  },
+  "run_id": "current-20260824T075339Z",
+  "runtime_config": {
+    "depth": "detailed",
+    "llm_calls": 0,
+    "preprocessing": "current"
+  },
+  "schema_version": 1,
+  "videos": [
+    {
+      "duration_seconds": 275,
+      "failures": 0,
+      "fetch_latency_seconds": 24.013013,
+      "filler_count": 29,
+      "filler_ratio": 0.033487,
+      "key": "youtube_en_4m35s_for_benchmark",
+      "language": "en",
+      "locked_duration_seconds": 275,
+      "locked_language": "en",
+      "locked_title": "Stop Hunting in Trading Exists! But it is Just Not What You Expect it to Be",
+      "preprocessing_latency_seconds": 0.001934,
+      "processed_characters": 3532,
+      "processed_input_tokens": 840,
+      "raw_characters": 3619,
+      "raw_input_tokens": 866,
+      "requested_language": "en",
+      "retries": 0,
+      "segment_count": 99,
+      "segmentation_count": 1,
+      "segmentation_latency_seconds": 5.7e-05,
+      "stages": [
+        {
+          "characters": 3619,
+          "latency_seconds": 24.013013,
+          "name": "raw_transcript",
+          "segments": 99,
+          "tokens": 866
+        },
+        {
+          "characters": 3532,
+          "latency_seconds": 0.001934,
+          "name": "processed_transcript",
+          "segments": 99,
+          "tokens": 840
+        },
+        {
+          "chapter_count": 1,
+          "latency_seconds": 5.7e-05,
+          "name": "segmentation",
+          "topic_count": 1
+        }
+      ],
+      "status": "success",
+      "substituted": false,
+      "total_latency_seconds": 24.015031,
+      "transcript_provider": "yt-dlp-automatic",
+      "youtube_id": "c4GaJKprGEs"
+    },
+    {
+      "duration_seconds": 2340,
+      "failures": 0,
+      "fetch_latency_seconds": 24.695618,
+      "filler_count": 230,
+      "filler_ratio": 0.024525,
+      "key": "youtube_en_39m00s_for_benchmark",
+      "language": "en",
+      "locked_duration_seconds": 2340,
+      "locked_language": "en",
+      "locked_title": "Sam Altman: \"Never a Better Time to Do a Startup\"",
+      "preprocessing_latency_seconds": 0.021267,
+      "processed_characters": 36392,
+      "processed_input_tokens": 9032,
+      "raw_characters": 37544,
+      "raw_input_tokens": 9378,
+      "requested_language": "en",
+      "retries": 0,
+      "segment_count": 1038,
+      "segmentation_count": 8,
+      "segmentation_latency_seconds": 0.001418,
+      "stages": [
+        {
+          "characters": 37544,
+          "latency_seconds": 24.695618,
+          "name": "raw_transcript",
+          "segments": 1038,
+          "tokens": 9378
+        },
+        {
+          "characters": 36392,
+          "latency_seconds": 0.021267,
+          "name": "processed_transcript",
+          "segments": 1038,
+          "tokens": 9032
+        },
+        {
+          "chapter_count": 8,
+          "latency_seconds": 0.001418,
+          "name": "segmentation",
+          "topic_count": 8
+        }
+      ],
+      "status": "success",
+      "substituted": false,
+      "total_latency_seconds": 24.718636,
+      "transcript_provider": "yt-dlp-automatic",
+      "youtube_id": "ZIaOBAjvc38"
+    },
+    {
+      "duration_seconds": 3348,
+      "failures": 0,
+      "fetch_latency_seconds": 27.578837,
+      "filler_count": 100,
+      "filler_ratio": 0.00651,
+      "key": "youtube_en_55m48s_for_benchmark",
+      "language": "en",
+      "locked_duration_seconds": 3348,
+      "locked_language": "en",
+      "locked_title": "Sam Altman on AGI, Compute, and Human Agency",
+      "preprocessing_latency_seconds": 0.030937,
+      "processed_characters": 61490,
+      "processed_input_tokens": 15185,
+      "raw_characters": 62161,
+      "raw_input_tokens": 15362,
+      "requested_language": "en",
+      "retries": 0,
+      "segment_count": 1848,
+      "segmentation_count": 10,
+      "segmentation_latency_seconds": 0.005274,
+      "stages": [
+        {
+          "characters": 62161,
+          "latency_seconds": 27.578837,
+          "name": "raw_transcript",
+          "segments": 1848,
+          "tokens": 15362
+        },
+        {
+          "characters": 61490,
+          "latency_seconds": 0.030937,
+          "name": "processed_transcript",
+          "segments": 1841,
+          "tokens": 15185
+        },
+        {
+          "chapter_count": 5,
+          "latency_seconds": 0.005274,
+          "name": "segmentation",
+          "topic_count": 10
+        }
+      ],
+      "status": "success",
+      "substituted": false,
+      "total_latency_seconds": 27.615505,
+      "transcript_provider": "yt-dlp-automatic",
+      "youtube_id": "XDB5beon4DY"
+    },
+    {
+      "duration_seconds": 7210,
+      "failures": 0,
+      "fetch_latency_seconds": 23.902707,
+      "filler_count": 748,
+      "filler_ratio": 0.029014,
+      "key": "youtube_en_2h00m09s_for_benchmark",
+      "language": "en",
+      "locked_duration_seconds": 7209,
+      "locked_language": "en",
+      "locked_title": "Joe Rogan Experience #1470 - Elon Musk",
+      "preprocessing_latency_seconds": 0.054235,
+      "processed_characters": 99750,
+      "processed_input_tokens": 24633,
+      "raw_characters": 103786,
+      "raw_input_tokens": 25781,
+      "requested_language": "en",
+      "retries": 0,
+      "segment_count": 3515,
+      "segmentation_count": 25,
+      "segmentation_latency_seconds": 0.022536,
+      "stages": [
+        {
+          "characters": 103786,
+          "latency_seconds": 23.902707,
+          "name": "raw_transcript",
+          "segments": 3515,
+          "tokens": 25781
+        },
+        {
+          "characters": 99750,
+          "latency_seconds": 0.054235,
+          "name": "processed_transcript",
+          "segments": 3423,
+          "tokens": 24633
+        },
+        {
+          "chapter_count": 8,
+          "latency_seconds": 0.022536,
+          "name": "segmentation",
+          "topic_count": 25
+        }
+      ],
+      "status": "success",
+      "substituted": false,
+      "total_latency_seconds": 23.98042,
+      "transcript_provider": "yt-dlp-automatic",
+      "youtube_id": "RcYjXbSJBN8"
+    },
+    {
+      "duration_seconds": 10185,
+      "failures": 0,
+      "fetch_latency_seconds": 8.606473,
+      "filler_count": 17,
+      "filler_ratio": 0.000599,
+      "key": "youtube_en_2h49m45s_for_benchmark",
+      "language": "en",
+      "locked_duration_seconds": 10185,
+      "locked_language": "en",
+      "locked_title": "Elon Musk - \"In 36 months, the cheapest place to put AI will be space\"",
+      "preprocessing_latency_seconds": 0.123756,
+      "processed_characters": 125432,
+      "processed_input_tokens": 28366,
+      "raw_characters": 125796,
+      "raw_input_tokens": 28401,
+      "requested_language": "en",
+      "retries": 0,
+      "segment_count": 1631,
+      "segmentation_count": 34,
+      "segmentation_latency_seconds": 0.015553,
+      "stages": [
+        {
+          "characters": 125796,
+          "latency_seconds": 8.606473,
+          "name": "raw_transcript",
+          "segments": 1631,
+          "tokens": 28401
+        },
+        {
+          "characters": 125432,
+          "latency_seconds": 0.123756,
+          "name": "processed_transcript",
+          "segments": 1631,
+          "tokens": 28366
+        },
+        {
+          "chapter_count": 8,
+          "latency_seconds": 0.015553,
+          "name": "segmentation",
+          "topic_count": 34
+        }
+      ],
+      "status": "success",
+      "substituted": false,
+      "total_latency_seconds": 8.746477,
+      "transcript_provider": "yt-dlp-manual",
+      "youtube_id": "BYXbuik3dgA"
+    }
+  ]
+}
