@@ -53,9 +53,9 @@
   telemetry, P0 benchmark-snapshot, and migration work. Full verification at that point was
   `282 passed, 2 skipped`; Ruff and mypy passed. `e4d11c6` removes localized Korean segmentation
   depth aliases; its focused tests, Ruff, and mypy passed.
-- Korean lecture catalog and per-video caption-language work are pending commit. Full verification
-  is current: `286 passed, 2 skipped`; Ruff and mypy passed. The metadata and caption-track check
-  used anonymous public yt-dlp only; no live Frontier benchmark was run.
+- `3bac530` adds the Korean lecture catalog and per-video caption-language handling. Full
+  verification is current: `287 passed, 2 skipped`; Ruff and mypy passed. The metadata and
+  caption-track check used anonymous public yt-dlp only; no live Frontier benchmark was run.
 - A result-path audit found no hard-coded summary, claim, or evidence content under `src/chew`.
   Static result strings are only renderer structure and state/provenance labels; every semantic
   result value comes from a Knowledge Pack and validated transcript evidence.
