@@ -133,7 +133,7 @@ def _apply_token_budget(
 def coalesce_chapters(chapters: tuple[Chapter, ...], duration_ms: int, depth: str = "detailed") -> tuple[Chapter, ...]:
     if not chapters:
         return ()
-    if depth in ("brief", "short", "quick", "simple", "concise", "초간단", "핵심", "간단"):
+    if depth in ("brief", "short", "quick", "simple", "concise"):
         max_chapters = 3
     elif depth in ("deep", "심층", "꽉찬"):
         max_chapters = 15
