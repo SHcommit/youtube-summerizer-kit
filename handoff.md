@@ -5,7 +5,7 @@
 
 ## Branch and State
 
-- Branch: `feat/improvements-next-step`
+- Branch: `feature/benchmark-quality-readiness`
 - Active roadmap: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
@@ -71,8 +71,8 @@
   current preprocessing reduced tokenizer input from 79,788 to 78,056 (2.2%) with 0.232 seconds of
   aggregate preprocessing latency. Quality was not evaluated, so the report status is `revise` and
   no default-adoption decision follows.
-- `d695ee8` defines the presentation-only benchmark-label contract. The current uncommitted
-  renderer change replaces internal keys in Markdown, HTML tables, Plotly axes, and fallback HTML
+- `d695ee8` defines the presentation-only benchmark-label contract; `caff0ba` implements it. The
+  renderer replaces internal keys in Markdown, HTML tables, Plotly axes, and fallback HTML
   with labels such as `English · 2h 00m`; the persisted keys remain unchanged. Full verification:
   `293 passed, 2 skipped`; Ruff and mypy passed. A regenerated five-video Plotly report is under
   `/tmp/chew-benchmark-five-labels.g8XKJ2/current/report.html`.
