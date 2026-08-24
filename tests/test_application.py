@@ -38,9 +38,12 @@ class Pipeline:
         self.configs: list[AnalysisConfig] = []
         self.sources: list[str] = []
 
-    async def analyze(self, url: str, config: AnalysisConfig) -> AnalysisResult:
+    async def analyze(
+        self, url: str, config: AnalysisConfig, *, transcript: Transcript | None = None
+    ) -> AnalysisResult:
         self.sources.append(url)
         self.configs.append(config)
+        self.transcript = transcript
         return AnalysisResult("run-1", self.pack, len(self.configs) > 1, usage=self.usage)
 
 
@@ -136,6 +139,43 @@ async def test_application_compiles_frontier_execution_plan_before_pipeline_run(
     assert plan is not None
     assert plan.runtime_for("topic_summary") == "gemini"
     assert plan.plan_fingerprint
+
+
+@pytest.mark.asyncio
+async def test_application_passes_user_transcript_to_pipeline(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    pack = KnowledgePack(
+        source=source,
+        title="title",
+        language="en",
+        overview="overview",
+        transcript_fingerprint="a" * 64,
+        topics=(),
+        chapters=(),
+        analysis_fingerprint="b" * 64,
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", source.source_id, "key")
+    transcript_path = tmp_path / "captions.vtt"
+    transcript_path.write_text(
+        "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nA user-provided caption", encoding="utf-8"
+    )
+    pipeline = Pipeline(pack)
+    application = ApplicationService(
+        pipeline, Compiler(), database, working_directory=tmp_path  # type: ignore[arg-type]
+    )
+
+    await application.generate(
+        source.canonical_url, "digest", tmp_path / "digest", transcript_path=transcript_path
+    )
+
+    assert pipeline.transcript.provenance is Provenance.USER_PROVIDED
+    assert pipeline.transcript.source == source
 
 
 @pytest.mark.asyncio

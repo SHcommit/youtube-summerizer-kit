@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from chew.app.config import Settings, load_settings
+from chew.core.identity import normalize_source
+from chew.core.models import Transcript
 from chew.harness.base import ConfigurableHarness
 from chew.harness.builtin import HarnessAuthenticationError
 from chew.harness.registry import HarnessRegistry
@@ -14,6 +16,7 @@ from chew.pipeline.outputs import OutputCompiler
 from chew.pipeline.policy import LOCAL_RUNTIME_IDS, build_execution_plan
 from chew.pipeline.preprocessing import PreprocessingStats
 from chew.storage.database import Database
+from chew.transcripts.user_input import UserTranscriptProvider
 
 
 class AuthenticationRequired(RuntimeError):
@@ -58,14 +61,25 @@ class ApplicationService:
         self.working_directory = working_directory or Path.cwd()
         self.registry = registry
 
-    async def generate(self, url: str, profile: str, destination: Path, depth: str | None = None) -> CommandResult:
+    async def generate(
+        self,
+        url: str,
+        profile: str,
+        destination: Path,
+        depth: str | None = None,
+        transcript_path: Path | None = None,
+    ) -> CommandResult:
         analysis_settings = load_settings(self.working_directory, None)
         if depth:
             analysis_settings = analysis_settings.model_copy(update={"depth": depth})
         output_settings = load_settings(self.working_directory, profile)
         if depth:
             output_settings = output_settings.model_copy(update={"depth": depth})
-        return await self._generate(url, profile, destination, analysis_settings, output_settings)
+        transcript: Transcript | None = None
+        if transcript_path is not None:
+            source = normalize_source(url)
+            transcript = await UserTranscriptProvider(transcript_path).fetch(source, analysis_settings.language)
+        return await self._generate(url, profile, destination, analysis_settings, output_settings, transcript=transcript)
 
     async def _generate(
         self,
@@ -74,6 +88,8 @@ class ApplicationService:
         destination: Path,
         analysis_settings: Settings,
         output_settings: Settings,
+        *,
+        transcript: Transcript | None = None,
     ) -> CommandResult:
         local_requested = analysis_settings.local_accelerator or any(
             runtime_id in LOCAL_RUNTIME_IDS for runtime_id in analysis_settings.task_runtimes.values()
@@ -106,7 +122,10 @@ class ApplicationService:
             execution_plan=plan,
         )
         try:
-            result = await self.pipeline.analyze(url, config)
+            if transcript is None:
+                result = await self.pipeline.analyze(url, config)
+            else:
+                result = await self.pipeline.analyze(url, config, transcript=transcript)
             output = await self.compiler.compile(result.pack, profile, output_settings, destination)
         except HarnessAuthenticationError as error:
             raise AuthenticationRequired(error.runtime_id, error.login_command) from error

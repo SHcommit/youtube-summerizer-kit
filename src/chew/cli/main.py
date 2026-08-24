@@ -36,12 +36,20 @@ from chew.core.identity import (
 from chew.log import configure_logging
 from chew.telemetry import telemetry
 from chew.transcripts.service import TranscriptRateLimited, TranscriptUnavailable
+from chew.transcripts.user_input import UserTranscriptInputError
 from chew.transcripts.whisper import WhisperDependencyMissing
 from chew.transcripts.youtube_auth import YouTubeAuthError, YouTubeAuthStore
 
 
 class Application(Protocol):
-    async def generate(self, url: str, profile: str, destination: Path, depth: str | None = None) -> CommandResult: ...
+    async def generate(
+        self,
+        url: str,
+        profile: str,
+        destination: Path,
+        depth: str | None = None,
+        transcript_path: Path | None = None,
+    ) -> CommandResult: ...
 
     def status(self, run_id: str | None = None) -> tuple[RunStatus, ...]: ...
 
@@ -246,14 +254,26 @@ def _run_generation(
     output: Path,
     json_output: bool,
     depth: str | None = None,
+    transcript_path: Path | None = None,
+    source_url: str | None = None,
 ) -> None:
     korean = _is_korean(context)
-    selected_source = source or typer.prompt(
+    if transcript_path is not None and source_url is None:
+        typer.echo("--source-url is required with --transcript.")
+        raise typer.Exit(2)
+    if source is not None and source_url is not None and source != source_url:
+        typer.echo("Use either SOURCE or --source-url, not two different source URLs.")
+        raise typer.Exit(2)
+    selected_source = source_url or source or typer.prompt(
         "YouTube URL 또는 로컬 오디오/영상 경로" if korean else "YouTube URL or local audio/video path"
     )
     local_media = looks_like_local_media_input(selected_source)
     try:
-        result = asyncio.run(_application_factory().generate(selected_source, profile, output, depth=depth))
+        result = asyncio.run(
+            _application_factory().generate(
+                selected_source, profile, output, depth=depth, transcript_path=transcript_path
+            )
+        )
     except KeyboardInterrupt:
         label = "작업이 사용자에 의해 중단되었습니다." if korean else "Operation cancelled by user."
         typer.echo(f"\n{label}")
@@ -268,6 +288,9 @@ def _run_generation(
     except SourceInputError as error:
         label = "로컬 미디어 오류" if korean else "Local media error"
         typer.echo(f"{label}: {error}")
+        raise typer.Exit(2) from error
+    except UserTranscriptInputError as error:
+        typer.echo(f"Transcript input error: {error}")
         raise typer.Exit(2) from error
     except TranscriptRateLimited as error:
         if korean:
@@ -354,9 +377,13 @@ def summarize(
         str | None,
         typer.Option("--depth", "--요약강도", "-d", help="Summary intensity: quick (short/brief), detailed, deep"),
     ] = None,
+    transcript: Annotated[Path | None, typer.Option("--transcript", help="Local VTT, SRT, or TXT transcript")] = None,
+    source_url: Annotated[str | None, typer.Option("--source-url", help="Original YouTube URL for --transcript")] = None,
 ) -> None:
     """Create a detailed digest from a video."""
-    _run_generation(context, source, "digest", output, json_output, depth=depth)
+    _run_generation(
+        context, source, "digest", output, json_output, depth=depth, transcript_path=transcript, source_url=source_url
+    )
 
 
 def blog(

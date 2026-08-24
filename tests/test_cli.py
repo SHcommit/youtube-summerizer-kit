@@ -139,3 +139,13 @@ def test_summarize_does_not_write_a_trace_report(
 
     assert result.exit_code == 0
     assert not (tmp_path / "reports" / "trace_report.md").exists()
+
+
+def test_summarize_rejects_transcript_without_source_url(tmp_path: Path) -> None:
+    transcript = tmp_path / "captions.vtt"
+    transcript.write_text("WEBVTT\n", encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["summarize", "--transcript", str(transcript)])
+
+    assert result.exit_code == 2
+    assert "--source-url" in result.stdout
