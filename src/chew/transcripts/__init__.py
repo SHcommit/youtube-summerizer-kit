@@ -3,6 +3,7 @@
 from chew.transcripts.base import TranscriptProvider
 from chew.transcripts.pytubefix import PytubeFixTranscriptProvider
 from chew.transcripts.service import TranscriptService
+from chew.transcripts.user_input import UserTranscriptInputError, UserTranscriptProvider
 from chew.transcripts.whisper import WhisperProvider
 from chew.transcripts.youtube_api import YouTubeApiTranscriptProvider
 from chew.transcripts.youtube_timedtext import YouTubeTimedTextProvider
@@ -26,4 +27,4 @@ def default_providers(
     return tuple(providers)
 
 
-__all__ = ["TranscriptService", "default_providers"]
+__all__ = ["TranscriptService", "UserTranscriptInputError", "UserTranscriptProvider", "default_providers"]
