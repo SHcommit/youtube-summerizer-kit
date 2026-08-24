@@ -12,9 +12,10 @@
 
 ## Next Priorities
 
-1. Review [`anthropic_en_14m34s_short_frontier.md`](benchmarks/reference-drafts/anthropic_en_14m34s_short_frontier.md)
-   and transcribe approved claims into an independently human-reviewed JSON reference. Then run the
-   same public-caption snapshot through `chew benchmark run --live --short-video` using Codex.
+1. Revisit the Frontier-call policy before implementation: default to one Frontier request whenever
+   the selected model accepts the prepared transcript. Do not use video duration to automatically
+   fan out 3--5 semantic calls; determine capability from the selected runtime/model's input budget.
+   Any multi-call fallback requires an explicit, separately approved product policy.
 2. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
    independently human-reviewed JSON references for the Korean fixtures, long-video preprocessing,
    and 4m35s short-video conditions. Run the remaining Frontier benchmarks only as the integrated
@@ -87,6 +88,9 @@
   `57.744s`/`348,963`. Both had zero evidence coverage, and the paths carry different prompt
   fingerprints, so this is not a default-path decision. Keep the reference-evidence/prompt-policy
   repair as the immediate prerequisite for rerunning it.
+- The previous `single_frontier_v1` 15-minute design is not implementation-ready: duration alone
+  is not a valid trigger for fan-out. Gemini long-context models can accept much longer prepared
+  transcripts in one request, so the policy must become runtime/model input-budget aware first.
 - A result-path audit found no hard-coded summary, claim, or evidence content under `src/chew`.
   Static result strings are only renderer structure and state/provenance labels; every semantic
   result value comes from a Knowledge Pack and validated transcript evidence.
