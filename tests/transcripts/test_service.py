@@ -1,5 +1,6 @@
-import pytest
 import asyncio
+
+import pytest
 
 from chew.domain import Provenance, SourceIdentity, Transcript, TranscriptSegment
 from chew.identity import normalize_source
@@ -15,6 +16,10 @@ SOURCE = SourceIdentity(
 
 def test_page_reload_requirement_is_classified_as_session_refresh() -> None:
     assert provider_failure_reason(RuntimeError("The page needs to be reloaded.")) == "session_refresh_required"
+
+
+def test_failed_precondition_is_classified_without_leaking_transport_details() -> None:
+    assert provider_failure_reason(RuntimeError("HTTP Error 400: FAILED_PRECONDITION")) == "failed_precondition"
 
 
 class StubProvider:

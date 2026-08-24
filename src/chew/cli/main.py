@@ -269,11 +269,13 @@ def _run_generation(
     )
     local_media = looks_like_local_media_input(selected_source)
     try:
-        result = asyncio.run(
-            _application_factory().generate(
-                selected_source, profile, output, depth=depth, transcript_path=transcript_path
+        generate = _application_factory().generate
+        if transcript_path is None:
+            result = asyncio.run(generate(selected_source, profile, output, depth=depth))
+        else:
+            result = asyncio.run(
+                generate(selected_source, profile, output, depth=depth, transcript_path=transcript_path)
             )
-        )
     except KeyboardInterrupt:
         label = "작업이 사용자에 의해 중단되었습니다." if korean else "Operation cancelled by user."
         typer.echo(f"\n{label}")
@@ -296,15 +298,14 @@ def _run_generation(
         if korean:
             typer.echo(
                 f"YouTube timedtext 요청이 HTTP 429로 제한되었습니다. 약 {error.retry_after_seconds}초 후 같은 명령을 다시 실행하세요. "
-                "계속되면 `chew auth youtube --from-browser chrome`으로 본인 YouTube 로그인을 연결하세요. "
-                "또는 CHEW.md에 youtube_cookie_file을 명시하거나 로컬 MP3/MP4를 사용하세요."
+                "계속되면 `chew summarize --transcript <VTT|SRT|TXT> --source-url <URL>`로 검증 가능한 "
+                "스크립트를 제공하거나 로컬 MP3/MP4를 사용하세요."
             )
         else:
             typer.echo(
                 f"YouTube timedtext returned HTTP 429. Retry the same command in about "
-                f"{error.retry_after_seconds}s. If it persists, connect your own YouTube login with "
-                "`chew auth youtube --from-browser chrome`, explicitly set youtube_cookie_file in CHEW.md, "
-                "or use local MP3/MP4 media."
+                f"{error.retry_after_seconds}s. If it persists, provide a verified transcript with "
+                "`chew summarize --transcript <VTT|SRT|TXT> --source-url <URL>` or use local MP3/MP4 media."
             )
         raise typer.Exit(2) from error
     except TranscriptUnavailable as error:
@@ -321,15 +322,9 @@ def _run_generation(
                 "speech and that its audio is readable."
             )
         elif korean and session_refresh_required:
-            typer.echo(
-                "선택한 브라우저 프로필에서 YouTube를 열어 새로고침한 뒤 같은 명령을 다시 실행하세요. "
-                "브라우저 프로필은 `chew auth youtube`에서 다시 선택할 수 있습니다."
-            )
+            typer.echo("YouTube 세션을 사용하지 않습니다. VTT/SRT/TXT 스크립트를 제공해 계속 진행하세요.")
         elif session_refresh_required:
-            typer.echo(
-                "Open YouTube in the selected browser profile, reload the page, then run the same command again. "
-                "You can select a different profile with `chew auth youtube`."
-            )
+            typer.echo("Browser sessions are not used. Provide a VTT/SRT/TXT transcript to continue.")
         elif korean:
             typer.echo(
                 "사용 가능한 자막이 없습니다. 영상 오디오를 로컬에서 음성 인식하려면 "
