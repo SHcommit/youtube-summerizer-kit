@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Benchmark-reference review queues**: adds non-executable, AI-assisted Markdown candidate
+  queues for the current short, long, and Korean fixtures. Human approval is required before any
+  candidate can enter a live benchmark reference.
 - **Korean conversational benchmark fixture**: adds the publicly captioned 38m48s Korean
   conversational fixture `youtube_ko_38m48s_for_benchmark` to the locked maintainer preprocessing
   catalog. It is a reproducibility input only; no live Frontier benchmark or quality claim was run.

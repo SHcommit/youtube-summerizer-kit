@@ -12,9 +12,10 @@
 
 ## Next Priorities
 
-1. Prepare independently human-reviewed quality references for the Korean fixtures, long-video
-   preprocessing, and 4m35s short-video conditions. Reference structure is now preflight-validated;
-   run the Frontier benchmarks only as the integrated pre-deployment gate.
+1. Review `benchmarks/reference-drafts/` and transcribe approved candidates into independently
+   human-reviewed JSON references for the Korean fixtures, long-video preprocessing, and 4m35s
+   short-video conditions. Reference structure is preflight-validated; run the Frontier benchmarks
+   only as the integrated pre-deployment gate.
 
 ## Active Constraints
 
@@ -58,9 +59,12 @@
   caption-track check used anonymous public yt-dlp only; no live Frontier benchmark was run.
 - `06d1654` adds the Korean conversational fixture. The same anonymous public metadata and
   caption-track check confirmed `ko`/`ko-orig`; no live Frontier benchmark was run.
-- Reviewed benchmark-reference validation is pending commit. Full verification is current:
+- `79e5e8e` adds benchmark-reference validation. Full verification at that point was
   `291 passed, 2 skipped`; Ruff and mypy passed. Invalid references now fail before a live provider
   call; this does not replace the required human content review.
+- AI-assisted, non-executable reference drafts are pending commit. Focused benchmark tests pass
+  (`39 passed`), as do Ruff and mypy. The source captions were retrieved anonymously with public
+  yt-dlp; no browser credentials, local profile, or live Frontier benchmark were used.
 - A result-path audit found no hard-coded summary, claim, or evidence content under `src/chew`.
   Static result strings are only renderer structure and state/provenance labels; every semantic
   result value comes from a Knowledge Pack and validated transcript evidence.

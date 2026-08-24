@@ -24,7 +24,8 @@
 1. 39분, 55분 영상과 한국어 강의·대화형 fixture의 baseline과 candidate를 같은 조건에서 측정한다.
 2. 같은 Frontier runtime/model, prompt fingerprint, concurrency에서 raw와 processed 경로를 비교한다.
 3. token/cost, 전체 시간, evidence recall, timestamp accuracy, missing range, unsupported claim을 함께 기록한다.
-4. `reports/performance-comparisons/` 아래 검토된 보고서에 기본값 채택 여부를 명시한다.
+4. `benchmarks/reference-drafts/`의 후보를 사람이 승인한 뒤 executable JSON reference로 전사한다.
+5. `reports/performance-comparisons/` 아래 검토된 보고서에 기본값 채택 여부를 명시한다.
 
 ### 채택 기준
 

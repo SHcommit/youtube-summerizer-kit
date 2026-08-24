@@ -62,6 +62,11 @@ and timestamps outside the reference duration before a `--live` run can create
 a provider call. This validates the review artifact's structure, not the truth
 of its content; the reviewer remains responsible for that judgment.
 
+AI-assisted candidates for the current locked videos live in
+`reference-drafts/`. They are Markdown review queues, deliberately separate
+from executable JSON references, and remain unusable for a live benchmark until
+a human reviewer approves and transcribes them.
+
 ## Recommended Workflow
 
 ### 1. Capture the baseline first
