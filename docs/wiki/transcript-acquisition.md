@@ -38,6 +38,49 @@ permits it. Attempt reasons are retained in `TranscriptUnavailable` and never in
 | `provider_timeout` | One adapter exceeded 20 seconds. | Continue to the next provider. |
 | `acquisition_timeout` | The 60-second public budget expired. | Stop and offer VTT/SRT/TXT. |
 
+## Root-Cause Analysis and Resolution
+
+### What failed
+
+The original failure was not one defect with one fix.
+
+1. **External YouTube variability:** the same public caption sources returned `429`,
+   `FAILED_PRECONDITION`, no usable track, or a browser-session refresh request on different
+   attempts. These responses are controlled by YouTube and can vary by video, IP reputation,
+   request timing, and caption type.
+2. **Single-path operational weakness:** the earlier provider chain could wait for slow adapters
+   without a service-owned acquisition budget, making a public failure appear to hang the CLI.
+3. **Unsafe recovery proposal:** browser-profile extraction can request macOS Keychain access.
+   Even if it recovers a particular video, it violates the product's local credential boundary.
+4. **Measurement confusion:** one early full `chew summarize` retest used an existing SQLite raw
+   transcript cache and then waited for Frontier synthesis. That wait was not caption acquisition;
+   later measurements bypassed the cache and called `TranscriptService` directly.
+
+### What changed
+
+1. `TranscriptService` now owns a 20-second deadline per provider and a 60-second monotonic
+   public-acquisition budget. It records `provider_timeout` or `acquisition_timeout` and proceeds
+   to the next provider instead of waiting indefinitely.
+2. Provider failures map to stable, non-secret reasons (`rate_limited`, `failed_precondition`,
+   `access_denied`, `session_refresh_required`, or provider type). The CLI can give a recovery
+   action without exposing transport or credential data.
+3. The provider chain keeps independent public adapters and reaches `yt-dlp-automatic` after
+   manual/public candidates fail. Both current fixtures succeeded at that fallback.
+4. Application bootstrap no longer passes configured browser profile or cookie-file settings to
+   default providers. There is no Keychain or browser-cookie recovery dependency in the normal
+   product path.
+5. `--transcript <VTT|SRT|TXT> --source-url <URL>` is the deterministic recovery path. It
+   preserves original source identity and marks the raw evidence as `USER_PROVIDED`.
+
+### Resolution Status
+
+**Resolved:** provider hangs have bounded handling; browser credential recovery is removed from
+the default pipeline; users have a credential-free transcript-input recovery path.
+
+**Not solved and not claimed:** YouTube can still deny captions. Public extraction is best-effort,
+not an entitlement. The remaining P0 validation is a full user-transcript-to-Frontier-to-
+Knowledge-Pack run, recorded separately when the configured Frontier runtime is available.
+
 ## User Recovery
 
 ```bash
