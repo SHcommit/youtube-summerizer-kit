@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   locally grounded tree artifacts, reversible prepared-transcript input, one-shot local annotation
   sidecars, and a one-call Frontier extraction path (with a bounded two-call over-budget refine
   adapter). The compatible Knowledge Pack now records the resulting tree fingerprint.
+- **Role-bound local annotation**: an already-installed single Ollama model may receive one
+  closed transcript-annotation sidecar request when explicitly enabled; policy keeps extraction
+  on the Frontier runtime and records the local stage separately.
 - **Benchmark-reference review queues**: adds non-executable, AI-assisted Markdown candidate
   queues for the current short, long, and Korean fixtures. Human approval is required before any
   candidate can enter a live benchmark reference.
