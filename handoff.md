@@ -89,6 +89,8 @@
   generated `relations` tuple: it requires an object-valued `items` schema. The fix emits string
   items while Pydantic retains tuple-length validation; its focused Codex harness regression test,
   Ruff, and mypy pass. Re-run the same approved 14m34s benchmark before interpreting results.
+- Live benchmark calls now emit `Running <condition> repeat <n>/<total>` before every external
+  request. Validate the approved 14m34s run once before returning to the three-repeat final gate.
 - The 2026-08-25 metrics-only run covers all seven locked fixtures with the same lock and concurrency
   (`baseline-20260825T052411Z`, `current-20260825T052533Z`). All succeeded; tokenizer input fell
   from 132,312 to 118,716 (10.28%). The Korean lecture fell 22,916 -> 22,747 (0.74%) and the Korean

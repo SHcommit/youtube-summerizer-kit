@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Live benchmark progress**: each condition/repeat is emitted immediately before its external
+  provider call, making long explicit live runs observable before their final report is written.
 - **Grounded Knowledge Tree compiler foundation**: adds immutable untrusted tree drafts and
   locally grounded tree artifacts, reversible prepared-transcript input, one-shot local annotation
   sidecars, and a one-call Frontier extraction path (with a bounded two-call over-budget refine

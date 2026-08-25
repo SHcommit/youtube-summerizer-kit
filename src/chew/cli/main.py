@@ -20,6 +20,7 @@ from chew.app.config import ConfigurationError
 from chew.app.retention import CleanupPlan, RetentionPlanner
 from chew.app.service import AuthenticationRequired, CommandResult, RunStatus
 from chew.benchmark.runner import (
+    BenchmarkProgress,
     BenchmarkReference,
     BenchmarkReport,
     BenchmarkRunner,
@@ -752,7 +753,10 @@ def benchmark_run(
                 repeats=repeats,
                 configured_runtime=runtime,
             )
-        return await BenchmarkRunner().run(spec)
+        def show_progress(progress: BenchmarkProgress) -> None:
+            typer.echo(f"Running {progress.condition_id} repeat {progress.repeat}/{progress.total_repeats}")
+
+        return await BenchmarkRunner(progress_callback=show_progress).run(spec)
 
     report = asyncio.run(_run_benchmark())
     _, markdown_path = write_benchmark_report(report, output)

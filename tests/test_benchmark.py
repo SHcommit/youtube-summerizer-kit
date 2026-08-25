@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from chew.benchmark import (
     BenchmarkObservation,
     BenchmarkProgress,
     BenchmarkReference,
+    BenchmarkReport,
     BenchmarkRunner,
     BenchmarkSpec,
     ReferenceClaim,
@@ -28,6 +30,8 @@ from chew.core.models import (
 )
 from chew.harness.base import HarnessCapabilities, HarnessProbe
 from chew.transcripts.service import TranscriptResolution
+
+cli_main = import_module("chew.cli.main")
 
 
 class Runner:
@@ -185,6 +189,53 @@ def test_live_benchmark_rejects_invalid_reference_before_a_live_call(tmp_path: P
 
     assert result.exit_code == 2
     assert "Invalid benchmark reference" in result.stdout
+
+
+def test_live_benchmark_prints_repeat_progress_before_report(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    reference = tmp_path / "reference.json"
+    reference.write_text(
+        json.dumps(
+            {
+                "source_id": "youtube:abcDEF_1234",
+                "language": "en",
+                "duration_ms": 60_000,
+                "claims": [{"text": "claim", "evidence": "quote", "timestamp_ms": 10_000}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    async def fake_spec(*_: object, **__: object) -> BenchmarkSpec:
+        return BenchmarkSpec("youtube:abcDEF_1234", ())
+
+    class FakeRunner:
+        def __init__(self, progress_callback: object = None) -> None:
+            self.progress_callback = progress_callback
+
+        async def run(self, _: BenchmarkSpec) -> BenchmarkReport:
+            assert callable(self.progress_callback)
+            self.progress_callback(BenchmarkProgress("frontier-single-pass", 1, 1))
+            return BenchmarkReport("youtube:abcDEF_1234", (), "2026-08-25T00:00:00+00:00")
+
+    monkeypatch.setattr(cli_main, "short_video_benchmark_spec", fake_spec)
+    monkeypatch.setattr(cli_main, "BenchmarkRunner", FakeRunner)
+    monkeypatch.setattr(cli_main, "write_benchmark_report", lambda *_: (tmp_path / "report.json", tmp_path / "report.md"))
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "benchmark",
+            "run",
+            "https://youtu.be/abcDEF_1234",
+            "--live",
+            "--short-video",
+            "--reference",
+            str(reference),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.index("Running frontier-single-pass repeat 1/1") < result.stdout.index("report.md")
 
 
 @pytest.mark.asyncio

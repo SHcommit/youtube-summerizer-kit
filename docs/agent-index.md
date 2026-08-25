@@ -96,7 +96,7 @@ All commands are in `src/chew/cli/main.py`. Each command has both an English nam
 | `serve` | `서버` | Start FastAPI `/health` + `/readiness` server (needs `[server]` extras) |
 | `storage` | `저장소` | Internal file count and usage |
 | `cleanup` | `정리` | Preview or apply retention policy |
-| `benchmark` | `벤치마크` | Reference-based quality benchmark; `--short-video` resolves one raw snapshot before comparing Frontier paths |
+| `benchmark` | `벤치마크` | Reference-based quality benchmark; prints each condition/repeat before its live call, and `--short-video` resolves one raw snapshot before comparing Frontier paths |
 | `benchmark-dashboard` | — | Generate `reports/trace_report.md` from OTel spans |
 
 ---
