@@ -278,13 +278,14 @@ class AnalysisPipeline:
                 run_id = winner
 
         if config.compiler_strategy == "gkt":
-            prepared = InputCompiler().compile(
-                transcript,
-                InputBudget(
-                    max_input_tokens=config.max_input_tokens,
-                    reserved_output_tokens=config.reserved_output_tokens,
-                ),
-            )
+            with self.telemetry.span("input.compile", {"strategy": "gkt"}):
+                prepared = InputCompiler().compile(
+                    transcript,
+                    InputBudget(
+                        max_input_tokens=config.max_input_tokens,
+                        reserved_output_tokens=config.reserved_output_tokens,
+                    ),
+                )
             prepared_ref = self.artifacts.put_json(prepared)
             checkpoint_policy = (
                 config.execution_plan.plan_fingerprint if config.execution_plan is not None else ""
@@ -361,16 +362,17 @@ class AnalysisPipeline:
                 policy_fingerprint=checkpoint_policy,
                 correlation_id=run_id,
             )
-            pack = KnowledgePackProjector().project(
-                tree=tree,
-                transcript=transcript,
-                source=source,
-                title=title or transcript.title or "YouTube 영상",
-                language=config.language,
-                analysis_fingerprint=analysis_key,
-                runtime_id=extracted.runtime_id,
-                model=extracted.model,
-            )
+            with self.telemetry.span("tree.assemble", {"strategy": "gkt"}):
+                pack = KnowledgePackProjector().project(
+                    tree=tree,
+                    transcript=transcript,
+                    source=source,
+                    title=title or transcript.title or "YouTube 영상",
+                    language=config.language,
+                    analysis_fingerprint=analysis_key,
+                    runtime_id=extracted.runtime_id,
+                    model=extracted.model,
+                )
             pack_ref = self.artifacts.put_json(pack)
             self.database.record_compiler_checkpoint(
                 run_id=run_id,

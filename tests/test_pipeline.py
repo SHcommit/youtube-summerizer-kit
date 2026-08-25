@@ -20,6 +20,7 @@ from chew.pipeline.policy import build_execution_plan
 from chew.segmentation import SegmentationPolicy, segment_transcript
 from chew.storage.artifacts import ArtifactStore
 from chew.storage.database import Database
+from chew.telemetry import TelemetryManager
 from chew.transcripts.service import TranscriptResolution, TranscriptService
 
 
@@ -238,11 +239,13 @@ async def test_gkt_pipeline_uses_one_extraction_without_hierarchical_jobs(tmp_pa
     database = Database(tmp_path / "state.db")
     database.initialize()
     harness = GroundedTreeHarness()
+    telemetry = TelemetryManager()
     pipeline = AnalysisPipeline(
         database=database,
         artifacts=ArtifactStore(tmp_path),
         transcripts=TranscriptService([StaticTranscriptProvider(transcript)]),
         harness=harness,
+        telemetry=telemetry,
     )
 
     result = await pipeline.analyze(
@@ -267,6 +270,12 @@ async def test_gkt_pipeline_uses_one_extraction_without_hierarchical_jobs(tmp_pa
         "evidence.ground",
         "tree.assemble",
     ]
+    assert {span.name for span in telemetry.spans} >= {
+        "input.compile",
+        "frontier.generate",
+        "evidence.ground",
+        "tree.assemble",
+    }
 
 
 @pytest.mark.asyncio
