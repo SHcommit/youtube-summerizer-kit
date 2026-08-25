@@ -139,8 +139,8 @@ class GenerationResult:
 `TopicSummaryDraft` and `EvidenceCandidate` are untrusted model output. `ValidatedEvidenceRef` is created only by `pipeline/evidence.py` after matching the immutable raw transcript. `ExecutionPlan` is generated before the run and is immutable for its lifetime. It records routing, token budgets, normal runtime retries (2 attempts), and 429 recovery (3 attempts, a 60-second per-job budget, and a 5-second full-jitter cap); explicit resume starts a fresh in-memory 429 budget.
 
 `OutputCompiler` renders every default profile from the persisted compatible pack and makes no
-model request. The legacy strict object schemas for `output_outline`, `output_compose`, and
-`output_verify`, so Codex can reassemble an existing Knowledge Pack without re-running analysis.
+model request. Legacy strict schemas for `output_outline`, `output_compose`, and `output_verify`
+remain only for compatibility and are not part of the default output path.
 
 The maintainer preprocessing catalog (`benchmarks/videos.lock.json`) is parsed as `BenchmarkVideo`.
 Every entry requires a stable key, YouTube ID, title, caption `language`, and verified duration;
