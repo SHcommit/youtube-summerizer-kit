@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from chew.core.models import TopicSummaryDraft
+from chew.core.models import KnowledgeTreeDraft, TopicSummaryDraft
 from chew.domain import GenerationRequest
 from chew.harness.builtin import HarnessAuthenticationError, HarnessExecutionError, parse_json_object
 from chew.harness.claude import ClaudeHarness
@@ -109,6 +109,24 @@ async def test_codex_marks_defaulted_schema_properties_as_required() -> None:
     assert set(claim_draft["required"]) == {"text", "evidence_candidates", "provenance"}
     assert claim_draft["additionalProperties"] is False
     assert '"default"' not in json.dumps(executor.schema)
+
+
+@pytest.mark.asyncio
+async def test_codex_marks_fixed_length_relation_tuples_as_closed_arrays() -> None:
+    stdout = "\n".join(
+        (
+            '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"thesis_claim_id\\":\\"claim-1\\",\\"claims\\":[{\\"claim_id\\":\\"claim-1\\",\\"text\\":\\"Grounded claim\\"}],\\"relations\\":[]}"}}',
+            '{"type":"turn.completed","usage":{}}',
+        )
+    )
+    executor = Executor(ProcessResult(0, stdout, ""))
+    request = REQUEST.model_copy(update={"output_schema": KnowledgeTreeDraft.model_json_schema()})
+
+    await CodexHarness(executable="codex", executor=executor).generate(request)
+
+    assert executor.schema is not None
+    relation_tuple = executor.schema["properties"]["relations"]["items"]
+    assert relation_tuple["items"] is False
 
 
 @pytest.mark.asyncio
