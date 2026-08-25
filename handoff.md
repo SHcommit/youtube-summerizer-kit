@@ -23,14 +23,15 @@
   UI yet. A future web client consumes only a versioned HTTP contract and can live as a separately
   deployable `apps/web` project when that API exists.
 
-## Next Priorities
+## Next Decision
 
-1. Define typed, read-only ApplicationService tools over completed GKT artifacts, then evaluate an
-   optional bounded LangGraph adapter with separate session/checkpoint state.
-2. Keep natural-language `IntentParser` deferred until its deterministic command/option contract is
-   specified; it must not access credentials, browser state, or provider tools.
-3. Keep transcript preprocessing opt-in. The reviewed seven-fixture metrics-only conclusion is in
-   `reports/performance-comparisons/transcript-preprocessing/latest.md`.
+No agent-runtime work is active. Keep the `agents` and `interfaces` skeletons as boundaries only
+until a concrete first user flow is selected—for example, a research request, a conversational
+follow-up, or an approved publishing action. Do not add ApplicationService agent tools, LangGraph,
+MCP, HTTP endpoints, or a web UI spec automatically.
+
+Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only conclusion is in
+`reports/performance-comparisons/transcript-preprocessing/latest.md`.
 
 ## Active Constraints
 

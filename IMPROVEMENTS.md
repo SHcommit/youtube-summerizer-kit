@@ -30,10 +30,10 @@
 tool 실행을 차단하는 policy, 그리고 `interfaces`의 protocol-neutral presenter는 `CHANGELOG.md`에 기록한다.
 이는 LangGraph, MCP, HTTP API, 또는 웹 UI를 추가한 것이 아니다.
 
-다음 활성 구현 전에는 완성된 Grounded Knowledge Tree만 읽고 렌더링하는 typed Application Service tool을
-정의한다. 그 뒤에만 LangGraph를 optional `agents` extra로 추가한다. `SessionGraph`와 bounded subgraph는
-Research, Style, Conversation, Publishing 역할별 allowlist, model/step/deadline 예산, 읽기·쓰기 artifact
-범위, 승인 조건을 실행 전에 고정한다.
+실제 user flow가 정해질 때까지 typed Application Service tool, LangGraph optional `agents` extra, MCP,
+HTTP API, 웹 UI를 추가하지 않는다. 재개할 때에는 먼저 완성된 Grounded Knowledge Tree만 읽고 렌더링하는
+typed tool의 필요성을 검토한다. 선택된 Research, Style, Conversation, Publishing 역할에는 allowlist,
+model/step/deadline 예산, 읽기·쓰기 artifact 범위, 승인 조건을 실행 전에 고정한다.
 
 대화 session과 `CompilationRun`·`AgentRun`은 분리한다. graph checkpointer는 canonical SQLite
 run/job/artifact schema와 분리하고 `session_id`, `run_id`, `tree_id`만 연결한다. 수신 여부가 불명확한
