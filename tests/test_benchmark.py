@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 from chew.benchmark import (
     BenchmarkCondition,
     BenchmarkObservation,
+    BenchmarkProgress,
     BenchmarkReference,
     BenchmarkRunner,
     BenchmarkSpec,
@@ -79,6 +80,23 @@ async def test_reports_preserve_input_modality_labels() -> None:
     payload = json.loads(report.to_json())
     assert "video_url" in markdown
     assert payload["results"][0]["input_method"] == "video_url"
+
+
+@pytest.mark.asyncio
+async def test_runner_reports_progress_before_each_repeat() -> None:
+    events: list[BenchmarkProgress] = []
+    await BenchmarkRunner(progress_callback=events.append).run(
+        BenchmarkSpec(
+            source_id="youtube:abc",
+            repeats=2,
+            conditions=(BenchmarkCondition("direct", "Direct", "video_url", Runner([0.2, 0.4])),),
+        )
+    )
+
+    assert [(event.condition_id, event.repeat, event.total_repeats) for event in events] == [
+        ("direct", 1, 2),
+        ("direct", 2, 2),
+    ]
 
 
 def test_constructing_default_runner_makes_no_live_calls() -> None:

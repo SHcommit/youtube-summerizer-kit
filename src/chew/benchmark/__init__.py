@@ -3,6 +3,7 @@
 from chew.benchmark.runner import (
     BenchmarkCondition,
     BenchmarkObservation,
+    BenchmarkProgress,
     BenchmarkReference,
     BenchmarkReport,
     BenchmarkRunner,
@@ -20,6 +21,7 @@ from chew.benchmark.runner import (
 __all__ = [
     "BenchmarkCondition",
     "BenchmarkObservation",
+    "BenchmarkProgress",
     "BenchmarkReference",
     "BenchmarkReport",
     "BenchmarkRunner",

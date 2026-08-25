@@ -26,6 +26,13 @@ class BenchmarkObservation:
     metadata: dict[str, str] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class BenchmarkProgress:
+    condition_id: str
+    repeat: int
+    total_repeats: int
+
+
 ConditionRunner = Callable[[str], Awaitable[BenchmarkObservation]]
 
 
@@ -187,8 +194,9 @@ def write_benchmark_report(report: BenchmarkReport, output: Path) -> tuple[Path,
 
 
 class BenchmarkRunner:
-    def __init__(self) -> None:
+    def __init__(self, progress_callback: Callable[[BenchmarkProgress], None] | None = None) -> None:
         self.live_calls = 0
+        self.progress_callback = progress_callback
 
     async def run(self, spec: BenchmarkSpec) -> BenchmarkReport:
         if spec.repeats < 1:
@@ -199,7 +207,11 @@ class BenchmarkRunner:
         )
         results: list[ConditionResult] = []
         for index, condition in enumerate(ordered):
-            observations = [await self._observe(condition, spec.source_id) for _ in range(spec.repeats)]
+            observations: list[BenchmarkObservation] = []
+            for repeat in range(1, spec.repeats + 1):
+                if self.progress_callback is not None:
+                    self.progress_callback(BenchmarkProgress(condition.condition_id, repeat, spec.repeats))
+                observations.append(await self._observe(condition, spec.source_id))
             metric_names = sorted(set().union(*(observation.metrics.keys() for observation in observations)))
             medians: dict[str, float] = {}
             variances: dict[str, float] = {}
