@@ -25,10 +25,12 @@
 
 ## Next Decision
 
-No agent-runtime work is active. Keep the `agents` and `interfaces` skeletons as boundaries only
-until a concrete first user flow is selected—for example, a research request, a conversational
-follow-up, or an approved publishing action. Do not add ApplicationService agent tools, LangGraph,
-MCP, HTTP endpoints, or a web UI spec automatically.
+The product naming and module boundaries are specified in
+[`docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md): `chew` is the **Grounded Knowledge Compiler**;
+`intent-analysis` and `research-engine` are future independently extractable modules. Review that
+specification before adding the requested documentation-only module directories. Do not add
+ApplicationService agent tools, LangGraph, MCP, HTTP endpoints, web UI code, model dependencies,
+or a public package yet.
 
 Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only conclusion is in
 `reports/performance-comparisons/transcript-preprocessing/latest.md`.
