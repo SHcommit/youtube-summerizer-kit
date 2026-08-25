@@ -239,6 +239,115 @@ class KnowledgePack(FrozenModel):
     runtime_id: str | None = None
     model: str | None = None
     analysis_fingerprint: str
+    grounded_tree_fingerprint: str | None = None
+
+
+class OccurrenceDraft(FrozenModel):
+    """Untrusted source location proposed by a knowledge extraction runtime."""
+
+    occurrence_id: str = Field(min_length=1)
+    raw_segment_indexes: tuple[int, ...] = Field(min_length=1)
+    quote: str = Field(min_length=1)
+    context_type: str = "source"
+
+
+class ClaimNodeDraft(FrozenModel):
+    """Untrusted claim that becomes trusted only after occurrence grounding."""
+
+    claim_id: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    occurrence_ids: tuple[str, ...] = ()
+    provenance: Provenance = Provenance.SOURCE
+
+
+class ConceptDraft(FrozenModel):
+    concept_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    definition: str = Field(min_length=1)
+    claim_ids: tuple[str, ...] = ()
+    occurrence_ids: tuple[str, ...] = ()
+
+
+class TimelineSectionDraft(FrozenModel):
+    section_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    claim_ids: tuple[str, ...] = ()
+    anchor_occurrence_ids: tuple[str, ...] = ()
+
+
+class KnowledgeTreeDraft(FrozenModel):
+    """Untrusted structured Frontier output."""
+
+    schema_version: str = "gkt-draft-v1"
+    thesis_claim_id: str = Field(min_length=1)
+    summary_claim_ids: tuple[str, ...] = ()
+    claims: tuple[ClaimNodeDraft, ...] = Field(min_length=1)
+    occurrences: tuple[OccurrenceDraft, ...] = ()
+    concepts: tuple[ConceptDraft, ...] = ()
+    timeline_sections: tuple[TimelineSectionDraft, ...] = ()
+    relations: tuple[tuple[str, str, str], ...] = ()
+
+
+class GroundedOccurrence(FrozenModel):
+    occurrence_id: str = Field(min_length=1)
+    raw_segment_indexes: tuple[int, ...] = Field(min_length=1)
+    quote: str = Field(min_length=1)
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+    context_type: str = "source"
+
+    @model_validator(mode="after")
+    def validate_range(self) -> GroundedOccurrence:
+        if self.end_ms <= self.start_ms:
+            raise ValueError("grounded occurrence end must be after start")
+        return self
+
+
+class GroundedClaim(FrozenModel):
+    claim_id: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    occurrence_ids: tuple[str, ...] = Field(min_length=1)
+    provenance: Provenance = Provenance.SOURCE
+
+
+class GroundedConcept(FrozenModel):
+    concept_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    definition: str = Field(min_length=1)
+    claim_ids: tuple[str, ...] = ()
+    occurrence_ids: tuple[str, ...] = ()
+
+
+class GroundedTimelineSection(FrozenModel):
+    section_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    claim_ids: tuple[str, ...] = ()
+    anchor_occurrence_ids: tuple[str, ...] = ()
+
+
+class GroundingDiagnostics(FrozenModel):
+    candidate_occurrence_count: int = Field(ge=0)
+    grounded_occurrence_count: int = Field(ge=0)
+    unsupported_claim_count: int = Field(ge=0)
+    ambiguous_anchor_count: int = Field(ge=0)
+    dangling_reference_count: int = Field(ge=0)
+
+
+class GroundedKnowledgeTree(FrozenModel):
+    """Immutable locally-grounded knowledge artifact."""
+
+    schema_version: str = "gkt-v1"
+    raw_transcript_fingerprint: str = Field(min_length=1)
+    prepared_transcript_fingerprint: str = Field(min_length=1)
+    thesis_claim_id: str = Field(min_length=1)
+    summary_claim_ids: tuple[str, ...] = ()
+    claims: tuple[GroundedClaim, ...] = ()
+    occurrences: tuple[GroundedOccurrence, ...] = ()
+    concepts: tuple[GroundedConcept, ...] = ()
+    timeline_sections: tuple[GroundedTimelineSection, ...] = ()
+    relations: tuple[tuple[str, str, str], ...] = ()
+    diagnostics: GroundingDiagnostics
+    fingerprint: str = Field(min_length=1)
 
 
 class GenerationRequest(FrozenModel):
