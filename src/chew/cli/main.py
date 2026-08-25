@@ -34,6 +34,7 @@ from chew.core.identity import (
     looks_like_local_media_input,
     normalize_youtube_url,
 )
+from chew.interfaces.presenters import command_result_data
 from chew.log import configure_logging
 from chew.telemetry import TelemetryManager
 from chew.transcripts.service import TranscriptRateLimited, TranscriptUnavailable
@@ -164,19 +165,7 @@ def _emit(data: Any, json_output: bool, *, korean: bool = False) -> None:
 
 
 def _result_data(result: CommandResult) -> dict[str, object]:
-    data: dict[str, object] = {
-        "run_id": result.run_id,
-        "profile": result.profile,
-        "reused": result.reused,
-        "files": [str(path) for path in result.files],
-        "usage": result.usage,
-    }
-    if result.preprocessing_stats is not None:
-        data["preprocessing"] = {
-            **asdict(result.preprocessing_stats),
-            "token_reduction_pct": result.preprocessing_stats.token_reduction_pct,
-        }
-    return data
+    return command_result_data(result)
 
 
 def _emit_status(values: list[dict[str, object]], json_output: bool, *, korean: bool) -> None:
