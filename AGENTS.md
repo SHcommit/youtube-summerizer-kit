@@ -39,13 +39,24 @@ src/chew/
 │   ├── bootstrap.py   (Dependency injection container & AutoHarness)
 │   └── config.py      (Markdown-based settings loader: CHEW.md)
 │
-├── retention/         # Layer 7: Storage Retention & Cleanup Policies
+├── agents/            # Layer 7: Bounded Agent Control Contracts
+│   ├── contracts/     (Immutable budget, grant, request/result values)
+│   ├── policy/        (Pure guarded tool invocation)
+│   ├── ports/         (AgentTool protocol)
+│   └── adapters/      (Future optional graph runtime adapters only)
+│
+├── retention/         # Layer 8: Storage Retention & Cleanup Policies
 │   └── planner.py     (Retention policy planner & cleaner)
 │
-├── benchmark/         # Layer 8: Quality Benchmarking Framework
+├── benchmark/         # Layer 9: Quality Benchmarking Framework
 │   └── runner.py      (Benchmark runner & comparison reports)
 │
-└── cli/               # Layer 9: Presentation Layer (Typer CLI Commands)
+├── interfaces/        # Layer 10: Inbound Interface Contracts & Presenters
+│   ├── contracts/     (Protocol-neutral response envelopes)
+│   ├── presenters/    (Application result → terminal/JSON data)
+│   └── [cli, http, mcp]/ (Current CLI migration namespace; future adapters)
+│
+└── cli/               # Layer 11: Current Typer CLI compatibility entry point
     └── main.py        (Bilingual Korean/English Typer commands)
 
 reports/               # Central Benchmarking & Performance Observability Reports
@@ -70,6 +81,11 @@ benchmarks/            # Maintainer-only post-feature validation scripts
    - `pipeline` orchestrates synthesis without knowing vendor LLM details.
    - `harness` adapters implement the `Harness` protocol in `harness/base.py`.
    - `transcripts` providers implement `TranscriptProvider` in `transcripts/base.py`.
+   - `agents` contracts and policy are dependency-free; a future graph runtime is an optional adapter
+     and receives only policy-scoped tools.
+   - `interfaces` translates an inbound protocol to an application use case and presents its result.
+     It MUST NOT invoke storage, transcript, or runtime adapters directly. `pipeline/outputs.py`
+     remains a product-content renderer, not a web/CLI view layer.
 
 2. **Backward Compatibility**:
    - Re-export modules at the package root (`src/chew/domain.py`, `src/chew/pipeline.py`, `src/chew/config.py`, `src/chew/cli.py`) MUST be maintained so tests and external entrypoints remain compatible.

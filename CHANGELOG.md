@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Bounded agent and interface foundations**: adds immutable agent budgets, named tool grants,
+  guarded tool invocation, and protocol-neutral interface response contracts. CLI machine-result
+  presentation now reuses a framework-independent presenter, while HTTP, MCP, LangGraph, and web
+  implementations remain deliberately deferred.
 - **Live benchmark progress**: each condition/repeat is emitted immediately before its external
   provider call, making long explicit live runs observable before their final report is written.
 - **Grounded Knowledge Tree compiler foundation**: adds immutable untrusted tree drafts and

@@ -137,6 +137,8 @@ YouTube URL, 로컬 미디어, 또는 이미 가진 자막으로 시작합니다
 
 최종 추론은 Frontier runtime이 담당합니다. Ollama는 선택 사항이며, 활성화해도 제한된 자막 annotation에만 사용되고 최종 요약이나 판단을 대체하지 않습니다. SQLite와 content-addressed artifact는 로컬 상태를 보존합니다. OpenTelemetry/Jaeger는 선택적 관측 도구이지 실행에 필요한 의존성이 아닙니다.
 
+Knowledge Pack renderer는 Digest, Blog, Study, Obsidian, JSON처럼 실제로 재사용할 콘텐츠를 만듭니다. 반면 interface presenter는 완료된 작업을 터미널 문구나 machine JSON으로 전달할 뿐입니다. 현재 inbound interface는 CLI이고, HTTP·MCP·별도 배포 가능한 웹 클라이언트는 미래 계약 소비자로만 표시합니다. 아직 공개 API나 웹 UI는 포함하지 않습니다.
+
 ## 내부 파이프라인
 
 핵심 경로는 검증된 원문을 근거가 있는 재사용 지식으로 만든 뒤, 각 출력 프로필을 렌더링합니다.

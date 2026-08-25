@@ -24,16 +24,18 @@
 
 이 항목은 현재 구현하지 않는다.
 
-## 2. Grounded Knowledge Tree Agent 오케스트레이션 기반
+## 2. 보류: Grounded Knowledge Tree Agent runtime
 
-Grounded Knowledge Tree compiler를 먼저 완성한 뒤 LangGraph를 optional `agents` extra로 추가한다. core compiler는 LangGraph를
-import하지 않으며, `SessionGraph`와 bounded agent subgraph가 typed Application Service tool을 통해 완성된
-Grounded Knowledge Tree를 소비한다. Research, Style, Conversation, Publishing agent는 각각 tool allowlist, model/step/deadline
-예산, 읽기·쓰기 artifact 범위, 승인 조건을 실행 전에 고정한다.
+기본 control-plane 계약은 구현되었다. `agents`의 immutable budget·tool grant·request/result과 승인 전
+tool 실행을 차단하는 policy, 그리고 `interfaces`의 protocol-neutral presenter는 `CHANGELOG.md`에 기록한다.
+이는 LangGraph, MCP, HTTP API, 또는 웹 UI를 추가한 것이 아니다.
 
-대화 session과 `CompilationRun`·`AgentRun`은 분리한다. LangGraph checkpointer는 기존 canonical SQLite
-run/job/artifact schema와 분리하고 `session_id`, `run_id`, `tree_id`로 연결한다. pause/resume은 단계별
-checkpoint를 사용하며, 수신 여부가 불명확한 provider 요청이나 외부 write는 자동 반복하지 않는다.
+다음 활성 구현 전에는 완성된 Grounded Knowledge Tree만 읽고 렌더링하는 typed Application Service tool을
+정의한다. 그 뒤에만 LangGraph를 optional `agents` extra로 추가한다. `SessionGraph`와 bounded subgraph는
+Research, Style, Conversation, Publishing 역할별 allowlist, model/step/deadline 예산, 읽기·쓰기 artifact
+범위, 승인 조건을 실행 전에 고정한다.
 
-첫 Agent 구현 전에도 role-based policy, Harness adapter 경계, Grounded Knowledge Tree typed tool, durable
-correlation ID를 먼저 정의한다. recursive agent dispatch와 agent의 DB·파일·credential 직접 접근은 허용하지 않는다.
+대화 session과 `CompilationRun`·`AgentRun`은 분리한다. graph checkpointer는 canonical SQLite
+run/job/artifact schema와 분리하고 `session_id`, `run_id`, `tree_id`만 연결한다. 수신 여부가 불명확한
+provider 요청이나 외부 write는 자동 반복하지 않는다. recursive dispatch와 agent의 DB·파일·credential
+직접 접근은 허용하지 않는다.

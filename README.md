@@ -136,6 +136,8 @@ The application keeps identity, policy, grounding, Knowledge Pack assembly, and 
 
 Frontier runtimes perform final reasoning. Ollama is optional and, when enabled, is limited to bounded transcript annotation; it does not replace final reasoning or judgment. SQLite and content-addressed artifacts preserve local state. OpenTelemetry/Jaeger is optional observability, not a runtime dependency.
 
+The Knowledge Pack renderer creates the actual reusable content—Digest, Blog, Study, Obsidian, and JSON. That is separate from an interface presenter, which describes a completed operation as terminal text or machine JSON. The current inbound interface is the CLI. HTTP, MCP, and a separately deployable web client are deliberately shown as future contract consumers; no public API or web UI is included yet.
+
 ## Inside the Pipeline
 
 The core path turns validated source material into grounded, reusable knowledge before rendering any profile.

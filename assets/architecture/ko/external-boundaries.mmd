@@ -1,21 +1,29 @@
 %%{init: {"theme":"base","themeVariables":{"fontFamily":"Apple SD Gothic Neo, Noto Sans KR, Malgun Gothic, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b","clusterBkg":"#ffffff","clusterBorder":"#7c3aed"},"flowchart":{"curve":"basis","nodeSpacing":34,"rankSpacing":44,"htmlLabels":true}}}%%
 flowchart TB
     USER["CLI 사용자<br/>URL · 로컬 파일 · 자막"]
+    CLI["현재 CLI adapter<br/>Typer · 터미널 / JSON"]
+    WEB["미래 웹 클라이언트<br/>HTTP 계약만 사용"]
+    HTTP["미래 HTTP interface<br/>현재 공개 API 없음"]
+    MCPCLIENT["미래 MCP 클라이언트"]
+    MCP["미래 MCP interface<br/>현재 서버 없음"]
     CAPTIONS["공개 자막<br/>선택 Whisper"]
     FRONTIER["Frontier 추론 실행기<br/>Codex · Gemini · Claude"]
     OLLAMA["선택 Ollama<br/>자막 annotation"]
     STATE["SQLite 상태 + artifact<br/>지속되는 로컬 저장소"]
     OTEL["선택적 OpenTelemetry export<br/>Jaeger"]
 
-    subgraph APP["chew 코어"]
-        SERVICE["Application service"]
+    subgraph APP["chew 애플리케이션 경계"]
+        SERVICE["Application service<br/>typed use case"]
         POLICY["식별 + 정책"]
         GROUND["근거 기반 추출<br/>로컬 evidence 검증"]
-        PACK["Knowledge Pack<br/>결정론적 출력 렌더링"]
-        SERVICE --> POLICY --> GROUND --> PACK
+        PACK["Knowledge Pack"]
+        RENDER["콘텐츠 renderer<br/>Digest · Blog · Study · Obsidian"]
+        SERVICE --> POLICY --> GROUND --> PACK --> RENDER
     end
 
-    USER --> SERVICE
+    USER --> CLI --> SERVICE
+    WEB -. 미래 계약 .-> HTTP -.-> SERVICE
+    MCPCLIENT -. 미래 protocol .-> MCP -.-> SERVICE
     CAPTIONS --> SERVICE
     GROUND <--> FRONTIER
     POLICY -.-> OLLAMA
@@ -23,10 +31,12 @@ flowchart TB
     SERVICE -.-> OTEL
 
     classDef external fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#172554;
+    classDef deferred fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,stroke-dasharray:5 3,color:#0f172a;
     classDef optional fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,stroke-dasharray:5 3,color:#0f172a;
     classDef core fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065;
     classDef knowledge fill:#fef3c7,stroke:#d97706,stroke-width:2.5px,color:#78350f;
-    class USER,CAPTIONS,FRONTIER,STATE external;
+    class USER,CLI,CAPTIONS,FRONTIER,STATE external;
+    class WEB,HTTP,MCPCLIENT,MCP deferred;
     class OLLAMA,OTEL optional;
     class SERVICE,POLICY,GROUND core;
-    class PACK knowledge;
+    class PACK,RENDER knowledge;
