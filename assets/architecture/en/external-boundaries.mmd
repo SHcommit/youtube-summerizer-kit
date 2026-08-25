@@ -1,0 +1,32 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b","clusterBkg":"#ffffff","clusterBorder":"#7c3aed"},"flowchart":{"curve":"basis","nodeSpacing":34,"rankSpacing":44}}}%%
+flowchart TB
+    USER["CLI user<br/>URL · local media · transcript file"]
+    CAPTIONS["Public captions<br/>Optional local Whisper"]
+    FRONTIER["Frontier reasoning runtimes<br/>Codex · Gemini · Claude"]
+    OLLAMA["Optional installed Ollama<br/>Bounded transcript annotation"]
+    STATE["SQLite state + artifacts<br/>Durable local storage"]
+    OTEL["Optional OpenTelemetry export<br/>Jaeger"]
+
+    subgraph APP["chew application core"]
+        SERVICE["Application service"]
+        POLICY["Identity + policy"]
+        GROUND["Grounded extraction<br/>Local evidence validation"]
+        PACK["Knowledge Pack<br/>Deterministic rendering"]
+        SERVICE --> POLICY --> GROUND --> PACK
+    end
+
+    USER --> SERVICE
+    CAPTIONS --> SERVICE
+    GROUND <--> FRONTIER
+    POLICY -.-> OLLAMA
+    SERVICE <--> STATE
+    SERVICE -.-> OTEL
+
+    classDef external fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#172554;
+    classDef optional fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,stroke-dasharray:5 3,color:#0f172a;
+    classDef core fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065;
+    classDef knowledge fill:#fef3c7,stroke:#d97706,stroke-width:2.5px,color:#78350f;
+    class USER,CAPTIONS,FRONTIER,STATE external;
+    class OLLAMA,OTEL optional;
+    class SERVICE,POLICY,GROUND core;
+    class PACK knowledge;
