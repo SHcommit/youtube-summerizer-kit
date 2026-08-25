@@ -12,12 +12,12 @@
 
 ## Next Priorities
 
-1. Review the existing seven-fixture metrics-only preprocessing run and promote only its reviewed
-   conclusion to `reports/performance-comparisons/`; keep preprocessing opt-in.
+1. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
+   an implementation plan is reviewed.
 2. Do not run, retain, or interpret end-to-end Frontier benchmark comparisons. The existing `--live`
    command remains only as a backward-compatible, explicitly invoked diagnostic.
-3. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
-   the compiler and policy gates are complete.
+3. The reviewed seven-fixture metrics-only preprocessing conclusion is recorded in
+   `reports/performance-comparisons/transcript-preprocessing/latest.md`; keep preprocessing opt-in.
 
 ## Active Constraints
 

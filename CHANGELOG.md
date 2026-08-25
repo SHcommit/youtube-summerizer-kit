@@ -64,6 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   captions resolved with the entry-specific language; tokenizer input changed from 132,312 to
   118,716 (10.28%). This remains non-billing, non-quality evidence and does not change the
   opt-in preprocessing default.
+- **Reviewed preprocessing conclusion**: promoted the seven-fixture metrics-only result to the
+  maintainer benchmark index. The default remains opt-in because the report has no quality gate or
+  provider-billing evidence.
 - **Default compilation and rendering path**: application runs now select the GKT compiler;
   default Digest, Blog, Study, JSON, and Obsidian profiles render deterministically from the
   persisted Knowledge Pack without outline, compose, or verification model requests. The former

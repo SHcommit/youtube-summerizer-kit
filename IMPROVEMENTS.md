@@ -14,73 +14,7 @@
 - end-to-end Frontier benchmark는 활성 검증 범위가 아니다. `--live` 명령은 호환성을 위해
   유지하지만, provider 호출 비용이 드는 비교 실행·결과 보존·채택 판단은 진행하지 않는다.
 
-## 1. 자막 전처리 채택 벤치마크
-
-**현재 결과:** `2026-08-25`에 잠금된 7개 fixture(영어 5개, 한국어 2개)를 metrics-only로 같은
-조건에서 측정했다. 보수적 필러 제거는 132,312에서 118,716 tokenizer token으로 **10.28%**
-감소했고 모든 영상이 성공했다. 한국어 강의는 22,916에서 22,747 token(**0.74%**), 한국어 대화형은
-18,014에서 17,866 token(**0.82%**)이었다. 이는 tokenizer 측정이며 provider 비용·품질 주장이
-아니다. Frontier 비교는 범위 밖이므로 `preprocess_transcript` 기본값은 계속 `false`다.
-
-### 남은 작업
-
-1. metrics-only 7개 fixture 결과를 검토해 `reports/performance-comparisons/`의 결론으로 승격하거나
-   보류한다.
-2. 기본값은 opt-in을 유지한다. Frontier 비교를 다시 요구하지 않는 한 provider 사용량이나 quality
-   claim을 채택 근거로 추가하지 않는다.
-
-### 채택 기준
-
-기본 활성화는 별도 제품 결정을 통해 provider 품질 검증을 다시 범위에 포함할 때만 검토한다.
-현재 metrics-only 결과는 아래 기준 중 token 측정만 제공하므로 기본값을 변경하지 않는다.
-
-1. 실제 provider input usage 또는 비용이 기준선보다 10% 이상 감소한다.
-2. evidence recall, timestamp accuracy, 핵심 주장 recall이 저하되지 않는다.
-3. partial result와 missing range가 증가하지 않는다.
-4. 30분 및 1시간 fixture의 처리 시간 중앙값이 허용한 회귀 한도를 넘지 않는다.
-
-미달하면 전처리는 opt-in으로 유지하며 절감률을 마케팅 문구로 사용하지 않는다.
-
-## 2. Grounded Knowledge Tree 기반 단일 Frontier Compiler
-
-영상 길이에 따라 topic/chapter/compose Frontier fan-out을 선택하지 않는다. 준비된 transcript가 선택한
-runtime/model의 정적 입력 예산에 맞으면 전체 구조화 Knowledge Pack 초안을 Frontier 1회로 생성한다.
-맞지 않을 때만 두 단계 refine을 허용하며 영상당 semantic Frontier 호출 상한은 2회다.
-구현 계약은 [`docs/superpowers/specs/2026-08-25-grounded-knowledge-tree-hybrid-design.md`](docs/superpowers/specs/2026-08-25-grounded-knowledge-tree-hybrid-design.md)를 따른다. 기존 `KnowledgePack` 호환성을 유지하면서
-미검증 `KnowledgeTreeDraft`와 검증 완료 `GroundedKnowledgeTree`를 분리하고, 기본 output profile은
-Grounded Knowledge Tree에서 추가 모델 호출 없이 렌더링한다.
-
-**현재 결과:** `2026-08-24`에 사용자 승인 reference로 공개 영어 자동자막 영상
-[`aBUniZHgCnE`](https://www.youtube.com/watch?v=aBUniZHgCnE) (14분 34초)을 Codex로 3회씩
-비교했다. 동일 raw transcript snapshot을 사용했지만 단일 경로의 중앙 latency/usage는
-16.952초/29,192, 계층 경로는 57.744초/348,963이었다. 계층 경로의 key-point recall과
-timestamp accuracy 중앙값은 각각 0.25였고, 두 경로의 evidence coverage는 0.0이었다.
-reference-evidence 정합성과 경로 간 prompt fingerprint가 아직 비교 기준을 만족하지 않으므로,
-이 결과로 기본 경로를 바꾸지 않는다.
-
-### 구현 작업
-
-1. **Input Compiler:** raw transcript를 불변 보존하고 prepared transcript와 segment ID mapping을 만든다.
-   설치된 단일 Ollama 모델은 최대 1회의 입력 정리 annotation만 제안하며, 실패하거나 token을 5% 넘게
-   증가시키면 결정론적 baseline으로 fallback한다.
-2. **Grounded Knowledge Tree Compiler:** 기존 topic N + chapter M + compose Frontier DAG를 기본 경로에서
-   단일 structured extraction으로 교체한다. 입력 예산 초과 시에만 최대 2회의 refine을 허용하고, raw
-   evidence와 timestamp를 로컬 검증한 뒤 Grounded Knowledge Tree와 호환 Knowledge Pack을 조립한다.
-3. **Output Renderer:** digest/blog/study/obsidian 기본 출력의 outline/compose/verify 모델 호출을 제거하고
-   Grounded Knowledge Tree에서 결정론적으로 렌더링한다. 이후 Output Pack과 Render Skill은 이 경계 위에
-   추가하며 기본 compiler의 Frontier 호출 예산을 사용하지 않는다.
-4. **Workflow:** role-based runtime policy, 단계별 checkpoint, pause/resume, unknown external outcome,
-   OpenTelemetry span, 기존 benchmark 전략 호환을 같은 실행 계약으로 연결한다.
-
-### 수용 기준
-
-1. 일반 입력의 Frontier semantic 호출은 정확히 1회다.
-2. 입력 예산 초과 fallback도 최대 2회이며 자동 3회 이상 fan-out이 없다.
-3. Ollama의 존재·실패 여부가 Frontier 호출 수를 늘리지 않는다.
-4. 모든 기본 출력 profile은 저장된 Knowledge Pack만으로 생성된다.
-5. evidence recall, timestamp accuracy, 핵심 claim recall이 기존 검토 기준보다 저하되지 않는다.
-
-## 3. 보류: 자연어 입력 해석
+## 1. 보류: 자연어 입력 해석
 
 `chew야 <URL> 이거 정리해줘` 같은 자연어를 현재 CLI 명령과 옵션으로만 구조화하는
 `IntentParser`를 검토한다. 기본 경로는 결정적 URL·옵션 추출을 사용하며, 이후 opt-in local LLM은
@@ -90,7 +24,7 @@ reference-evidence 정합성과 경로 간 prompt fingerprint가 아직 비교 �
 
 이 항목은 현재 구현하지 않는다.
 
-## 4. Grounded Knowledge Tree Agent 오케스트레이션 기반
+## 2. Grounded Knowledge Tree Agent 오케스트레이션 기반
 
 Grounded Knowledge Tree compiler를 먼저 완성한 뒤 LangGraph를 optional `agents` extra로 추가한다. core compiler는 LangGraph를
 import하지 않으며, `SessionGraph`와 bounded agent subgraph가 typed Application Service tool을 통해 완성된
