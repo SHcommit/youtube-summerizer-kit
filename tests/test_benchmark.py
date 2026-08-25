@@ -222,7 +222,13 @@ async def test_short_video_benchmark_resolves_one_snapshot_for_all_conditions_an
             )
 
         async def generate(self, request: GenerationRequest) -> GenerationResult:
-            if request.task == "topic_summary":
+            if request.task == "knowledge_extract":
+                output: dict[str, object] = {
+                    "thesis_claim_id": "claim-1",
+                    "claims": [{"claim_id": "claim-1", "text": "topic", "occurrence_ids": ["occ-1"]}],
+                    "occurrences": [{"occurrence_id": "occ-1", "raw_segment_indexes": [0], "quote": "segment"}],
+                }
+            elif request.task == "topic_summary":
                 output: dict[str, object] = {
                     "topic_id": request.input["topic_id"],
                     "title": request.input["title"],
@@ -264,6 +270,7 @@ async def test_short_video_benchmark_resolves_one_snapshot_for_all_conditions_an
     assert [(condition.condition_id, condition.input_method) for condition in spec.conditions] == [
         ("frontier-single-pass", "transcript"),
         ("frontier-hierarchical", "transcript"),
+        ("gkt-deterministic", "transcript"),
     ]
 
 

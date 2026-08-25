@@ -598,6 +598,68 @@ async def short_video_benchmark_spec(
 
         return observe
 
+    def gkt_deterministic() -> ConditionRunner:
+        async def observe(_: str) -> BenchmarkObservation:
+            selected = await selected_runtime()
+            capabilities = (await selected.probe()).capabilities
+            started = monotonic()
+            with tempfile.TemporaryDirectory(prefix="chew-gkt-benchmark-") as temporary:
+                root = Path(temporary)
+                database = Database(root / "state.sqlite3")
+                database.initialize()
+                pipeline = AnalysisPipeline(
+                    database=database,
+                    artifacts=ArtifactStore(root),
+                    transcripts=TranscriptService(default_providers()),
+                    harness=selected,
+                    concurrency=capabilities.max_concurrency,
+                )
+                result = await pipeline.analyze(
+                    url,
+                    AnalysisConfig(
+                        language=reference.language,
+                        depth="detailed",
+                        instructions="",
+                        whisper_fallback=False,
+                        runtime=configured_runtime,
+                        recipe_json="{}",
+                        compiler_strategy="gkt",
+                    ),
+                    transcript=transcript,
+                )
+            points = [
+                {
+                    "text": claim.text,
+                    "timestamp_ms": claim.evidence[0].start_ms if claim.evidence else 0,
+                    "evidence": claim.evidence[0].text if claim.evidence else "",
+                }
+                for topic in result.pack.topics
+                for claim in topic.claims
+            ]
+            metrics, unsupported = _score_output(
+                {
+                    "overview": result.pack.overview,
+                    "key_points": points,
+                    "further_study": list(result.pack.further_study),
+                },
+                reference,
+            )
+            return BenchmarkObservation(
+                metrics,
+                monotonic() - started,
+                sum((result.usage or {}).values()),
+                unsupported,
+                {
+                    "runtime": selected.runtime_id,
+                    "model": ",".join(result.models) or "default",
+                    "prompt_fingerprint": "gkt-v1",
+                    "comparison": "same_frontier_transcript",
+                    "strategy": "gkt_deterministic",
+                },
+            )
+
+        return observe
+
     return BenchmarkSpec(
         source_id=source.source_id,
         repeats=repeats,
@@ -614,6 +676,13 @@ async def short_video_benchmark_spec(
                 "Hierarchical / configured Frontier",
                 "transcript",
                 hierarchical(),
+                True,
+            ),
+            BenchmarkCondition(
+                "gkt-deterministic",
+                "Grounded Knowledge Tree / configured Frontier",
+                "transcript",
+                gkt_deterministic(),
                 True,
             ),
         ),
