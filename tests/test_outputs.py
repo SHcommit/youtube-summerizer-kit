@@ -127,7 +127,7 @@ class OutputHarness:
 
 
 @pytest.mark.asyncio
-async def test_blog_uses_plan_compose_verify_and_profile_changes_cache_key(tmp_path: Path) -> None:
+async def test_blog_renders_without_model_calls_and_profile_changes_cache_key(tmp_path: Path) -> None:
     harness = OutputHarness()
     compiler = OutputCompiler(harness)
 
@@ -144,42 +144,22 @@ async def test_blog_uses_plan_compose_verify_and_profile_changes_cache_key(tmp_p
         tmp_path / "blog-2",
     )
 
-    assert harness.tasks[:3] == ["output_outline", "output_compose", "output_verify"]
-    assert "사용자 톤 블로그" in first.files[0].read_text(encoding="utf-8")
+    assert harness.tasks == []
+    assert "테스트 영상" in first.files[0].read_text(encoding="utf-8")
     assert first.cache_key != second.cache_key
 
 
 @pytest.mark.asyncio
-async def test_blog_requests_complete_object_schemas_for_strict_runtimes(tmp_path: Path) -> None:
+async def test_blog_never_requests_model_schemas_for_default_renderer(tmp_path: Path) -> None:
     harness = OutputHarness()
 
     await OutputCompiler(harness).compile(pack(), "blog", Settings(), tmp_path / "blog")
 
-    schemas = {request.task: request.output_schema for request in harness.requests}
-    assert schemas == {
-        "output_outline": {
-            "type": "object",
-            "properties": {"sections": {"type": "array", "items": {"type": "string"}}},
-            "required": ["sections"],
-            "additionalProperties": False,
-        },
-        "output_compose": {
-            "type": "object",
-            "properties": {"markdown": {"type": "string"}},
-            "required": ["markdown"],
-            "additionalProperties": False,
-        },
-        "output_verify": {
-            "type": "object",
-            "properties": {"markdown": {"type": "string"}, "valid": {"type": "boolean"}},
-            "required": ["markdown", "valid"],
-            "additionalProperties": False,
-        },
-    }
+    assert harness.requests == []
 
 
 @pytest.mark.asyncio
-async def test_blog_can_skip_verification_when_explicitly_disabled(tmp_path: Path) -> None:
+async def test_blog_ignores_legacy_output_verification_setting(tmp_path: Path) -> None:
     harness = OutputHarness()
     await OutputCompiler(harness).compile(
         pack(),
@@ -188,15 +168,15 @@ async def test_blog_can_skip_verification_when_explicitly_disabled(tmp_path: Pat
         tmp_path / "blog",
     )
 
-    assert harness.tasks == ["output_outline", "output_compose"]
+    assert harness.tasks == []
 
 
 @pytest.mark.asyncio
-async def test_uncached_ai_output_honors_profile_runtime(tmp_path: Path) -> None:
+async def test_uncached_default_output_does_not_select_profile_runtime(tmp_path: Path) -> None:
     harness = OutputHarness()
     await OutputCompiler(harness).compile(pack(), "blog", Settings(runtime="gemini"), tmp_path / "blog")
 
-    assert harness.preferences == ["gemini"]
+    assert harness.preferences == []
 
 
 @pytest.mark.asyncio
@@ -211,6 +191,6 @@ async def test_same_output_cache_key_restores_without_model_calls(tmp_path: Path
     settings = Settings(instructions="고정 문체")
     await compiler.compile(pack(), "blog", settings, tmp_path / "first")
     await compiler.compile(pack(), "blog", settings, tmp_path / "second")
-    assert harness.tasks == ["output_outline", "output_compose", "output_verify"]
+    assert harness.tasks == []
     filename = f"{_safe_name(pack().title)}.md"
     assert (tmp_path / "second" / filename).read_text() == (tmp_path / "first" / filename).read_text()

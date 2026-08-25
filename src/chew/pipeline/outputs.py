@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from chew.app.config import Settings
 from chew.core.identity import fingerprint
 from chew.core.models import GenerationRequest, KnowledgePack, Provenance
-from chew.harness.base import ConfigurableHarness, Harness
+from chew.harness.base import Harness
 from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 from chew.storage.database import Database
 
@@ -87,10 +87,8 @@ class OutputCompiler:
                 "instructions": settings.instructions,
                 "language": settings.language,
                 "depth": settings.depth,
-                "runtime": settings.runtime,
-                "output_verify": settings.output_verify,
                 "recipe": OUTPUT_RECIPE_FINGERPRINT,
-                "renderer": 1,
+                "renderer": 2,
             }
         )
         destination.mkdir(parents=True, exist_ok=True)
@@ -108,15 +106,14 @@ class OutputCompiler:
                 json.dumps(pack.model_dump(mode="json"), ensure_ascii=False, indent=2),
             )
             files = (path,)
-        elif profile in {"blog", "study"} and self.harness is not None:
-            if isinstance(self.harness, ConfigurableHarness):
-                self.harness.set_preference(settings.runtime)
+        elif profile in {"blog", "study"}:
             path = (
                 destination
                 if destination.suffix.lower() == ".md"
                 else destination / default_filename
             )
-            _atomic_write(path, await self._compose(pack, profile, settings, cache_key))
+            renderer = self._render_blog if profile == "blog" else self._render_study
+            _atomic_write(path, renderer(pack))
             files = (path,)
         else:
             path = (
@@ -268,6 +265,33 @@ class OutputCompiler:
                     lines.append(f"- [{label}] {claim.text}{timestamp}")
                 if topic.claims:
                     lines.append("")
+        return "\n".join(lines).rstrip() + "\n"
+
+    @classmethod
+    def _render_blog(cls, pack: KnowledgePack) -> str:
+        lines = [f"# {pack.title}", "", pack.overview, ""]
+        for chapter in pack.chapters:
+            lines.extend((f"## {chapter.title}", "", chapter.summary, ""))
+            for topic in (topic for topic in pack.topics if topic.topic_id in chapter.topic_ids):
+                for claim in topic.claims:
+                    citation = f" ({_timestamp(claim.evidence[0].start_ms)})" if claim.evidence else ""
+                    lines.append(f"{claim.text}{citation}")
+                if topic.claims:
+                    lines.append("")
+        return "\n".join(lines).rstrip() + "\n"
+
+    @classmethod
+    def _render_study(cls, pack: KnowledgePack) -> str:
+        lines = [f"# {pack.title}", "", "## 핵심 개념", ""]
+        for topic in pack.topics:
+            lines.extend((f"### {topic.title}", "", topic.summary, ""))
+            for claim in topic.claims:
+                timestamp = f" ({_timestamp(claim.evidence[0].start_ms)})" if claim.evidence else ""
+                lines.append(f"- {claim.text}{timestamp}")
+            if topic.claims:
+                lines.append("")
+        if pack.further_study:
+            lines.extend(("## 추가 학습", "", *(f"- {item}" for item in pack.further_study), ""))
         return "\n".join(lines).rstrip() + "\n"
 
     @staticmethod

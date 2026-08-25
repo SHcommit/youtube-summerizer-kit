@@ -278,7 +278,21 @@ class OfflineHarness:
         if self.fail_on_generate:
             raise AssertionError("cached analysis and output must not call the harness")
         self.tasks.append(request.task)
-        if request.task == "topic_summary":
+        if request.task == "knowledge_extract":
+            output: dict[str, object] = {
+                "thesis_claim_id": "claim-1",
+                "claims": [
+                    {"claim_id": "claim-1", "text": "자막", "occurrence_ids": ["occurrence-1"]}
+                ],
+                "occurrences": [
+                    {
+                        "occurrence_id": "occurrence-1",
+                        "raw_segment_indexes": [0],
+                        "quote": "자막",
+                    }
+                ],
+            }
+        elif request.task == "topic_summary":
             output: dict[str, object] = {
                 "topic_id": request.input["topic_id"],
                 "title": request.input["title"],
@@ -352,10 +366,7 @@ async def test_profile_changes_reassemble_without_reanalyzing_and_output_cache_i
     restored = await application.generate(source.canonical_url, "blog", tmp_path / "blog-restored")
 
     assert provider.calls == 1
-    assert calls_before_cache_restore.count("topic_summary") == 1
-    assert calls_before_cache_restore.count("chapter_summary") == 1
-    assert calls_before_cache_restore.count("compose") == 1
-    assert calls_before_cache_restore.count("output_compose") == 2
+    assert calls_before_cache_restore == ["knowledge_extract"]
     assert restored.reused
     target_file = tmp_path / "blog-two" / restored.files[0].name
     assert restored.files[0].read_text() == target_file.read_text()

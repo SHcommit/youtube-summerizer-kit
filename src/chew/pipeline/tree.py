@@ -84,10 +84,7 @@ class TreeAssembler:
             "relations": relations,
             "diagnostics": diagnostics.model_dump(mode="json"),
         }
-        return GroundedKnowledgeTree(
-            **content,
-            fingerprint=fingerprint(content),
-        )
+        return GroundedKnowledgeTree.model_validate({**content, "fingerprint": fingerprint(content)})
 
     @staticmethod
     def _ground_occurrences(

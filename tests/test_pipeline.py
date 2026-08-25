@@ -174,6 +174,80 @@ class EvidenceCandidateHarness(StructuredFakeHarness):
         }
 
 
+class GroundedTreeHarness:
+    runtime_id = "fake"
+
+    def __init__(self) -> None:
+        self.requests: list[GenerationRequest] = []
+
+    async def generate(self, request: GenerationRequest) -> GenerationResult:
+        self.requests.append(request)
+        return GenerationResult(
+            request_id=request.request_id,
+            runtime_id=self.runtime_id,
+            model="fake-model",
+            output={
+                "thesis_claim_id": "claim-1",
+                "claims": [
+                    {
+                        "claim_id": "claim-1",
+                        "text": "The transcript is grounded.",
+                        "occurrence_ids": ["occurrence-1"],
+                    }
+                ],
+                "occurrences": [
+                    {
+                        "occurrence_id": "occurrence-1",
+                        "raw_segment_indexes": [0],
+                        "quote": "The transcript is grounded.",
+                    }
+                ],
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_gkt_pipeline_uses_one_extraction_without_hierarchical_jobs(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="en",
+        duration_ms=10_000,
+        provenance=Provenance.MANUAL_SUBTITLE,
+        segments=(TranscriptSegment(start_ms=0, end_ms=10_000, text="The transcript is grounded."),),
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    harness = GroundedTreeHarness()
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=ArtifactStore(tmp_path),
+        transcripts=TranscriptService([StaticTranscriptProvider(transcript)]),
+        harness=harness,
+    )
+
+    result = await pipeline.analyze(
+        source.canonical_url,
+        AnalysisConfig(
+            language="en",
+            depth="detailed",
+            instructions="",
+            whisper_fallback=False,
+            runtime="fake",
+            recipe_json="{}",
+            compiler_strategy="gkt",
+        ),
+    )
+
+    assert [request.task for request in harness.requests] == ["knowledge_extract"]
+    assert result.pack.grounded_tree_fingerprint
+    assert database.list_run_statuses(result.run_id)[0][4] == 0
+
+
 @pytest.mark.asyncio
 async def test_pipeline_marks_pack_partial_with_failed_topic_range(tmp_path: Path) -> None:
     source = SourceIdentity(source_id="youtube:abcDEF_1234", video_id="abcDEF_1234", canonical_url="https://www.youtube.com/watch?v=abcDEF_1234")

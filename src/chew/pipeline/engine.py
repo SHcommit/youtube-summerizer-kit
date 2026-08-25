@@ -33,10 +33,13 @@ from chew.core.prompts import (
 )
 from chew.harness.base import Harness
 from chew.pipeline.evidence import materialize_topic_summary
+from chew.pipeline.extraction import AnalysisSpec, KnowledgeExtractor
+from chew.pipeline.input_compiler import InputBudget, InputCompiler
 from chew.pipeline.knowledge import build_knowledge_pack
 from chew.pipeline.preprocessing import PreprocessingStats, TranscriptPreprocessor
 from chew.pipeline.scheduler import Scheduler
 from chew.pipeline.segmentation import SegmentationPolicy, SegmentManifest, segment_transcript
+from chew.pipeline.tree import KnowledgePackProjector, TreeAssembler
 from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 from chew.storage.database import Database, JobRecord, JobSpec
 from chew.telemetry import NullTelemetry, Telemetry
@@ -58,6 +61,7 @@ class AnalysisConfig:
     normalize_transcript: bool = False
     preprocess_transcript: bool = False
     execution_plan: ExecutionPlan | None = None
+    compiler_strategy: str = "legacy_hierarchical"
 
 
 class PipelineExecutionError(RuntimeError):
@@ -168,6 +172,7 @@ class AnalysisPipeline:
                     "recipe": 1,
                 },
                 "schema": 1,
+                "compiler_strategy": config.compiler_strategy,
                 "provided_transcript": fingerprint(transcript) if transcript is not None else None,
             }
         )
@@ -270,6 +275,57 @@ class AnalysisPipeline:
                 if winner is None:
                     raise
                 run_id = winner
+
+        if config.compiler_strategy == "gkt":
+            prepared = InputCompiler().compile(
+                transcript,
+                InputBudget(
+                    max_input_tokens=config.max_input_tokens,
+                    reserved_output_tokens=config.reserved_output_tokens,
+                ),
+            )
+            self.artifacts.put_json(prepared)
+            with self.telemetry.span(
+                "frontier.generate",
+                {"strategy": "gkt", "prepared_fingerprint": prepared.fingerprint},
+            ):
+                extracted = await KnowledgeExtractor(self.harness).extract(
+                    prepared,
+                    AnalysisSpec(
+                        language=config.language,
+                        depth=config.depth,
+                        instructions=config.instructions,
+                    ),
+                    trace_id=run_id,
+                )
+            with self.telemetry.span("evidence.ground", {"strategy": "gkt"}):
+                tree = TreeAssembler().assemble(
+                    extracted.draft,
+                    raw_transcript=transcript,
+                    raw_transcript_fingerprint=raw_transcript_hash,
+                    prepared_transcript_fingerprint=prepared.fingerprint,
+                )
+            self.artifacts.put_json(tree)
+            pack = KnowledgePackProjector().project(
+                tree=tree,
+                transcript=transcript,
+                source=source,
+                title=title or transcript.title or "YouTube 영상",
+                language=config.language,
+                analysis_fingerprint=analysis_key,
+                runtime_id=extracted.runtime_id,
+                model=extracted.model,
+            )
+            pack_ref = self.artifacts.put_json(pack)
+            self.database.set_run_pack(run_id, pack_ref.digest)
+            return AnalysisResult(
+                run_id,
+                pack,
+                False,
+                dict(extracted.usage),
+                (extracted.model,) if extracted.model else (),
+                preprocessing_stats,
+            )
 
         graph = build_analysis_job_graph(run_id, manifest, self.harness.runtime_id)
         topic_by_id = {topic.topic_id: topic for topic in manifest.topics}

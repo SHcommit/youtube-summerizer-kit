@@ -142,6 +142,7 @@ class ApplicationService:
             normalize_transcript=analysis_settings.normalize_transcript,
             preprocess_transcript=analysis_settings.preprocess_transcript,
             execution_plan=plan,
+            compiler_strategy="gkt",
         )
         try:
             if transcript is None:
