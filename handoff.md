@@ -12,10 +12,9 @@
 
 ## Next Priorities
 
-1. Revisit the Frontier-call policy before implementation: default to one Frontier request whenever
-   the selected model accepts the prepared transcript. Do not use video duration to automatically
-   fan out 3--5 semantic calls; determine capability from the selected runtime/model's input budget.
-   Any multi-call fallback requires an explicit, separately approved product policy.
+1. Implement the agreed Frontier-call policy: one-shot by default based on the selected runtime/model's
+   static input budget; use exactly one two-pass refine fallback when required; never auto-fan-out
+   to three or more semantic calls. Inputs that do not fit two passes must stop before a provider call.
 2. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
    independently human-reviewed JSON references for the Korean fixtures, long-video preprocessing,
    and 4m35s short-video conditions. Run the remaining Frontier benchmarks only as the integrated

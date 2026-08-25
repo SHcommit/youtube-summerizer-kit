@@ -1,50 +1,61 @@
-# Short-Video Single-Frontier Design
+# Bounded Frontier Synthesis Design
 
 ## Goal
 
-Use one Frontier generation call for videos of 15 minutes or less, while retaining the existing local transcript, evidence-validation, persistence, export, and resume boundaries.
+Use one Frontier generation call whenever a prepared transcript fits the selected runtime's configured input budget, while retaining the existing local transcript, evidence-validation, persistence, export, and resume boundaries.
 
 ## Decision
 
-`SHORT_VIDEO_MAX_DURATION_MS = 900_000` is a product policy constant. Once the transcript is available, the analysis pipeline selects one of two immutable strategies:
+Each runtime/model profile declares a static usable input budget. The pipeline estimates prepared transcript tokens locally and selects one of two immutable strategies:
 
-- `single_frontier_v1` for duration less than or equal to 15 minutes.
-- `hierarchical_v1` for longer media.
+- `one_shot_v1` when the complete transcript plus schema/output reserve fits.
+- `two_pass_refine_v1` only when the full transcript does not fit but a left-half result plus the right-half raw transcript fits.
 
-The strategy is included in the request/cache identity and run metadata. A previously cached hierarchical short-video pack cannot be reused for a single-Frontier request.
+Video duration alone never selects a strategy. The strategy, runtime/model budget, and token estimate are included in the request/cache identity and run metadata. No automatic third or later semantic call is permitted.
 
-## Single-Frontier Flow
+## One-Shot Flow
 
 ```text
 public or user-provided transcript
 -> local normalization / optional deterministic preprocessing / segmentation
--> one `short_video_summary` Frontier request over the prepared transcript
+-> one `frontier_summary` request over the prepared transcript
 -> local candidate-evidence validation against immutable raw spans
 -> local one-topic / one-chapter Knowledge Pack construction
 -> existing output compiler and artifact persistence
 ```
 
-The response schema contains overview, one topic summary, claim candidates, concepts, examples, and further-study items. The local pipeline derives the sole chapter and never makes `chapter_summary` or `compose` calls for this strategy.
+The response schema contains overview, chapters/topics, claim candidates, concepts, examples, and further-study items. Local code materializes raw-evidence references and constructs the Knowledge Pack without an additional semantic compose call.
+
+## Two-Pass Refine Flow
+
+```text
+left raw transcript -> `frontier_summary` -> validated left result
+validated left result + right raw transcript -> `frontier_refine` -> final result
+local assembly retains left evidence refs and validates right evidence against raw spans
+```
+
+This is an explicit maximum, not a fan-out. If the transcript does not fit either one-shot or two-pass refine for the selected runtime/model, the run stops before any Frontier call with a message to choose a larger-context runtime or explicitly approve a future high-cost mode.
 
 ## Boundaries
 
-- Frontier remains the sole semantic reasoning runtime.
+- Frontier remains the sole semantic reasoning runtime, with at most two calls per analysis.
 - Local code performs only deterministic preprocessing, validation, structural assembly, persistence, and export.
 - `task_runtimes` cannot route `short_video_summary` to a local runtime because the existing Frontier-first execution plan rejects local summary routes.
-- Long videos retain the existing topic -> chapter -> compose DAG.
-- A failed single summary produces no Knowledge Pack and remains resumable through the existing scheduler state machine.
+- Existing topic -> chapter -> compose fan-out is retired from the default analysis path.
+- A failed one-shot or refine request produces no Knowledge Pack and remains resumable through the existing scheduler state machine.
 
 ## Data and Observability
 
-- Persist one durable job with kind `short_video` and task `short_video_summary`.
+- Persist one or two durable jobs, with task names `frontier_summary` and `frontier_refine`.
 - Keep standard generation measurement and add the existing validator measurement when claims include evidence candidates.
-- Record strategy and threshold in cache/run metadata and telemetry attributes.
-- Construct a normal `KnowledgePack` with one `TopicSummary`, one locally derived `ChapterSummary`, validated evidence refs, model/runtime provenance, and further-study items.
+- Record strategy, static runtime budget, and local token estimate in cache/run metadata and telemetry attributes.
+- Construct a normal `KnowledgePack` with validated evidence refs, model/runtime provenance, and further-study items.
 
 ## Verification
 
-- A 15-minute transcript creates one Frontier request and no topic/chapter/compose calls.
-- A transcript one millisecond above the threshold keeps the hierarchical calls.
+- A fitting transcript creates one Frontier request and no topic/chapter/compose calls.
+- An over-budget transcript creates at most two Frontier requests, with no fan-out.
+- An input that cannot fit the two-pass refine budget fails before a provider call.
 - Invalid evidence candidates are excluded on the single path.
 - Cache identities differ between the two strategies.
 - Existing output compilation works from the single-path Knowledge Pack.
