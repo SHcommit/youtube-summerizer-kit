@@ -120,25 +120,31 @@ chew doctor --json
 
 ---
 
-## User Flow & Visualization Diagrams (Demo & Diagrams)
+## How a Run Works
 
-### User Input and Output
+Start with a YouTube URL, local media, or a transcript you already have. `chew` validates the source, analyzes it once, stores a reusable Knowledge Pack, and renders the output you choose.
 
-This overview shows the public contract: what users provide and what the kit returns.
+![YouTube Summarizer Kit user flow](assets/architecture/en/user-flow.png)
 
-![YouTube Summarizer Kit user input and output](assets/architecture/en/user-flow.png)
+If a compatible Knowledge Pack already exists, `chew` reassembles it without repeating analysis. Interrupted or authentication-required runs retain their completed checkpoints; inspect them with `chew status` and continue with `chew resume` when the run allows it. A public-caption failure can be recovered with a VTT, SRT, or TXT transcript that you supply.
 
-When a compatible Knowledge Pack already exists for the URL and analysis settings, the kit skips video analysis. A different purpose or voice reassembles that pack into a blog post, study guide, or Obsidian vault.
+## Architecture at a Glance
 
-### Internal Processing Flow Diagram
+The application keeps identity, policy, grounding, Knowledge Pack assembly, and output rendering inside one core. It reaches external systems only through focused adapters.
 
-The detailed diagram follows `INPUT → analysis → Knowledge Pack → reassembly → OUTPUT`. Runtime adapters, persistent local state, and recovery support the main path without defining it.
+![YouTube Summarizer Kit external boundaries](assets/architecture/en/external-boundaries.png)
 
-![YouTube Summarizer Kit internal processing flow](assets/architecture/en/internal-pipeline.png)
+Frontier runtimes perform final reasoning. Ollama is optional and, when enabled, is limited to bounded transcript annotation; it does not replace final reasoning or judgment. SQLite and content-addressed artifacts preserve local state. OpenTelemetry/Jaeger is optional observability, not a runtime dependency.
 
-The yellow Knowledge Pack is the reuse boundary. Once created, the system can produce a new output without repeating transcript and topic analysis. Dashed support nodes preserve intermediate state and show where processing resumes after authentication or connectivity problems.
+## Inside the Pipeline
 
-### OpenTelemetry Jaeger Real-Time Trace Observability
+The core path turns validated source material into grounded, reusable knowledge before rendering any profile.
+
+![YouTube Summarizer Kit internal pipeline](assets/architecture/en/internal-pipeline.png)
+
+The Knowledge Pack is the reuse boundary. Evidence spans and timestamps are grounded against the raw transcript locally, while output profiles render deterministically from the saved pack. Policy, durable checkpoints, structured logs, and tracing support the path without becoming part of the content itself. For module-level pointers, see the [agent index](docs/agent-index.md); for acquisition limits and recovery, see [transcript acquisition](docs/wiki/transcript-acquisition.md).
+
+### OpenTelemetry Jaeger Trace Example
 
 ![OpenTelemetry Jaeger Trace Dashboard](assets/architecture/jaeger-trace-dashboard.png)
 
@@ -348,46 +354,31 @@ An explicitly supplied local media file bypasses the YouTube providers and goes 
 
 Every transcript is checked for language, timestamp order, duration coverage, excessive repetition, and large gaps. If a provider fails or misses the quality threshold, the reason is recorded before the next provider runs. Metadata and YouTube chapters discovered by yt-dlp remain available even when a later provider, including the optional Whisper fallback, supplies the transcript.
 
-### 3. Adaptive Segmentation and Parallel Processing
+### 3. Prepare and Control the Run
 
-YouTube chapter boundaries are preserved when available. Long chapters—or videos without chapters—are divided into approximately five- to ten-minute topics while respecting sentence boundaries. Independent topics run concurrently. A chapter is merged as soon as its required topics finish instead of waiting for unrelated chapters.
+Source text is preserved as raw evidence, then prepared into a reversible input representation. The execution policy fixes routing, budgets, and retry boundaries before generation. Checkpoints retain completed work; an external provider outcome that is not known is not silently sent again.
 
-Global and runtime-specific concurrency limits work together. A rate limit reduces concurrency for that runtime and schedules a retry; sustained success gradually restores capacity.
-
-### 4. Hierarchical Summarization and the Knowledge Pack
+### 4. Grounded Compilation and the Knowledge Pack
 
 ```text
-Transcript
-  → TopicSummary[]
-  → ChapterSummary[]
-  → KnowledgePack
-  → Purpose-specific documents
+Raw transcript
+  → prepared transcript
+  → Grounded Knowledge Tree draft
+  → locally grounded evidence
+  → Knowledge Pack
+  → purpose-specific documents
 ```
 
-A Knowledge Pack contains video identity, title, language, overview, topics, chapters, claims, timestamped evidence, concepts, examples, follow-up study material, and the analysis fingerprint. The domain model can distinguish statements grounded in the video from AI additions and external research provenance.
+The compiler uses the configured Frontier runtime for reasoning, then validates evidence spans and timestamps against the raw transcript locally. The resulting Knowledge Pack records reusable, versioned knowledge rather than an unverified model response.
 
-### 5. Output Reassembly
+### 5. Deterministic Output Rendering
 
-- `digest`: Render the full, chapter, and topic summaries with evidence timestamps without another LLM call.
-- `blog`: Reassemble the pack through outline, draft, and validation stages using the configured voice.
-- `study`: Emphasize concepts and follow-up learning material.
-- `obsidian`: Create an index and one file per topic connected with `[[wikilinks]]`.
+- `digest`: Render an overview and timestamped evidence from the saved pack.
+- `blog`: Render the pack in the selected blog profile without a new outline or compose request.
+- `study`: Render concepts, evidence, and follow-up study material.
+- `obsidian`: Create an index and linked notes from the saved pack.
 
 Outputs are cached by Knowledge Pack fingerprint, profile, instructions, language, depth, runtime, and output recipe version. An identical output request can be restored from local cache even when no AI CLI is currently authenticated.
-
----
-
-## Performance Improvements & Observability
-
-Solved the 30-minute latency bottleneck, achieving a **16.3x performance speedup**:
-
-| Metric | Baseline | Optimized | Speedup |
-|---|---|---|---|
-| 25-min Tech Video Analysis | 30 min 00 sec (1,800s) | **1 min 50 sec (110s)** | **16.3x faster** |
-| Pipeline Task Count | 61 granular tasks | **11 condensed tasks** | 82% reduction |
-| AI Harness Concurrency | 2 concurrent limit | **8 parallel workers** | 4x expansion |
-
-Full benchmark report: [`reports/performance_analysis.md`](reports/performance_analysis.md)
 
 ---
 

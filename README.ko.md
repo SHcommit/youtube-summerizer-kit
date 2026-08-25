@@ -121,25 +121,31 @@ chew 진단 --json
 
 ---
 
-## 사용자 흐름 및 시각화 데모 (Demo & Diagrams)
+## 한 번의 실행이 진행되는 방식
 
-### 사용자 입력과 출력
+YouTube URL, 로컬 미디어, 또는 이미 가진 자막으로 시작합니다. `chew`는 원문을 검증하고 한 번 분석해 재사용 가능한 Knowledge Pack을 저장한 뒤, 선택한 출력 형식으로 렌더링합니다.
 
-첫 번째 다이어그램은 내부 구현을 숨기고, 사용자가 무엇을 넣고 무엇을 받는지만 보여줍니다.
+![YouTube Summarizer Kit 사용자 흐름](assets/architecture/ko/user-flow.png)
 
-![YouTube Summarizer Kit 사용자 입력과 출력](assets/architecture/ko/user-flow.png)
+호환되는 Knowledge Pack이 이미 있으면 분석을 반복하지 않고 재조립합니다. 중단되었거나 인증이 필요한 실행도 완료된 checkpoint를 유지합니다. `chew 상태`로 확인하고 가능한 경우 `chew 이어하기`로 계속할 수 있습니다. 공개 자막을 가져오지 못하면 사용자가 제공한 VTT, SRT, TXT 자막으로 복구할 수 있습니다.
 
-같은 URL과 분석 설정의 Knowledge Pack이 이미 있으면 영상 분석을 반복하지 않습니다. 문체나 출력 목적만 바뀌면 기존 Knowledge Pack을 블로그·학습 노트·Obsidian 문서로 재조립합니다.
+## 외부 경계
 
-### 내부 상세 처리 흐름 다이어그램
+애플리케이션은 식별, 정책, grounding, Knowledge Pack 조립, 출력 렌더링을 하나의 코어 안에 둡니다. 외부 시스템과는 목적이 분명한 adapter로만 연결합니다.
 
-두 번째 다이어그램은 위에서 아래로 `INPUT → 분석 → Knowledge Pack → 재조립 → OUTPUT`을 따라갑니다. AI 실행기, 저장소, 인증 복구는 메인 흐름을 지원하는 별도 계층으로 표시합니다.
+![YouTube Summarizer Kit 외부 경계](assets/architecture/ko/external-boundaries.png)
 
-![YouTube Summarizer Kit 내부 상세 처리 흐름](assets/architecture/ko/internal-pipeline.png)
+최종 추론은 Frontier runtime이 담당합니다. Ollama는 선택 사항이며, 활성화해도 제한된 자막 annotation에만 사용되고 최종 요약이나 판단을 대체하지 않습니다. SQLite와 content-addressed artifact는 로컬 상태를 보존합니다. OpenTelemetry/Jaeger는 선택적 관측 도구이지 실행에 필요한 의존성이 아닙니다.
 
-노란색 Knowledge Pack이 재사용의 중심입니다. 한 번 생성되면 자막·소주제 분석을 반복하지 않고 목적과 문체를 바꿔 새 출력으로 조립할 수 있습니다. 점선 저장 계층은 각 단계의 상태와 결과를 보존하고, 빨간색 복구 흐름은 인증이나 연결 문제 이후 어디서 다시 시작하는지 보여줍니다.
+## 내부 파이프라인
 
-### OpenTelemetry Jaeger 실시간 성능 관측성 대시보드
+핵심 경로는 검증된 원문을 근거가 있는 재사용 지식으로 만든 뒤, 각 출력 프로필을 렌더링합니다.
+
+![YouTube Summarizer Kit 내부 파이프라인](assets/architecture/ko/internal-pipeline.png)
+
+Knowledge Pack이 재사용 경계입니다. evidence span과 timestamp는 로컬에서 raw transcript와 대조해 grounding하며, 저장된 pack에서 출력 프로필을 결정론적으로 렌더링합니다. 정책, 지속 checkpoint, structured log, tracing은 콘텐츠 자체가 아니라 이 실행 경로를 지원합니다. 모듈별 위치는 [agent index](docs/agent-index.md), 자막 획득 제한과 복구는 [자막 획득 문서](docs/wiki/transcript-acquisition.md)를 참고하세요.
+
+### OpenTelemetry Jaeger 실시간 trace 예시
 
 ![OpenTelemetry Jaeger Trace Dashboard](assets/architecture/jaeger-trace-dashboard.png)
 
@@ -354,46 +360,31 @@ chew 블로그 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
 
 자막은 언어, 시간 순서, 전체 길이 대비 coverage, 과도한 반복, 큰 무음 구간을 검사합니다. 한 provider가 실패하거나 품질 기준을 통과하지 못하면 이유를 기록하고 다음 provider로 넘어갑니다. yt-dlp에서 얻은 제목과 YouTube 챕터는 선택적 Whisper를 포함해 이후 자막 provider가 바뀌어도 보존됩니다.
 
-### 3. 적응형 분할과 병렬 처리
+### 3. 원문 준비와 실행 제어
 
-YouTube 챕터가 있으면 먼저 챕터 경계를 유지합니다. 챕터가 너무 길거나 챕터가 없으면 문장 경계를 존중하면서 약 5~10분 크기의 소주제로 나눕니다. 서로 독립적인 소주제는 비동기 큐에서 병렬 처리하고, 필요한 소주제가 끝난 챕터는 다른 챕터를 기다리지 않고 바로 병합합니다.
+원문 자막은 근거로 보존하고, 되돌릴 수 있는 준비된 입력으로 만듭니다. 실행 정책은 생성 전에 routing, budget, retry 경계를 고정합니다. checkpoint는 완료된 작업을 남기며, 외부 provider의 수신 결과가 불명확하면 자동으로 다시 보내지 않습니다.
 
-전역 동시 실행 수와 실행기별 제한을 함께 적용합니다. rate limit이 발생하면 해당 실행기의 동시성을 줄이고 재시도하며, 성공이 이어지면 제한을 점진적으로 회복합니다.
-
-### 4. 계층형 요약과 Knowledge Pack
+### 4. Grounded Compilation과 Knowledge Pack
 
 ```text
-Transcript
-  → TopicSummary[]
-  → ChapterSummary[]
-  → KnowledgePack
+Raw transcript
+  → prepared transcript
+  → Grounded Knowledge Tree draft
+  → 로컬 evidence grounding
+  → Knowledge Pack
   → 목적별 문서
 ```
 
-Knowledge Pack에는 영상 식별자·제목·언어·전체 개요뿐 아니라 소주제와 챕터, 핵심 주장, 타임스탬프가 있는 근거, 개념·예시·추가 학습 항목, 분석 fingerprint가 들어갑니다. 영상에서 확인된 내용과 AI 추가 설명·외부 연구의 provenance를 분리할 수 있는 도메인 모델을 사용합니다.
+compiler는 configured Frontier runtime으로 추론하고, evidence span과 timestamp를 raw transcript에 로컬로 대조합니다. 결과 Knowledge Pack은 검증되지 않은 모델 응답이 아니라 재사용 가능한 버전 지식입니다.
 
-### 5. 출력 재조립
+### 5. 결정론적 출력 렌더링
 
-- `digest`: LLM 추가 호출 없이 전체·챕터·소주제 요약과 근거 타임스탬프를 Markdown으로 생성
-- `blog`: Knowledge Pack을 바탕으로 개요 작성 → 본문 작성 → 검증의 세 단계로 재조립
-- `study`: 학습용 구조와 추가 학습 항목 중심으로 재조립
-- `obsidian`: 인덱스와 소주제별 파일을 만들고 `[[링크]]`로 연결
+- `digest`: 저장된 pack의 개요와 타임스탬프 근거를 렌더링
+- `blog`: 새 outline·compose 요청 없이 선택한 블로그 프로필로 pack을 렌더링
+- `study`: 개념, 근거, 추가 학습 항목을 렌더링
+- `obsidian`: 저장된 pack에서 인덱스와 연결된 노트를 생성
 
 출력 자체도 Knowledge Pack fingerprint, 프로필, 지침, 언어, 깊이, 실행기, 출력 recipe 버전으로 캐시합니다. 동일한 출력 요청은 로그인된 AI CLI가 없어도 로컬 캐시만으로 복원할 수 있습니다.
-
----
-
-## 성능 개선 (Performance Boost)
-
-기존 파이프라인의 30분 지연 병목 현상을 해결하여 **16.3배 성능 향상**을 달성했습니다:
-
-| 항목 | 개선 전 (Baseline) | 개선 후 (Optimized) | 향상률 |
-|---|---|---|---|
-| 25분 기술 영상 분석 시간 | 30분 00초 (1,800s) | **1분 50초 (110s)** | **16.3배 단축** |
-| 파이프라인 생성 작업 수 | 61개 미세 태스크 | **11개 응축 태스크** | 82% 감소 |
-| AI Harness 동시성 수 | 2개 제한 | **8개 병렬 처리** | 4배 확대 |
-
-상세 분석 보고서: [`reports/performance_analysis.md`](reports/performance_analysis.md)
 
 ---
 

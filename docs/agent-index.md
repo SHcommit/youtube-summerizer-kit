@@ -204,8 +204,8 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | `reports/performance_analysis.md` | Baseline vs optimized commit comparisons |
 | `reports/performance-comparisons/transcript-preprocessing/` | Maintainer preprocessing comparison reports and immutable run artifacts |
 | `benchmarks/` | Maintainer-only benchmark scripts, `benchmark.sh report allInOne`, and locked transcript-preprocessing video fixtures; locks are reproducibility inputs, not product URL restrictions |
-| `assets/architecture/en/` | English Mermaid diagrams + PNGs |
-| `assets/architecture/ko/` | Korean Mermaid diagrams + PNGs |
+| `assets/architecture/en/` | English Mermaid + PNG user-flow, external-boundary, and internal-pipeline diagrams |
+| `assets/architecture/ko/` | Korean Mermaid + PNG user-flow, external-boundary, and internal-pipeline diagrams |
 
 ---
 
