@@ -66,6 +66,24 @@ async def test_digest_renderer_preserves_source_labels_and_timestamps(tmp_path: 
 
 
 @pytest.mark.asyncio
+async def test_digest_marks_partial_pack_missing_ranges(tmp_path: Path) -> None:
+    partial = KnowledgePack.model_validate(
+        {
+            **pack().model_dump(mode="json"),
+            "completion_status": "partial",
+            "failed_topic_ids": ["intro-topic-001"],
+            "missing_ranges": [{"start_ms": 65_000, "end_ms": 70_000}],
+        }
+    )
+
+    manifest = await OutputCompiler().compile(partial, "digest", Settings(), tmp_path / "digest")
+
+    text = manifest.files[0].read_text(encoding="utf-8")
+    assert "Partial result" in text
+    assert "01:05-01:10" in text
+
+
+@pytest.mark.asyncio
 async def test_obsidian_only_links_generated_topic_notes(tmp_path: Path) -> None:
     manifest = await OutputCompiler().compile(pack(), "obsidian", Settings(), tmp_path / "vault")
 
@@ -80,6 +98,7 @@ class OutputHarness:
     def __init__(self) -> None:
         self.tasks: list[str] = []
         self.preferences: list[str] = []
+        self.requests: list[GenerationRequest] = []
 
     def set_preference(self, runtime_id: str) -> None:
         self.preferences.append(runtime_id)
@@ -96,6 +115,7 @@ class OutputHarness:
 
     async def generate(self, request: GenerationRequest) -> GenerationResult:
         self.tasks.append(request.task)
+        self.requests.append(request)
         output: dict[str, object]
         if request.task == "output_outline":
             output = {"sections": ["문제", "핵심", "적용"]}
@@ -107,7 +127,7 @@ class OutputHarness:
 
 
 @pytest.mark.asyncio
-async def test_blog_uses_plan_compose_verify_and_profile_changes_cache_key(tmp_path: Path) -> None:
+async def test_blog_renders_without_model_calls_and_profile_changes_cache_key(tmp_path: Path) -> None:
     harness = OutputHarness()
     compiler = OutputCompiler(harness)
 
@@ -124,19 +144,39 @@ async def test_blog_uses_plan_compose_verify_and_profile_changes_cache_key(tmp_p
         tmp_path / "blog-2",
     )
 
-    assert harness.tasks[:3] == ["output_outline", "output_compose", "output_verify"]
-    assert "사용자 톤 블로그" in first.files[0].read_text(encoding="utf-8")
+    assert harness.tasks == []
+    assert "테스트 영상" in first.files[0].read_text(encoding="utf-8")
     assert first.cache_key != second.cache_key
 
 
 @pytest.mark.asyncio
-async def test_uncached_ai_output_honors_profile_runtime(tmp_path: Path) -> None:
+async def test_blog_never_requests_model_schemas_for_default_renderer(tmp_path: Path) -> None:
+    harness = OutputHarness()
+
+    await OutputCompiler(harness).compile(pack(), "blog", Settings(), tmp_path / "blog")
+
+    assert harness.requests == []
+
+
+@pytest.mark.asyncio
+async def test_blog_ignores_legacy_output_verification_setting(tmp_path: Path) -> None:
     harness = OutputHarness()
     await OutputCompiler(harness).compile(
-        pack(), "blog", Settings(runtime="gemini"), tmp_path / "blog"
+        pack(),
+        "blog",
+        Settings(output_verify=False),
+        tmp_path / "blog",
     )
 
-    assert harness.preferences == ["gemini"]
+    assert harness.tasks == []
+
+
+@pytest.mark.asyncio
+async def test_uncached_default_output_does_not_select_profile_runtime(tmp_path: Path) -> None:
+    harness = OutputHarness()
+    await OutputCompiler(harness).compile(pack(), "blog", Settings(runtime="gemini"), tmp_path / "blog")
+
+    assert harness.preferences == []
 
 
 @pytest.mark.asyncio
@@ -147,14 +187,10 @@ async def test_same_output_cache_key_restores_without_model_calls(tmp_path: Path
     harness = OutputHarness()
     database = Database(tmp_path / "state.db")
     database.initialize()
-    compiler = OutputCompiler(
-        harness, database=database, artifacts=ArtifactStore(tmp_path / "data")
-    )
+    compiler = OutputCompiler(harness, database=database, artifacts=ArtifactStore(tmp_path / "data"))
     settings = Settings(instructions="고정 문체")
     await compiler.compile(pack(), "blog", settings, tmp_path / "first")
     await compiler.compile(pack(), "blog", settings, tmp_path / "second")
-    assert harness.tasks == ["output_outline", "output_compose", "output_verify"]
+    assert harness.tasks == []
     filename = f"{_safe_name(pack().title)}.md"
-    assert (tmp_path / "second" / filename).read_text() == (
-        tmp_path / "first" / filename
-    ).read_text()
+    assert (tmp_path / "second" / filename).read_text() == (tmp_path / "first" / filename).read_text()

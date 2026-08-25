@@ -1,0 +1,55 @@
+{
+  "locked_at": "2026-08-24",
+  "verification_method": "uv run --extra youtube yt-dlp --get-id --get-title --get-duration",
+  "videos": [
+    {
+      "key": "youtube_en_4m35s_for_benchmark",
+      "youtube_id": "c4GaJKprGEs",
+      "title": "Stop Hunting in Trading Exists! But it is Just Not What You Expect it to Be",
+      "language": "en",
+      "duration_seconds": 275
+    },
+    {
+      "key": "youtube_en_39m00s_for_benchmark",
+      "youtube_id": "ZIaOBAjvc38",
+      "title": "Sam Altman: \"Never a Better Time to Do a Startup\"",
+      "language": "en",
+      "duration_seconds": 2340
+    },
+    {
+      "key": "youtube_en_55m48s_for_benchmark",
+      "youtube_id": "XDB5beon4DY",
+      "title": "Sam Altman on AGI, Compute, and Human Agency",
+      "language": "en",
+      "duration_seconds": 3348
+    },
+    {
+      "key": "youtube_en_2h00m09s_for_benchmark",
+      "youtube_id": "RcYjXbSJBN8",
+      "title": "Joe Rogan Experience #1470 - Elon Musk",
+      "language": "en",
+      "duration_seconds": 7209
+    },
+    {
+      "key": "youtube_en_2h49m45s_for_benchmark",
+      "youtube_id": "BYXbuik3dgA",
+      "title": "Elon Musk - \"In 36 months, the cheapest place to put AI will be space\"",
+      "language": "en",
+      "duration_seconds": 10185
+    },
+    {
+      "key": "youtube_ko_45m46s_for_benchmark",
+      "youtube_id": "YcA31dmSNMk",
+      "title": "\"어제 쓴 프롬프트, 오늘도 그대로 쓰시나요?\" #우아콘2025 #우아한형제들",
+      "language": "ko",
+      "duration_seconds": 2746
+    },
+    {
+      "key": "youtube_ko_38m48s_for_benchmark",
+      "youtube_id": "wVJrspYo-18",
+      "title": "지금 하는 일이 무슨 가치를 만들고 있나요? | 신수정 36년차 리더십·커리어 코치 | Ground Truth",
+      "language": "ko",
+      "duration_seconds": 2328
+    }
+  ]
+}

@@ -11,6 +11,8 @@
 YouTube 영상과 로컬 오디오·영상 파일을 재사용 가능한 지식으로 변환하는 로컬 중심 CLI(`chew`)입니다.
 일회성 요약을 출력하는 대신 자막을 검증하고, 장·소주제를 병렬 분석하여 다양한 포맷 문서로 조립합니다.
 
+아키텍처 역할에서 `chew`는 원문을 근거 기반 Knowledge Tree와 재사용 가능한 Knowledge Pack으로 컴파일하는 **Grounded Knowledge Compiler(근거 기반 지식 컴파일러)**입니다.
+
 - `chew <URL>` 명령으로 실행합니다.
 - 챕터를 인식하고 소주제 단위로 병렬 처리하여 긴 영상도 안정적으로 분석합니다.
 - 중간에 네트워크나 AI CLI가 끊겨도 완료된 작업부터 이어합니다.
@@ -97,6 +99,15 @@ pip install -e '.[youtube,dev]'
 
 선택적 `faster-whisper` fallback은 모델과 영상 오디오를 자동으로 내려받지 않도록 기본값이 비활성화되어 있습니다. 사용하려면 `pip install -e '.[youtube,whisper]'`로 설치하고 `CHEW.md`에 `whisper_fallback: true`를 지정합니다. 처음 실제로 음성 인식을 실행할 때는 `faster-whisper`가 모델을 내려받을 수 있습니다.
 
+YouTube timedtext가 `HTTP 429`를 반환하면 `yt-dlp`는 설치된 Node.js runtime과 공식 EJS challenge component를 자동으로 사용합니다. 그래도 제한되면 사용자가 확보한 스크립트를 제공합니다.
+
+```bash
+chew 요약 --transcript ./captions.vtt \
+  --source-url "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+`chew`는 브라우저 로그인, cookie-file, 브라우저 프로필 기반 자막 fallback을 제공하지 않으며 자막 복구를 위해 브라우저 쿠키, Keychain 값, 비밀번호, 프록시 credential을 읽지 않습니다. VTT/SRT의 cue timing은 보존하며 일반 TXT 줄에는 결정적인 시간 범위를 부여합니다. 영상·계정이 제한된 경우 YouTube가 자막을 거부할 수 있습니다. provider 제한과 오류 이유는 [자막 획득 문서](docs/wiki/transcript-acquisition.md)를 참고하세요.
+
 로컬 오디오·영상 파일 입력에도 `whisper` extra가 필요하지만, YouTube fallback 설정을 켤 필요는 없습니다.
 
 ```bash
@@ -112,25 +123,35 @@ chew 진단 --json
 
 ---
 
-## 사용자 흐름 및 시각화 데모 (Demo & Diagrams)
+## 한 번의 실행이 진행되는 방식
 
-### 사용자 입력과 출력
+YouTube URL, 로컬 미디어, 또는 이미 가진 자막으로 시작합니다. `chew`는 원문을 검증하고 한 번 분석해 재사용 가능한 Knowledge Pack을 저장한 뒤, 선택한 출력 형식으로 렌더링합니다.
 
-첫 번째 다이어그램은 내부 구현을 숨기고, 사용자가 무엇을 넣고 무엇을 받는지만 보여줍니다.
+![YouTube Summarizer Kit 사용자 흐름](assets/architecture/ko/user-flow.png)
 
-![YouTube Summarizer Kit 사용자 입력과 출력](assets/architecture/ko/user-flow.png)
+호환되는 Knowledge Pack이 이미 있으면 분석을 반복하지 않고 재조립합니다. 중단되었거나 인증이 필요한 실행도 완료된 checkpoint를 유지합니다. `chew 상태`로 확인하고 가능한 경우 `chew 이어하기`로 계속할 수 있습니다. 공개 자막을 가져오지 못하면 사용자가 제공한 VTT, SRT, TXT 자막으로 복구할 수 있습니다.
 
-같은 URL과 분석 설정의 Knowledge Pack이 이미 있으면 영상 분석을 반복하지 않습니다. 문체나 출력 목적만 바뀌면 기존 Knowledge Pack을 블로그·학습 노트·Obsidian 문서로 재조립합니다.
+## 외부 경계
 
-### 내부 상세 처리 흐름 다이어그램
+애플리케이션은 식별, 정책, grounding, Knowledge Pack 조립, 출력 렌더링을 하나의 코어 안에 둡니다. 외부 시스템과는 목적이 분명한 adapter로만 연결합니다.
 
-두 번째 다이어그램은 위에서 아래로 `INPUT → 분석 → Knowledge Pack → 재조립 → OUTPUT`을 따라갑니다. AI 실행기, 저장소, 인증 복구는 메인 흐름을 지원하는 별도 계층으로 표시합니다.
+![YouTube Summarizer Kit 외부 경계](assets/architecture/ko/external-boundaries.png)
 
-![YouTube Summarizer Kit 내부 상세 처리 흐름](assets/architecture/ko/internal-pipeline.png)
+최종 추론은 Frontier runtime이 담당합니다. Ollama는 선택 사항이며, 활성화해도 제한된 자막 annotation에만 사용되고 최종 요약이나 판단을 대체하지 않습니다. SQLite와 content-addressed artifact는 로컬 상태를 보존합니다. OpenTelemetry/Jaeger는 선택적 관측 도구이지 실행에 필요한 의존성이 아닙니다.
 
-노란색 Knowledge Pack이 재사용의 중심입니다. 한 번 생성되면 자막·소주제 분석을 반복하지 않고 목적과 문체를 바꿔 새 출력으로 조립할 수 있습니다. 점선 저장 계층은 각 단계의 상태와 결과를 보존하고, 빨간색 복구 흐름은 인증이나 연결 문제 이후 어디서 다시 시작하는지 보여줍니다.
+Knowledge Pack renderer는 Digest, Blog, Study, Obsidian, JSON처럼 실제로 재사용할 콘텐츠를 만듭니다. 반면 interface presenter는 완료된 작업을 터미널 문구나 machine JSON으로 전달할 뿐입니다. 현재 inbound interface는 CLI이고, HTTP·MCP·별도 배포 가능한 웹 클라이언트는 미래 계약 소비자로만 표시합니다. 아직 공개 API나 웹 UI는 포함하지 않습니다.
 
-### OpenTelemetry Jaeger 실시간 성능 관측성 대시보드
+공통 자연어 요청 분석을 위한 [`intent-analysis`](modules/intent-analysis/README.md)와 Pack 기반 후속 조사를 위한 [`research-engine`](modules/research-engine/README.md)는 문서 경계만 존재하는 미래 모듈입니다. 아직 설치·호출·의존할 필요가 없습니다.
+
+## 내부 파이프라인
+
+핵심 경로는 검증된 원문을 근거가 있는 재사용 지식으로 만든 뒤, 각 출력 프로필을 렌더링합니다.
+
+![YouTube Summarizer Kit 내부 파이프라인](assets/architecture/ko/internal-pipeline.png)
+
+Knowledge Pack이 재사용 경계입니다. evidence span과 timestamp는 로컬에서 raw transcript와 대조해 grounding하며, 저장된 pack에서 출력 프로필을 결정론적으로 렌더링합니다. 정책, 지속 checkpoint, structured log, tracing은 콘텐츠 자체가 아니라 이 실행 경로를 지원합니다. 모듈별 위치는 [agent index](docs/agent-index.md), 자막 획득 제한과 복구는 [자막 획득 문서](docs/wiki/transcript-acquisition.md)를 참고하세요.
+
+### OpenTelemetry Jaeger 실시간 trace 예시
 
 ![OpenTelemetry Jaeger Trace Dashboard](assets/architecture/jaeger-trace-dashboard.png)
 
@@ -144,9 +165,23 @@ chew 진단 --json
 | Claude Code / Claude CLI (`claude`) | 예 | `claude auth status`로 사전 확인 | 필요하면 `claude`에서 로그인 |
 | Gemini CLI (`gemini`) | 예 | 공식 비소모성 상태 명령이 없어 첫 생성 때 확인 | 필요하면 `gemini`에서 로그인 |
 | Ollama (`ollama`) | 예 | 로그인 불필요 | 로컬 Ollama 서버 실행 |
+| 계층형 Ollama (`layered_ollama`) | 예 | 로그인 불필요 | 1.5B / 7B / 14B 모델 티어(`qwen2.5:*-instruct-q4_K_M`) 설치 후 Ollama 실행 |
+| HuggingFace (`huggingface`) | 예 | `HF_TOKEN` 환경 변수 | `HF_TOKEN` 설정 후 `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | 예 | 첫 생성 때 확인 / 기존 로컬 세션 사용 | `agy` CLI 설치 및 세션 사용 |
 
-기본값 `runtime: auto`에서는 설치되어 있고 로그인이 확인된 실행기를 Codex → Gemini → Claude → Ollama → Antigravity 순서의 후보군에서 선택합니다. 로그인 여부를 사전에 확정할 수 없는 Gemini는 확인된 실행기가 하나도 없을 때 후보가 되고, 첫 생성 요청에서 실제 인증을 검증합니다.
+**로컬 LLM은 완전히 선택 사항입니다.** 기본값 `runtime: frontier`는 인증된 Codex, Gemini, Claude만 선택하며 로컬 모델은 제외합니다. 최종 요약과 판단에는 Frontier runtime이 필요하며, 로컬 모델은 요약 task route로 사용할 수 없습니다.
+
+Ollama는 선택적 로컬 모델 다운로드가 필요한 실행기입니다.
+
+| 구성 | 추가 디스크 용량 |
+|---|---|
+| Codex / Gemini / Claude / Antigravity / HuggingFace | 추가 없음 |
+| `ollama` 단일 모델 | ~1–5 GB |
+| `layered_ollama` 3개 티어 전체 | 약 15 GB (`q4_K_M` 양자화 기준) |
+
+`chew doctor`를 실행하면 현재 사용 가능한 실행기를 확인하고, 미설치 항목에 대한 설치 안내를 확인할 수 있습니다.
+
+로그인 여부를 사전에 확정할 수 없는 Gemini는 확인된 실행기가 하나도 없을 때 후보가 되고, 첫 생성 요청에서 실제 인증을 검증합니다.
 
 Codex나 Claude처럼 인증 상태를 확인할 수 있는 실행기가 로그아웃 상태라면 다른 준비된 실행기로 넘어갑니다. 특정 실행기를 설정으로 고정했는데 로그인되어 있지 않다면 로그인 명령을 안내하고 실행을 `blocked_auth` 상태로 보존합니다. 로그인 후 `chew 이어하기`를 실행하면 완료된 구간을 다시 처리하지 않고 계속합니다.
 
@@ -180,14 +215,37 @@ CHEW.md
 language: ko
 default_profile: digest
 depth: detailed
-runtime: auto
+runtime: frontier
+task_runtimes: {} # 선택: task별 BYOK Frontier runtime. 예: {topic_summary: gemini, compose: codex}
+local_accelerator: false # 향후 승인된 저위험 보조 작업용
+ollama_model: null # 향후 승인된 로컬 보조 작업용
 whisper_fallback: false
+# 선택 사항: Ollama 입력 상한. 설정하지 않으면 기존 시간 기반 분절을 유지한다.
+max_input_tokens: 4096
+reserved_output_tokens: 512
+output_verify: true
+normalize_transcript: false
+preprocess_transcript: false
 storage_policy: compact
 ---
 
 사실과 AI의 추가 설명을 구분한다.
 기술 용어는 첫 등장에 짧게 정의하고, 모든 핵심 주장에 영상 근거를 연결한다.
 ```
+
+`max_input_tokens`와 `reserved_output_tokens`로 보수적 입력 상한을 opt-in할 수 있습니다. 이 값은 provider 청구 토큰이 아니며, 기존 시간 기반 분절을 유지하려면 둘 다 설정하지 않습니다.
+
+`blog`와 `study`에서는 `output_verify: false`로 마지막 LLM 검증 호출을 생략할 수 있습니다. fixture 측정으로 품질 저하가 없음을 확인하기 전까지 기본값 `true`를 유지합니다.
+
+`normalize_transcript: true`는 공백을 정리하고 인접한 중복 자막만 병합합니다. 원문 자막은 근거 source로 별도 보존합니다.
+
+`preprocess_transcript: true`는 여기에 보수적인 로컬 필러 제거를 추가합니다. `pip install 'chew[preprocess]'`를 설치하면 문장부호 복원과 의미 경계 힌트도 선택적으로 적용됩니다. 고정 fixture의 품질·비용 비교가 끝날 때까지 기본값은 꺼져 있습니다.
+
+`task_runtimes`는 opt-in BYOK Frontier routing입니다. map에 없는 task는 기존 `runtime`을 그대로 쓰며, 다른 provider로 자동 전환하지 않습니다. 로컬 runtime은 요약이나 판단 작업에 선택할 수 없습니다. cloud provider별 모델 선택은 adapter가 실제 적용·검증할 수 있을 때 추가합니다.
+
+현재 고정 영어 fixture 비교에서 보수적 필러 제거의 `cl100k_base` 절감은 `1.92%~4.94%`였습니다. 이는 provider 청구 비용이 아닌 tokenizer 비교이며, 기본 활성화 기준 10%에 미달하므로 opt-in을 유지합니다.
+
+대화형 터미널에서 처음 `chew config --init`을 실행하면 Qwen3 4B(약 2.5GB), Qwen3 8B(약 5.2GB), 나중에 설정 중 하나를 선택할 수 있습니다. 확인한 경우에만 `ollama pull` 다운로드가 시작됩니다.
 
 ### 요약 강도 및 깊이 설정 (`depth`)
 
@@ -208,6 +266,10 @@ chew '유튜브_URL' --depth deep
 본문은 LLM 지침으로 사용됩니다. `.chew/profiles/blog.md` 같은 목적별 파일에서는 문체, 독자 수준, 글의 구성 방식을 추가로 지정할 수 있습니다. 프로젝트 설정은 상위 디렉터리까지 탐색하며, 파일이 없으면 패키지에 포함된 안전한 기본 설정을 사용합니다.
 
 분석 설정과 출력 설정은 분리됩니다. 예를 들어 블로그 문체만 바꿨다면 자막과 소주제를 다시 분석하지 않고 기존 Knowledge Pack에서 블로그 문서만 새로 만듭니다. 프로필별로 다른 `runtime`을 지정하면 캐시되지 않은 출력 재조립에 그 실행기를 사용합니다.
+
+`task_runtimes`는 opt-in BYOK Frontier routing입니다. 각 run은 route, input budget, fallback, 선택 이유가 담긴 immutable Execution Plan을 먼저 기록합니다. map에 없는 task는 `runtime`을 유지하며, 모델 출력은 이 계획을 바꿀 수 없습니다. 로컬 runtime은 요약이나 판단 작업에 선택할 수 없습니다.
+
+중요 source claim의 citation은 모델이 제안한 뒤에도 raw transcript의 segment index, timestamp, quote가 일치할 때만 결과에 연결됩니다. 이 검증은 claim의 사실 여부가 아니라 원문 근거 연결만 보장합니다.
 
 ---
 
@@ -278,7 +340,8 @@ chew 블로그 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
 | `옵시디언` | `obsidian` | `[[위키링크]]`가 있는 인덱스와 소주제 노트 생성 |
 | `상태 [RUN_ID]` | `status` | 실행 및 작업 진행률 확인 |
 | `이어하기 [RUN_ID]` | `resume` | 최신 또는 지정한 미완료 실행 재개 |
-| `진단` | `doctor` | 실행기 설치·인증·지원 기능 확인 |
+| `진단` | `doctor` | 실행기 설치·인증·지원 기능 확인 및 미설치 실행기 설치 안내 |
+| `서버` | `serve` | FastAPI `/health` 및 `/readiness` HTTP 서버 시작 (`pip install 'chew[server]'`) |
 | `저장소` | `storage` | 내부 파일 수와 용량 확인 |
 | `정리` | `cleanup` | 보존 정책에 따른 삭제 후보 미리보기·적용 |
 
@@ -303,46 +366,31 @@ chew 블로그 'https://youtu.be/VIDEO_ID' -o ./posts/my-video
 
 자막은 언어, 시간 순서, 전체 길이 대비 coverage, 과도한 반복, 큰 무음 구간을 검사합니다. 한 provider가 실패하거나 품질 기준을 통과하지 못하면 이유를 기록하고 다음 provider로 넘어갑니다. yt-dlp에서 얻은 제목과 YouTube 챕터는 선택적 Whisper를 포함해 이후 자막 provider가 바뀌어도 보존됩니다.
 
-### 3. 적응형 분할과 병렬 처리
+### 3. 원문 준비와 실행 제어
 
-YouTube 챕터가 있으면 먼저 챕터 경계를 유지합니다. 챕터가 너무 길거나 챕터가 없으면 문장 경계를 존중하면서 약 5~10분 크기의 소주제로 나눕니다. 서로 독립적인 소주제는 비동기 큐에서 병렬 처리하고, 필요한 소주제가 끝난 챕터는 다른 챕터를 기다리지 않고 바로 병합합니다.
+원문 자막은 근거로 보존하고, 되돌릴 수 있는 준비된 입력으로 만듭니다. 실행 정책은 생성 전에 routing, budget, retry 경계를 고정합니다. checkpoint는 완료된 작업을 남기며, 외부 provider의 수신 결과가 불명확하면 자동으로 다시 보내지 않습니다.
 
-전역 동시 실행 수와 실행기별 제한을 함께 적용합니다. rate limit이 발생하면 해당 실행기의 동시성을 줄이고 재시도하며, 성공이 이어지면 제한을 점진적으로 회복합니다.
-
-### 4. 계층형 요약과 Knowledge Pack
+### 4. Grounded Compilation과 Knowledge Pack
 
 ```text
-Transcript
-  → TopicSummary[]
-  → ChapterSummary[]
-  → KnowledgePack
+Raw transcript
+  → prepared transcript
+  → Grounded Knowledge Tree draft
+  → 로컬 evidence grounding
+  → Knowledge Pack
   → 목적별 문서
 ```
 
-Knowledge Pack에는 영상 식별자·제목·언어·전체 개요뿐 아니라 소주제와 챕터, 핵심 주장, 타임스탬프가 있는 근거, 개념·예시·추가 학습 항목, 분석 fingerprint가 들어갑니다. 영상에서 확인된 내용과 AI 추가 설명·외부 연구의 provenance를 분리할 수 있는 도메인 모델을 사용합니다.
+compiler는 configured Frontier runtime으로 추론하고, evidence span과 timestamp를 raw transcript에 로컬로 대조합니다. 결과 Knowledge Pack은 검증되지 않은 모델 응답이 아니라 재사용 가능한 버전 지식입니다.
 
-### 5. 출력 재조립
+### 5. 결정론적 출력 렌더링
 
-- `digest`: LLM 추가 호출 없이 전체·챕터·소주제 요약과 근거 타임스탬프를 Markdown으로 생성
-- `blog`: Knowledge Pack을 바탕으로 개요 작성 → 본문 작성 → 검증의 세 단계로 재조립
-- `study`: 학습용 구조와 추가 학습 항목 중심으로 재조립
-- `obsidian`: 인덱스와 소주제별 파일을 만들고 `[[링크]]`로 연결
+- `digest`: 저장된 pack의 개요와 타임스탬프 근거를 렌더링
+- `blog`: 새 outline·compose 요청 없이 선택한 블로그 프로필로 pack을 렌더링
+- `study`: 개념, 근거, 추가 학습 항목을 렌더링
+- `obsidian`: 저장된 pack에서 인덱스와 연결된 노트를 생성
 
 출력 자체도 Knowledge Pack fingerprint, 프로필, 지침, 언어, 깊이, 실행기, 출력 recipe 버전으로 캐시합니다. 동일한 출력 요청은 로그인된 AI CLI가 없어도 로컬 캐시만으로 복원할 수 있습니다.
-
----
-
-## 성능 개선 (Performance Boost)
-
-기존 파이프라인의 30분 지연 병목 현상을 해결하여 **16.3배 성능 향상**을 달성했습니다:
-
-| 항목 | 개선 전 (Baseline) | 개선 후 (Optimized) | 향상률 |
-|---|---|---|---|
-| 25분 기술 영상 분석 시간 | 30분 00초 (1,800s) | **1분 50초 (110s)** | **16.3배 단축** |
-| 파이프라인 생성 작업 수 | 61개 미세 태스크 | **11개 응축 태스크** | 82% 감소 |
-| AI Harness 동시성 수 | 2개 제한 | **8개 병렬 처리** | 4배 확대 |
-
-상세 분석 보고서: [`reports/performance_analysis.md`](reports/performance_analysis.md)
 
 ---
 
@@ -435,15 +483,17 @@ chew benchmark-dashboard
 chew benchmark-ui
 ```
 
+관리자 전용 자막 전처리 비교는 `benchmarks/`의 고정 fixture와 스크립트를 사용합니다.
+기능 개발 전 또는 이전 릴리스에서 baseline을 저장하고, 후보 기능 구현 후 최종 리포트를 실행합니다:
+
 ```bash
-chew 벤치마크 목록
-chew 벤치마크 실행 'https://youtu.be/VIDEO_ID' --live \
-  --reference benchmark-reference.json --repeats 3 --runtime codex
+benchmarks/benchmark.sh baseline --preprocessing none --concurrency 5
+benchmarks/benchmark.sh report allInOne \
+  --baseline <baseline-run-id> \
+  --target-release v0.2.0
 ```
 
-비교 조건은 Gemini 직접 URL 분석(단순 프롬프트·동일 스키마)과 계층형 파이프라인(Gemini·설정 실행기)입니다. 기준 답안의 주장·근거·타임스탬프와 비교해 recall, 근거 coverage, timestamp accuracy, 장시간 구간 coverage, unsupported claim을 계산합니다. 입력 방식이 `video_url`인지 `transcript`인지 분리 표기하여 Gemini의 멀티모달 이점을 파이프라인 품질로 오인하지 않습니다.
-
-라이브 벤치마크는 실제 로그인과 사용량이 발생하므로 `--live`와 기준 답안 파일을 모두 명시해야 실행됩니다. 결과는 `benchmark-results/run-*/report.json`과 `report.md`에 원자적으로 저장됩니다. 아직 실제 다국어·다양한 길이의 공개 코퍼스 결과를 제공하거나 Gemini보다 항상 우수하다고 주장하지 않습니다.
+저장된 근거는 `reports/performance-comparisons/transcript-preprocessing/` 아래에 남습니다. metrics 수집 단계는 LLM을 호출하지 않으며, 벤치마크 전용 의존성을 일반 패키지 설치에 추가하지 않습니다. 생성된 리포트는 전체 토큰 절감률, 영상별 그래프, stage token funnel, 품질/신뢰성/재현성 gate, 릴리스 메타데이터, 그리고 후보 경로에서 측정 가능한 변화가 없을 때의 경고를 함께 보여줍니다.
 
 ---
 

@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -47,9 +48,7 @@ def test_expired_lease_is_claimable_by_another_worker(tmp_path: Path) -> None:
     assert not second_connection.claim_ready_jobs("run-1", "worker-b", now, 5, 1)
 
     second_connection.release_expired_leases(now + timedelta(seconds=6))
-    claimed = second_connection.claim_ready_jobs(
-        "run-1", "worker-b", now + timedelta(seconds=6), 5, 1
-    )
+    claimed = second_connection.claim_ready_jobs("run-1", "worker-b", now + timedelta(seconds=6), 5, 1)
     assert len(claimed) == 1
     assert claimed[0].worker_id.startswith("worker-b:")
     assert not first_connection.complete_job("topic-1", "stale", first_claim[0].worker_id)
@@ -89,9 +88,261 @@ def test_run_preserves_source_locator_for_local_media_resume(tmp_path: Path) -> 
     assert database.get_run_source_locator("run-local") == "/recordings/meeting.mp3"
 
 
+def test_run_preserves_immutable_execution_plan_snapshot(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+
+    database.create_run(
+        "run-policy",
+        "youtube:abcDEF_1234",
+        "analysis",
+        execution_plan_json='{"policy_version":"frontier-first-v1","reason":"frontier_only"}',
+    )
+
+    assert database.get_run_execution_plan("run-policy") == {
+        "policy_version": "frontier-first-v1",
+        "reason": "frontier_only",
+    }
+
+
+def test_prepare_resume_retries_runtime_failed_jobs(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    database.upsert_job(JobSpec("topic-1", "run-1", "topic", 20))
+    database.upsert_job(JobSpec("chapter-1", "run-1", "chapter", 10, ("topic-1",)))
+    database.upsert_job(JobSpec("compose", "run-1", "compose", 5, ("chapter-1",)))
+    database.fail_job("topic-1", "failed_runtime")
+    database.complete_job("chapter-1", "chapter-hash")
+    database.complete_job("compose", "compose-hash")
+
+    assert database.prepare_resume("run-1") == 3
+    claimed = database.claim_ready_jobs("run-1", "worker-a", datetime(2026, 8, 23, tzinfo=UTC), 60, 1)
+
+    assert [job.job_id for job in claimed] == ["topic-1"]
+
+
+def test_database_checkpoint_runs_without_error(tmp_path: Path) -> None:
+    db = Database(tmp_path / "state.sqlite3")
+    db.initialize()
+    db.checkpoint()  # must not raise
+
+
+def test_compiler_checkpoint_preserves_immutable_stage_artifact_and_unknown_outcome(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+
+    database.record_compiler_checkpoint(
+        run_id="run-1",
+        stage="input.compile",
+        attempt=1,
+        artifact_hash="prepared-artifact",
+        measurement={"paragraph_count": 2},
+        policy_fingerprint="policy-1",
+        correlation_id="trace-1",
+    )
+    database.mark_external_outcome_unknown("run-1")
+
+    assert database.get_run_state("run-1") == "external_outcome_unknown"
+    assert database.list_compiler_checkpoints("run-1") == [
+        ("input.compile", 1, "prepared-artifact", {"paragraph_count": 2}, "policy-1", "trace-1")
+    ]
+
+
+def test_explicit_retry_reopens_unknown_outcome_with_a_new_attempt(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    database.mark_external_outcome_unknown("run-1")
+
+    attempt = database.prepare_explicit_retry("run-1")
+
+    assert attempt == 2
+    assert database.get_run_state("run-1") == "pending"
+
+
+def test_database_records_each_generation_attempt_for_a_job(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    database.upsert_job(JobSpec("topic-1", "run-1", "topic", 20))
+
+    database.record_job_measurement(
+        job_id="topic-1",
+        request_id="topic-1",
+        task="topic_summary",
+        runtime_id="ollama",
+        model="qwen3:8b",
+        usage={"input_tokens": 12, "total_duration_ns": 40},
+        details={"input_chars": 120, "input_segment_count": 2, "is_repair": False},
+    )
+    database.record_job_measurement(
+        job_id="topic-1",
+        request_id="topic-1:repair",
+        task="repair",
+        runtime_id="ollama",
+        model="qwen3:8b",
+        usage={"input_tokens": 4},
+        details={"input_chars": 44, "input_segment_count": 0, "is_repair": True},
+    )
+
+    assert database.list_job_measurements("topic-1") == [
+        (
+            "topic-1",
+            "topic_summary",
+            "ollama",
+            "qwen3:8b",
+            {"input_tokens": 12, "total_duration_ns": 40},
+            {"input_chars": 120, "input_segment_count": 2, "is_repair": False},
+        ),
+        (
+            "topic-1:repair",
+            "repair",
+            "ollama",
+            "qwen3:8b",
+            {"input_tokens": 4},
+            {"input_chars": 44, "input_segment_count": 0, "is_repair": True},
+        ),
+    ]
+
+
+def test_database_redacts_sensitive_measurement_details(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    database.upsert_job(JobSpec("topic-1", "run-1", "topic", 20))
+
+    database.record_job_measurement(
+        job_id="topic-1",
+        request_id="topic-1",
+        task="topic_summary",
+        runtime_id="gemini",
+        model=None,
+        usage={},
+        details={"api_key": "sk-test-secret-value", "input_chars": 12},
+    )
+
+    measurement = database.list_job_measurements("topic-1")[0]
+    assert measurement[-1]["api_key"] == "[REDACTED]"
+
+
 def test_initialize_rejects_newer_database_schema(tmp_path: Path) -> None:
     path = tmp_path / "future.db"
     with sqlite3.connect(path) as connection:
         connection.execute(f"PRAGMA user_version = {Database.SCHEMA_VERSION + 1}")
     with pytest.raises(RuntimeError, match="newer"):
         Database(path).initialize()
+
+
+def test_database_reuses_connection_within_same_thread(tmp_path: Path) -> None:
+    db = Database(tmp_path / "state.sqlite3")
+    db.initialize()
+    conn1 = db._connect()
+    conn2 = db._connect()
+    assert conn1 is conn2  # same object — connection was reused
+
+
+def test_database_uses_separate_connections_across_threads(tmp_path: Path) -> None:
+    db = Database(tmp_path / "state.sqlite3")
+    db.initialize()
+    connections: list[object] = []
+
+    def grab_connection() -> None:
+        connections.append(db._connect())
+
+    t1 = threading.Thread(target=grab_connection)
+    t2 = threading.Thread(target=grab_connection)
+    t1.start()
+    t1.join()
+    t2.start()
+    t2.join()
+
+    assert len(connections) == 2
+    assert connections[0] is not connections[1]
+
+
+def test_database_close_removes_thread_local_connection(tmp_path: Path) -> None:
+    db = Database(tmp_path / "state.sqlite3")
+    db.initialize()
+    conn1 = db._connect()
+    db.close()
+    conn2 = db._connect()
+    assert conn1 is not conn2  # new connection after close
+
+
+def test_claim_ready_jobs_allows_chapter_when_topic_dep_is_failed_runtime(tmp_path: Path) -> None:
+    """claim_ready_jobs can claim a chapter even if some topic dependencies are 'failed_runtime'."""
+    from datetime import UTC, datetime
+
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    now = datetime(2026, 8, 19, tzinfo=UTC)
+
+    database.upsert_job(JobSpec("topic-good", "run-1", "topic", 20))
+    database.upsert_job(JobSpec("topic-bad", "run-1", "topic", 20))
+    database.upsert_job(
+        JobSpec("chapter-1", "run-1", "chapter", 10, ("topic-good", "topic-bad"))
+    )
+
+    # Complete topic-good, fail topic-bad as 'failed_runtime'
+    database.claim_ready_jobs("run-1", "w", now, 60, 2)  # claim both topics
+    database.complete_job("topic-good", "hash-good")
+    database.fail_job("topic-bad", "failed_runtime")
+
+    # Chapter should be claimable now (failed_runtime counts as satisfied)
+    claimed = database.claim_ready_jobs("run-1", "w", now, 60, 1)
+    assert [job.job_id for job in claimed] == ["chapter-1"]
+
+
+def test_rate_limit_recovery_after_10_consecutive_successes(tmp_path: Path) -> None:
+    """After two rate-limit events, 10 consecutive successes raise the limit by 1."""
+    db = Database(tmp_path / "state.db")
+    db.initialize()
+    # Establish ceiling=4
+    assert db.get_runtime_limit("fake", 4) == 4
+    # Two rate-limit events: 4 → 2 → 1
+    db.note_rate_limit("fake")
+    db.note_rate_limit("fake")
+    assert db.get_runtime_limit("fake", 4) == 1
+    # 9 successes — still at 1
+    for _ in range(9):
+        limit = db.note_runtime_success("fake")
+    assert limit == 1
+    # 10th success triggers recovery: limit goes from 1 → 2
+    limit = db.note_runtime_success("fake")
+    assert limit == 2
+    # streak reset: 9 more successes do not yet trigger another bump
+    for _ in range(9):
+        limit = db.note_runtime_success("fake")
+    assert limit == 2
+    # 10th again: 2 → 3
+    limit = db.note_runtime_success("fake")
+    assert limit == 3
+
+
+def test_concurrent_db_writers_wal_integrity(tmp_path: Path) -> None:
+    """Ten threads writing jobs simultaneously via separate Database instances do not corrupt the DB."""
+    db = Database(tmp_path / "state.db")
+    db.initialize()
+    db.create_run("run-1", "source", "analysis-v1")
+
+    errors: list[Exception] = []
+
+    def write_job(index: int) -> None:
+        worker_db = Database(tmp_path / "state.db")
+        worker_db.initialize()
+        try:
+            worker_db.upsert_job(JobSpec(f"job-{index}", "run-1", "topic", 20))
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=write_job, args=(i,)) for i in range(10)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors, f"concurrent writes raised: {errors}"
+    assert db.active_job_count("run-1") == 10

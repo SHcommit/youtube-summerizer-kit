@@ -26,6 +26,13 @@ class BenchmarkObservation:
     metadata: dict[str, str] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class BenchmarkProgress:
+    condition_id: str
+    repeat: int
+    total_repeats: int
+
+
 ConditionRunner = Callable[[str], Awaitable[BenchmarkObservation]]
 
 
@@ -36,6 +43,16 @@ class ReferenceClaim:
     timestamp_ms: int
     tolerance_ms: int = 30_000
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.text, str) or not self.text.strip():
+            raise ValueError("reference claim text must be non-empty")
+        if not isinstance(self.evidence, str) or not self.evidence.strip():
+            raise ValueError("reference claim evidence must be non-empty")
+        if isinstance(self.timestamp_ms, bool) or not isinstance(self.timestamp_ms, int) or self.timestamp_ms < 0:
+            raise ValueError("reference claim timestamp_ms must be a non-negative integer")
+        if isinstance(self.tolerance_ms, bool) or not isinstance(self.tolerance_ms, int) or self.tolerance_ms <= 0:
+            raise ValueError("reference claim tolerance_ms must be a positive integer")
+
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkReference:
@@ -44,14 +61,44 @@ class BenchmarkReference:
     duration_ms: int
     claims: tuple[ReferenceClaim, ...]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_id, str) or not self.source_id.strip():
+            raise ValueError("reference source_id must be non-empty")
+        if not isinstance(self.language, str) or not self.language.strip():
+            raise ValueError("reference language must be non-empty")
+        if isinstance(self.duration_ms, bool) or not isinstance(self.duration_ms, int) or self.duration_ms <= 0:
+            raise ValueError("reference duration_ms must be a positive integer")
+        if not self.claims:
+            raise ValueError("reference requires at least one claim")
+        if any(claim.timestamp_ms > self.duration_ms for claim in self.claims):
+            raise ValueError("reference claim timestamp_ms must be within the reference duration")
+
     @classmethod
     def from_json(cls, value: str) -> BenchmarkReference:
         payload = json.loads(value)
+        if not isinstance(payload, dict):
+            raise ValueError("benchmark reference must be a JSON object")
+        claims = payload.get("claims")
+        if not isinstance(claims, list):
+            raise ValueError("reference claims must be a list")
+        source_id = payload.get("source_id")
+        language = payload.get("language")
+        duration_ms = payload.get("duration_ms")
+        if not isinstance(source_id, str) or not isinstance(language, str):
+            raise ValueError("reference source_id and language must be strings")
+        if isinstance(duration_ms, bool) or not isinstance(duration_ms, int):
+            raise ValueError("reference duration_ms must be an integer")
+        try:
+            parsed_claims = tuple(ReferenceClaim(**claim) for claim in claims if isinstance(claim, dict))
+        except TypeError as error:
+            raise ValueError("reference claims must contain text, evidence, and timestamp_ms") from error
+        if len(parsed_claims) != len(claims):
+            raise ValueError("reference claims must be objects")
         return cls(
-            source_id=str(payload["source_id"]),
-            language=str(payload["language"]),
-            duration_ms=int(payload["duration_ms"]),
-            claims=tuple(ReferenceClaim(**claim) for claim in payload["claims"]),
+            source_id=source_id,
+            language=language,
+            duration_ms=duration_ms,
+            claims=parsed_claims,
         )
 
 
@@ -114,8 +161,7 @@ class BenchmarkReport:
             )
             for metric in sorted(result.median_metrics):
                 lines.append(
-                    f"| {metric} | {result.median_metrics[metric]:.4f} | "
-                    f"{result.variance_metrics[metric]:.4f} |"
+                    f"| {metric} | {result.median_metrics[metric]:.4f} | {result.variance_metrics[metric]:.4f} |"
                 )
             lines.append("")
             for key, value in sorted(result.metadata.items()):
@@ -148,26 +194,25 @@ def write_benchmark_report(report: BenchmarkReport, output: Path) -> tuple[Path,
 
 
 class BenchmarkRunner:
-    def __init__(self) -> None:
+    def __init__(self, progress_callback: Callable[[BenchmarkProgress], None] | None = None) -> None:
         self.live_calls = 0
+        self.progress_callback = progress_callback
 
     async def run(self, spec: BenchmarkSpec) -> BenchmarkReport:
         if spec.repeats < 1:
             raise ValueError("benchmark repeats must be positive")
         ordered = sorted(
             spec.conditions,
-            key=lambda condition: hashlib.sha256(
-                f"{spec.source_id}:{condition.condition_id}".encode()
-            ).digest(),
+            key=lambda condition: hashlib.sha256(f"{spec.source_id}:{condition.condition_id}".encode()).digest(),
         )
         results: list[ConditionResult] = []
         for index, condition in enumerate(ordered):
-            observations = [
-                await self._observe(condition, spec.source_id) for _ in range(spec.repeats)
-            ]
-            metric_names = sorted(
-                set().union(*(observation.metrics.keys() for observation in observations))
-            )
+            observations: list[BenchmarkObservation] = []
+            for repeat in range(1, spec.repeats + 1):
+                if self.progress_callback is not None:
+                    self.progress_callback(BenchmarkProgress(condition.condition_id, repeat, spec.repeats))
+                observations.append(await self._observe(condition, spec.source_id))
+            metric_names = sorted(set().union(*(observation.metrics.keys() for observation in observations)))
             medians: dict[str, float] = {}
             variances: dict[str, float] = {}
             for metric in metric_names:
@@ -183,13 +228,9 @@ class BenchmarkRunner:
                     repeats=spec.repeats,
                     median_metrics=medians,
                     variance_metrics=variances,
-                    median_latency_seconds=float(
-                        statistics.median(item.latency_seconds for item in observations)
-                    ),
+                    median_latency_seconds=float(statistics.median(item.latency_seconds for item in observations)),
                     median_usage=float(statistics.median(item.usage for item in observations)),
-                    unsupported_claims=round(
-                        statistics.median(item.unsupported_claims for item in observations)
-                    ),
+                    unsupported_claims=round(statistics.median(item.unsupported_claims for item in observations)),
                     metadata=observations[-1].metadata,
                 )
             )
@@ -260,15 +301,13 @@ def _similarity(left: object, right: object) -> float:
     return SequenceMatcher(None, normalized_left, normalized_right).ratio()
 
 
-def _score_output(
-    output: dict[str, object], reference: BenchmarkReference
-) -> tuple[dict[str, float], int]:
+def _metric_number(value: object) -> float:
+    return float(value) if isinstance(value, int | float) and not isinstance(value, bool) else 0.0
+
+
+def _score_output(output: dict[str, object], reference: BenchmarkReference) -> tuple[dict[str, float], int]:
     key_points = output.get("key_points")
-    points = (
-        [point for point in key_points if isinstance(point, dict)]
-        if isinstance(key_points, list)
-        else []
-    )
+    points = [point for point in key_points if isinstance(point, dict)] if isinstance(key_points, list) else []
     matches: list[tuple[ReferenceClaim, dict[str, object]]] = []
     unmatched = list(points)
     for claim in reference.claims:
@@ -282,17 +321,13 @@ def _score_output(
             matches.append((claim, point))
             unmatched.remove(point)
     expected = max(1, len(reference.claims))
-    evidence_matches = sum(
-        _similarity(point.get("evidence"), claim.evidence) >= 0.45 for claim, point in matches
-    )
+    evidence_matches = sum(_similarity(point.get("evidence"), claim.evidence) >= 0.45 for claim, point in matches)
     timestamp_matches = 0
     for claim, point in matches:
         timestamp = point.get("timestamp_ms")
         if isinstance(timestamp, int) and abs(timestamp - claim.timestamp_ms) <= claim.tolerance_ms:
             timestamp_matches += 1
-    covered_quarters = {
-        min(3, claim.timestamp_ms * 4 // max(1, reference.duration_ms)) for claim, _ in matches
-    }
+    covered_quarters = {min(3, claim.timestamp_ms * 4 // max(1, reference.duration_ms)) for claim, _ in matches}
     metrics = {
         "key_point_recall": len(matches) / expected,
         "evidence_coverage": evidence_matches / expected,
@@ -312,14 +347,13 @@ def live_benchmark_spec(
 ) -> BenchmarkSpec:
     """Build four explicit opt-in conditions; no process starts until the spec is run."""
 
-    from chew.app.config import Settings
     from chew.core.identity import normalize_youtube_url
     from chew.core.models import GenerationRequest
     from chew.core.prompts import PROMPT_FINGERPRINT
     from chew.harness.builtin import request_prompt
     from chew.harness.gemini import GeminiHarness
     from chew.harness.registry import default_registry
-    from chew.pipeline.engine import AnalysisPipeline
+    from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
     from chew.storage.artifacts import ArtifactStore
     from chew.storage.database import Database
     from chew.transcripts import TranscriptService, default_providers
@@ -387,9 +421,7 @@ def live_benchmark_spec(
                     harness=selected,
                     concurrency=capabilities.max_concurrency,
                 )
-                result = await pipeline.analyze(
-                    url, Settings(runtime=runtime_id, language=reference.language)
-                )
+                result = await pipeline.analyze(url, AnalysisConfig(language=reference.language, depth="detailed", instructions="", whisper_fallback=False, runtime=runtime_id, recipe_json="{}"))
             points = [
                 {
                     "text": claim.text,
@@ -437,14 +469,253 @@ def live_benchmark_spec(
                 direct("schema"),
                 True,
             ),
-            BenchmarkCondition(
-                "kit-gemini", "Hierarchical / Gemini", "transcript", hierarchical("gemini"), True
-            ),
+            BenchmarkCondition("kit-gemini", "Hierarchical / Gemini", "transcript", hierarchical("gemini"), True),
             BenchmarkCondition(
                 "kit-configured",
                 "Hierarchical / configured",
                 "transcript",
                 hierarchical(configured_runtime),
+                True,
+            ),
+        ),
+    )
+
+
+async def short_video_benchmark_spec(
+    url: str,
+    *,
+    reference: BenchmarkReference,
+    repeats: int = 3,
+    configured_runtime: str = "codex",
+) -> BenchmarkSpec:
+    """Compare one-pass and hierarchical synthesis with the same transcript and Frontier runtime."""
+
+    from chew.core.identity import normalize_youtube_url
+    from chew.core.models import GenerationRequest
+    from chew.core.prompts import PROMPT_FINGERPRINT
+    from chew.harness.base import Harness
+    from chew.harness.builtin import request_prompt
+    from chew.harness.registry import default_registry
+    from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
+    from chew.storage.artifacts import ArtifactStore
+    from chew.storage.database import Database
+    from chew.transcripts import TranscriptService, default_providers
+
+    source = normalize_youtube_url(url)
+    if reference.source_id != source.source_id:
+        raise ValueError("benchmark reference source_id does not match URL")
+    transcript = (
+        await TranscriptService(default_providers()).resolve(
+            source,
+            reference.language,
+            include_optional=False,
+        )
+    ).transcript
+    registry = default_registry()
+    runtime_lock = Lock()
+
+    async def selected_runtime() -> Harness:
+        async with runtime_lock:
+            return await registry.select(configured_runtime)
+
+    def single_pass() -> ConditionRunner:
+        async def observe(_: str) -> BenchmarkObservation:
+            selected = await selected_runtime()
+            request = GenerationRequest(
+                request_id=str(uuid4()),
+                task="benchmark_single_pass_transcript",
+                input={
+                    "title": transcript.title or "YouTube video",
+                    "language": reference.language,
+                    "segments": [segment.model_dump(mode="json") for segment in transcript.segments],
+                    "instruction": (
+                        "Produce a concise evidence-grounded summary. Return key points with exact "
+                        "timestamps and transcript quotes."
+                    ),
+                },
+                output_schema=_COMMON_SCHEMA,
+                trace_id=str(uuid4()),
+            )
+            started = monotonic()
+            result = await selected.generate(request)
+            metrics, unsupported = _score_output(result.output, reference)
+            return BenchmarkObservation(
+                metrics,
+                monotonic() - started,
+                sum(result.usage.values()),
+                unsupported,
+                {
+                    "runtime": result.runtime_id,
+                    "model": result.model or "default",
+                    "prompt_fingerprint": hashlib.sha256(request_prompt(request).encode()).hexdigest(),
+                    "comparison": "same_frontier_transcript",
+                },
+            )
+
+        return observe
+
+    def hierarchical() -> ConditionRunner:
+        async def observe(_: str) -> BenchmarkObservation:
+            selected = await selected_runtime()
+            capabilities = (await selected.probe()).capabilities
+            started = monotonic()
+            with tempfile.TemporaryDirectory(prefix="chew-short-video-benchmark-") as temporary:
+                root = Path(temporary)
+                database = Database(root / "state.sqlite3")
+                database.initialize()
+                pipeline = AnalysisPipeline(
+                    database=database,
+                    artifacts=ArtifactStore(root),
+                    transcripts=TranscriptService(default_providers()),
+                    harness=selected,
+                    concurrency=capabilities.max_concurrency,
+                )
+                result = await pipeline.analyze(
+                    url,
+                    AnalysisConfig(
+                        language=reference.language,
+                        depth="detailed",
+                        instructions="",
+                        whisper_fallback=False,
+                        runtime=configured_runtime,
+                        recipe_json="{}",
+                    ),
+                    transcript=transcript,
+                )
+            points = [
+                {
+                    "text": claim.text,
+                    "timestamp_ms": claim.evidence[0].start_ms if claim.evidence else 0,
+                    "evidence": claim.evidence[0].text if claim.evidence else "",
+                }
+                for topic in result.pack.topics
+                for claim in topic.claims
+            ]
+            metrics, unsupported = _score_output(
+                {
+                    "overview": result.pack.overview,
+                    "key_points": points,
+                    "further_study": list(result.pack.further_study),
+                },
+                reference,
+            )
+            return BenchmarkObservation(
+                metrics,
+                monotonic() - started,
+                sum((result.usage or {}).values()),
+                unsupported,
+                {
+                    "runtime": selected.runtime_id,
+                    "model": ",".join(result.models) or "default",
+                    "prompt_fingerprint": PROMPT_FINGERPRINT,
+                    "comparison": "same_frontier_transcript",
+                },
+            )
+
+        return observe
+
+    def gkt_deterministic() -> ConditionRunner:
+        async def observe(_: str) -> BenchmarkObservation:
+            selected = await selected_runtime()
+            capabilities = (await selected.probe()).capabilities
+            started = monotonic()
+            with tempfile.TemporaryDirectory(prefix="chew-gkt-benchmark-") as temporary:
+                root = Path(temporary)
+                database = Database(root / "state.sqlite3")
+                database.initialize()
+                pipeline = AnalysisPipeline(
+                    database=database,
+                    artifacts=ArtifactStore(root),
+                    transcripts=TranscriptService(default_providers()),
+                    harness=selected,
+                    concurrency=capabilities.max_concurrency,
+                )
+                result = await pipeline.analyze(
+                    url,
+                    AnalysisConfig(
+                        language=reference.language,
+                        depth="detailed",
+                        instructions="",
+                        whisper_fallback=False,
+                        runtime=configured_runtime,
+                        recipe_json="{}",
+                        compiler_strategy="gkt",
+                    ),
+                    transcript=transcript,
+                )
+                checkpoints = database.list_compiler_checkpoints(result.run_id)
+            points = [
+                {
+                    "text": claim.text,
+                    "timestamp_ms": claim.evidence[0].start_ms if claim.evidence else 0,
+                    "evidence": claim.evidence[0].text if claim.evidence else "",
+                }
+                for topic in result.pack.topics
+                for claim in topic.claims
+            ]
+            metrics, unsupported = _score_output(
+                {
+                    "overview": result.pack.overview,
+                    "key_points": points,
+                    "further_study": list(result.pack.further_study),
+                },
+                reference,
+            )
+            grounding = next(
+                (measurement for stage, _, _, measurement, _, _ in checkpoints if stage == "evidence.ground"),
+                {},
+            )
+            candidate_count = _metric_number(grounding.get("candidate_occurrence_count", 0))
+            grounded_count = _metric_number(grounding.get("grounded_occurrence_count", 0))
+            metrics.update(
+                {
+                    "frontier_call_count": float(
+                        sum(1 for stage, _, _, _, _, _ in checkpoints if stage == "frontier.generate")
+                    ),
+                    "grounding_coverage": grounded_count / candidate_count if candidate_count else 0.0,
+                    "ambiguous_anchor_count": _metric_number(grounding.get("ambiguous_anchor_count", 0)),
+                    "unsupported_tree_claim_count": _metric_number(grounding.get("unsupported_claim_count", 0)),
+                }
+            )
+            return BenchmarkObservation(
+                metrics,
+                monotonic() - started,
+                sum((result.usage or {}).values()),
+                unsupported,
+                {
+                    "runtime": selected.runtime_id,
+                    "model": ",".join(result.models) or "default",
+                    "prompt_fingerprint": "gkt-v1",
+                    "comparison": "same_frontier_transcript",
+                    "strategy": "gkt_deterministic",
+                },
+            )
+
+        return observe
+
+    return BenchmarkSpec(
+        source_id=source.source_id,
+        repeats=repeats,
+        conditions=(
+            BenchmarkCondition(
+                "frontier-single-pass",
+                "Single-pass / configured Frontier",
+                "transcript",
+                single_pass(),
+                True,
+            ),
+            BenchmarkCondition(
+                "frontier-hierarchical",
+                "Hierarchical / configured Frontier",
+                "transcript",
+                hierarchical(),
+                True,
+            ),
+            BenchmarkCondition(
+                "gkt-deterministic",
+                "Grounded Knowledge Tree / configured Frontier",
+                "transcript",
+                gkt_deterministic(),
                 True,
             ),
         ),

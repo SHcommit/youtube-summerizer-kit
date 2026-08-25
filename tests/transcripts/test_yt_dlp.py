@@ -1,13 +1,31 @@
 from __future__ import annotations
 
+from urllib.error import HTTPError
+
 import pytest
 
 from chew.domain import Provenance
 from chew.identity import normalize_youtube_url
-from chew.transcripts.yt_dlp import YtDlpSubtitleProvider
+from chew.transcripts.yt_dlp import YtDlpSubtitleProvider, yt_dlp_options
 
 SOURCE = normalize_youtube_url("https://youtu.be/abcDEF_1234")
 pytestmark = pytest.mark.asyncio
+
+
+async def test_yt_dlp_options_enable_installed_node_without_credential_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("chew.transcripts.yt_dlp.which", lambda executable: "/usr/local/bin/node" if executable == "node" else None)
+
+    options = yt_dlp_options()
+
+    assert options["js_runtimes"] == {"node": {"path": "/usr/local/bin/node"}}
+    assert options["remote_components"] == {"ejs:github"}
+    assert "cookiefile" not in options
+    assert "cookiesfrombrowser" not in options
+
+
+async def test_yt_dlp_options_reject_credential_arguments() -> None:
+    with pytest.raises(TypeError):
+        yt_dlp_options(cookie_file="./youtube-cookies.txt")  # type: ignore[call-arg]
 
 
 async def test_manual_subtitles_are_preferred_over_automatic() -> None:
@@ -41,20 +59,31 @@ async def test_provider_failure_reason_is_recorded_by_fallback_service() -> None
         raise RuntimeError("network")
 
     with pytest.raises(TranscriptUnavailable) as captured:
-        await TranscriptService(
-            [YtDlpSubtitleProvider(extractor=broken, caption_kind="manual")]
-        ).resolve(SOURCE, "ko")
+        await TranscriptService([YtDlpSubtitleProvider(extractor=broken, caption_kind="manual")]).resolve(SOURCE, "ko")
 
     assert captured.value.attempts[0].reasons == ("provider_error:RuntimeError",)
+
+
+async def test_http_429_is_recorded_as_rate_limited() -> None:
+    from chew.transcripts.service import TranscriptRateLimited, TranscriptService
+
+    def limited(_: str) -> dict[str, object]:
+        raise HTTPError("https://youtube.com", 429, "Too Many Requests", {}, None)
+
+    with pytest.raises(TranscriptRateLimited) as captured:
+        await TranscriptService(
+            [YtDlpSubtitleProvider(extractor=limited, caption_kind="manual")],
+            rate_limit_retries=0,
+        ).resolve(SOURCE, "ko")
+
+    assert captured.value.attempts[0].reasons == ("rate_limited",)
 
 
 async def test_manual_and_automatic_can_be_independent_fallback_candidates() -> None:
     info = {
         "duration": 10.0,
         "subtitles": {"ko": [{"data": "WEBVTT\n\n00:00.000 --> 00:01.000\n짧음"}]},
-        "automatic_captions": {
-            "ko": [{"data": "WEBVTT\n\n00:00.000 --> 00:10.000\n전체 자동 자막"}]
-        },
+        "automatic_captions": {"ko": [{"data": "WEBVTT\n\n00:00.000 --> 00:10.000\n전체 자동 자막"}]},
     }
     from chew.transcripts.service import TranscriptService
 
@@ -90,9 +119,9 @@ async def test_metadata_survives_when_yt_dlp_has_no_usable_subtitle() -> None:
                 segments=(TranscriptSegment(start_ms=0, end_ms=10_000, text="API 자막"),),
             )
 
-    resolution = await TranscriptService(
-        [YtDlpSubtitleProvider(extractor=lambda _: info), ApiProvider()]
-    ).resolve(SOURCE, "ko")
+    resolution = await TranscriptService([YtDlpSubtitleProvider(extractor=lambda _: info), ApiProvider()]).resolve(
+        SOURCE, "ko"
+    )
 
     assert resolution.transcript.title == "보존할 제목"
     assert resolution.transcript.chapters[0].title == "도입"

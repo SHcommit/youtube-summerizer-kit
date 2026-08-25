@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 
@@ -46,9 +47,7 @@ async def test_process_drains_output_while_feeding_large_stdin() -> None:
         "sys.stdout.write('x' * 1000000); sys.stdout.flush(); "
         "data=sys.stdin.read(); print(len(data), file=sys.stderr)"
     )
-    result = await ProcessExecutor(maximum_output_bytes=32).run(
-        (sys.executable, "-c", code), "y" * 1_000_000, 3
-    )
+    result = await ProcessExecutor(maximum_output_bytes=32).run((sys.executable, "-c", code), "y" * 1_000_000, 3)
 
     assert len(result.stdout) == 32
     assert result.stderr.strip() == "1000000"
@@ -58,9 +57,78 @@ async def test_process_drains_output_while_feeding_large_stdin() -> None:
 async def test_early_exit_preserves_error_result_when_stdin_pipe_breaks() -> None:
     code = "import sys; print('Not logged in', file=sys.stderr); raise SystemExit(1)"
 
-    result = await ProcessExecutor().run(
-        (sys.executable, "-c", code), "large prompt" * 1_000_000, 3
-    )
+    result = await ProcessExecutor().run((sys.executable, "-c", code), "large prompt" * 1_000_000, 3)
 
     assert result.exit_code == 1
     assert "Not logged in" in result.stderr
+
+
+@pytest.mark.asyncio
+async def test_terminate_uses_sigterm_before_sigkill() -> None:
+    """Process that exits on SIGTERM should not be SIGKILLed."""
+    import sys as _sys
+    executor = ProcessExecutor()
+    code = (
+        "import signal, sys\n"
+        "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
+        "import time; time.sleep(30)\n"
+    )
+    process = await asyncio.create_subprocess_exec(
+        _sys.executable, "-c", code,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    await asyncio.sleep(0.1)  # allow child to install signal handler before SIGTERM
+    executor._terminate(process)
+    await executor._await_termination(process, sigterm_timeout=3.0)
+    assert process.returncode == 0  # clean exit via SIGTERM handler
+
+
+@pytest.mark.asyncio
+async def test_await_termination_escalates_to_sigkill_when_process_ignores_sigterm() -> None:
+    """Process that ignores SIGTERM must be killed within timeout + small buffer."""
+    import sys as _sys
+    import time as _time2
+    executor = ProcessExecutor()
+    code = (
+        "import signal, time\n"
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+        "time.sleep(30)\n"
+    )
+    process = await asyncio.create_subprocess_exec(
+        _sys.executable, "-c", code,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    start = _time2.monotonic()
+    executor._terminate(process)
+    await executor._await_termination(process, sigterm_timeout=0.5)
+    elapsed = _time2.monotonic() - start
+    assert process.returncode is not None  # process was killed
+    assert elapsed < 2.0  # killed well within test budget
+
+
+@pytest.mark.asyncio
+async def test_run_raises_runtime_error_when_stdin_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """_execute should raise RuntimeError (not AssertionError) when stdin is None."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    executor = ProcessExecutor()
+
+    # Create a fake process with stdin=None
+    fake_process = MagicMock()
+    fake_process.stdin = None
+    fake_process.stdout = AsyncMock()
+    fake_process.stderr = AsyncMock()
+
+    async def fake_exec(*args: object, **kwargs: object) -> asyncio.subprocess.Process:
+        return fake_process
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+    with pytest.raises(RuntimeError, match="stdin"):
+        await executor.run((sys.executable, "-c", "pass"), "input", 5)

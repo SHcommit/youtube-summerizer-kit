@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build '.[youtube,dev,telemetry]'
+          pip install build '.[youtube,dev,telemetry,server]'
 
       - name: Run verification suite
         run: |
@@ -33,6 +33,12 @@ jobs:
 
       - name: Build binary wheels and source tarball
         run: python -m build
+
+      - name: Smoke test the release wheel
+        run: |
+          python -m venv /tmp/chew-release-test
+          /tmp/chew-release-test/bin/pip install dist/*.whl
+          /tmp/chew-release-test/bin/chew --help
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3

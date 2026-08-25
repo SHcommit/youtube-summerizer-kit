@@ -14,6 +14,10 @@
 | **`v0.1.0-beta`** | [`b250492`](https://github.com/SHcommit/youtube-summerizer-kit/commit/b250492) | `NAumQObJEwM` (25분) | **1분 50초** | 11개 | `concurrency=8` | 동적 챕터 병합 + 동시성 8 향상 |
 | **`v0.1.0` (최신)** | [`bad0e62`](https://github.com/SHcommit/youtube-summerizer-kit/commit/bad0e62) | `NAumQObJEwM` (25분) | **1분 50초** | 11개 | `concurrency=8` | `chew` 패키지 리팩터링 및 요약 강도(`--depth`) 지원 |
 
+### 1.1 자막 전처리 비교 리포트
+
+관리자용 전처리 baseline/candidate 비교는 [`reports/performance-comparisons/transcript-preprocessing/latest.md`](performance-comparisons/transcript-preprocessing/latest.md)에 게시합니다. 원본 근거는 동일 디렉터리의 run-id별 `metrics.json`, `quality.json`, `report.md`, `report.html`에 보존합니다. 최종 HTML 보고서는 전체 토큰/latency 요약, 영상별 그래프, stage token funnel, 품질/신뢰성/재현성 gate, 릴리스 메타데이터, 후보 경로 무효화 가능성 경고를 포함합니다.
+
 ---
 
 ## 2. 오픈소스 트레이싱 & 벤치마크 시각화 (OpenTelemetry & Jaeger UI)

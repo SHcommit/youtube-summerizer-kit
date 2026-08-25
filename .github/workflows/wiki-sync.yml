@@ -1,4 +1,4 @@
-name: Sync Performance Reports to GitHub Wiki
+name: Sync Docs & Performance Reports to GitHub Wiki
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
       - 'reports/performance_analysis.md'
       - 'reports/BENCHMARK.md'
       - 'reports/trace_report.md'
+      - 'docs/wiki/**'
 
 jobs:
   sync-wiki:
@@ -26,18 +27,22 @@ jobs:
           path: wiki
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sync performance reports to Wiki
+      - name: Sync performance reports and feature docs to Wiki
         run: |
           cd wiki
           cp ../reports/performance_analysis.md ./Performance-Analysis.md
           cp ../reports/trace_report.md ./Trace-Report.md
           cp ../reports/BENCHMARK.md ./Benchmark-Guide.md
+          # Sync docs/wiki/ pages — each file becomes a top-level wiki page
+          if [ -d ../docs/wiki ]; then
+            cp ../docs/wiki/*.md ./ 2>/dev/null || true
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git"
           git add .
           if ! git diff --staged --quiet; then
-            git commit -m "docs(wiki): auto-sync performance analysis and trace reports from main repo"
+            git commit -m "docs(wiki): auto-sync performance reports and feature flow docs from main repo"
             git push origin HEAD:master || git push origin HEAD:main || true
           else
             echo "No changes to sync to Wiki."

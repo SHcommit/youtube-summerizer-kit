@@ -1,20 +1,27 @@
-%%{init: {"theme":"base","themeVariables":{"fontFamily":"Apple SD Gothic Neo, Noto Sans KR, Malgun Gothic, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b"},"flowchart":{"curve":"basis","nodeSpacing":44,"rankSpacing":54,"htmlLabels":true}}}%%
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Apple SD Gothic Neo, Noto Sans KR, Malgun Gothic, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b","clusterBkg":"#ffffff","clusterBorder":"#cbd5e1"},"flowchart":{"curve":"basis","nodeSpacing":38,"rankSpacing":48,"htmlLabels":true}}}%%
 flowchart TB
-    USER["&nbsp;&nbsp;사용자&nbsp;&nbsp;"]
-    INPUT["INPUT<br/>YouTube URL 또는 로컬 미디어 (MP3·MP4)<br/>요약 강도 (quick · detailed · deep) · 문체 프로필"]
-    KIT["YouTube Summarizer Kit (chew)<br/>16.3배 속도 동적 비동기 DAG 병렬 처리 & OpenTelemetry Jaeger 실시간 추적"]
-    PACK["Knowledge Pack (단 1회 분석 후 재사용)<br/>전체 개요 · 챕터 · 소주제 · 핵심 주장 · 근거 타임스탬프"]
-    OUTPUT["OUTPUT (1초 목적별 자동 재조립)<br/>전체 요약본 (Digest) · 기술 블로그 (Blog)<br/>학습 노트 (Study) · Obsidian Vault (Wikilinks)"]
+    INPUT["실행 시작<br/>YouTube URL · 로컬 미디어 · 직접 제공한 자막"]
+    SOURCE["원문 검증<br/>공개 자막 또는 직접 제공한 자막"]
+    REUSE{"호환되는<br/>Knowledge Pack이 있는가?"}
+    ANALYZE["한 번 분석<br/>원문 준비와 근거 기반 지식 생성"]
+    PACK["Knowledge Pack 저장<br/>재사용 가능한 구조화 지식"]
+    OUTPUT["출력 선택<br/>Digest · Blog · Study · Obsidian"]
+    ISSUE["중단 / 인증"]
+    STATUS["상태 확인"]
+    RESUME["가능한 경우 이어하기"]
 
-    USER --> INPUT --> KIT --> PACK --> OUTPUT
+    INPUT --> SOURCE --> REUSE
+    REUSE -->|아니요| ANALYZE --> PACK --> OUTPUT
+    REUSE -->|예| OUTPUT
+    ANALYZE -.-> ISSUE --> STATUS --> RESUME -.-> ANALYZE
 
-    classDef actor fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#0f172a;
     classDef input fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#172554;
-    classDef core fill:#ede9fe,stroke:#7c3aed,stroke-width:2.5px,color:#2e1065;
+    classDef process fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065;
     classDef knowledge fill:#fef3c7,stroke:#d97706,stroke-width:2.5px,color:#78350f;
     classDef output fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
-    class USER actor;
-    class INPUT input;
-    class KIT core;
+    classDef recovery fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d;
+    class INPUT,SOURCE input;
+    class REUSE,ANALYZE,STATUS,RESUME process;
     class PACK knowledge;
     class OUTPUT output;
+    class ISSUE recovery;

@@ -2,17 +2,28 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from pydantic import Field
 
 from chew.domain import FrozenModel, GenerationRequest, GenerationResult
 
 
+@runtime_checkable
+class ConfigurableHarness(Protocol):
+    """Optional extension for harnesses that support runtime preference switching."""
+
+    def set_preference(self, runtime_id: str) -> None: ...
+
+
 class RateLimitSignal(RuntimeError):
     """Vendor-neutral signal used by the adaptive scheduler."""
 
     retry_after: float = 1.0
+
+
+class ExternalOutcomeUnknown(RuntimeError):
+    """The provider may have accepted a request, so automatic resend is unsafe."""
 
 
 class HarnessCapabilities(FrozenModel):

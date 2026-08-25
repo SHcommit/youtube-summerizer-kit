@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
+import signal as _signal
+import subprocess
 import sys
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -17,10 +20,13 @@ from chew.app.config import ConfigurationError
 from chew.app.retention import CleanupPlan, RetentionPlanner
 from chew.app.service import AuthenticationRequired, CommandResult, RunStatus
 from chew.benchmark.runner import (
+    BenchmarkProgress,
     BenchmarkReference,
+    BenchmarkReport,
     BenchmarkRunner,
     benchmark_catalog,
     live_benchmark_spec,
+    short_video_benchmark_spec,
     write_benchmark_report,
 )
 from chew.core.identity import (
@@ -28,14 +34,22 @@ from chew.core.identity import (
     looks_like_local_media_input,
     normalize_youtube_url,
 )
-from chew.telemetry import telemetry
-from chew.transcripts.service import TranscriptUnavailable
+from chew.interfaces.presenters import command_result_data
+from chew.log import configure_logging
+from chew.telemetry import TelemetryManager
+from chew.transcripts.service import TranscriptRateLimited, TranscriptUnavailable
+from chew.transcripts.user_input import UserTranscriptInputError
 from chew.transcripts.whisper import WhisperDependencyMissing
 
 
 class Application(Protocol):
     async def generate(
-        self, url: str, profile: str, destination: Path, depth: str | None = None
+        self,
+        url: str,
+        profile: str,
+        destination: Path,
+        depth: str | None = None,
+        transcript_path: Path | None = None,
     ) -> CommandResult: ...
 
     def status(self, run_id: str | None = None) -> tuple[RunStatus, ...]: ...
@@ -47,13 +61,27 @@ class Application(Protocol):
 
 app = typer.Typer(
     name="chew",
-    help=(
-        "Turn YouTube videos and local audio and video files into reusable knowledge packs "
-        "and documents."
-    ),
+    help=("Turn YouTube videos and local audio and video files into reusable knowledge packs and documents."),
     no_args_is_help=True,
     rich_markup_mode=None,
 )
+
+
+@app.callback()
+def _startup(
+    log_level: str = typer.Option(
+        "WARNING",
+        envvar="CHEW_LOG_LEVEL",
+        hidden=True,
+        help="Log level for structured JSON output (DEBUG/INFO/WARNING/ERROR).",
+    ),
+) -> None:
+    configure_logging(level=log_level)
+
+    def _handle_sigterm(signum: int, frame: object) -> None:
+        raise KeyboardInterrupt
+
+    _signal.signal(_signal.SIGTERM, _handle_sigterm)
 
 
 def _application_factory() -> Application:
@@ -109,26 +137,35 @@ def _emit(data: Any, json_output: bool, *, korean: bool = False) -> None:
         typer.echo(json.dumps({"ok": True, "data": data}, ensure_ascii=False, sort_keys=True))
         return
     if isinstance(data, dict) and "run_id" in data:
-        reuse = (
-            (" · 기존 분석 재사용" if korean else " · reused analysis")
-            if data.get("reused")
-            else ""
-        )
+        reuse = (" · 기존 분석 재사용" if korean else " · reused analysis") if data.get("reused") else ""
         label = "완료" if korean else "Completed"
         typer.echo(f"{label}: {data['run_id']}{reuse}")
         for path in data.get("files", []):
             typer.echo(path)
+        usage = data.get("usage")
+        if isinstance(usage, dict) and not data.get("reused"):
+            input_tokens = usage.get("input_tokens", 0)
+            output_tokens = usage.get("output_tokens", 0)
+            if korean:
+                typer.echo(f"토큰 사용량: 입력 {input_tokens:,} / 출력 {output_tokens:,}")
+            else:
+                typer.echo(f"Token usage: {input_tokens:,} input / {output_tokens:,} output")
+        preprocessing = data.get("preprocessing")
+        if isinstance(preprocessing, dict) and not data.get("reused"):
+            before = preprocessing.get("original_token_estimate", 0)
+            after = preprocessing.get("processed_token_estimate", 0)
+            reduction = preprocessing.get("token_reduction_pct", 0.0)
+            stages = ", ".join(preprocessing.get("applied_strategies", []))
+            if korean:
+                typer.echo(f"자막 전처리: {before:,} → {after:,} 추정 토큰 ({reduction:.1f}% 절감; {stages})")
+            else:
+                typer.echo(f"Transcript preprocessing: {before:,} → {after:,} estimated tokens ({reduction:.1f}% saved; {stages})")
     else:
         typer.echo(data if isinstance(data, str) else json.dumps(data, ensure_ascii=False))
 
 
 def _result_data(result: CommandResult) -> dict[str, object]:
-    return {
-        "run_id": result.run_id,
-        "profile": result.profile,
-        "reused": result.reused,
-        "files": [str(path) for path in result.files],
-    }
+    return command_result_data(result)
 
 
 def _emit_status(values: list[dict[str, object]], json_output: bool, *, korean: bool) -> None:
@@ -142,6 +179,17 @@ def _emit_status(values: list[dict[str, object]], json_output: bool, *, korean: 
         jobs = f"{value['completed_jobs']}/{value['total_jobs']}"
         suffix = "작업" if korean else "jobs"
         typer.echo(f"{value['run_id']}  {value['status']}  {jobs} {suffix}  {value['source_id']}")
+
+
+_INSTALL_HINTS: dict[str, str] = {
+    "codex": "npm install -g @openai/codex",
+    "gemini": "pip install google-generativeai",
+    "ollama": "curl -fsSL https://ollama.com/install.sh | sh",
+    "layered_ollama": "curl -fsSL https://ollama.com/install.sh | sh",
+    "huggingface": "pip install 'huggingface-hub>=0.23'",
+    "antigravity": "pip install antigravity-cli",
+    "claude": "pip install anthropic",
+}
 
 
 def _emit_diagnostics(data: dict[str, object], json_output: bool, *, korean: bool) -> None:
@@ -160,9 +208,7 @@ def _emit_diagnostics(data: dict[str, object], json_output: bool, *, korean: boo
         auth_ready = runtime.get("auth_ready")
         if korean:
             state = "사용 가능" if available else "설치되지 않음"
-            auth = (
-                " · 인증됨" if auth_ready is True else " · 인증 필요" if auth_ready is False else ""
-            )
+            auth = " · 인증됨" if auth_ready is True else " · 인증 필요" if auth_ready is False else ""
         else:
             state = "available" if available else "not installed"
             auth = (
@@ -173,6 +219,8 @@ def _emit_diagnostics(data: dict[str, object], json_output: bool, *, korean: boo
                 else ""
             )
         typer.echo(f"{runtime_id}: {state}{auth}")
+        if not available and runtime_id in _INSTALL_HINTS:
+            typer.echo(f"  → Install: {_INSTALL_HINTS[runtime_id]}")
 
 
 def _emit_authentication_error(error: AuthenticationRequired, *, korean: bool) -> None:
@@ -189,16 +237,28 @@ def _run_generation(
     output: Path,
     json_output: bool,
     depth: str | None = None,
+    transcript_path: Path | None = None,
+    source_url: str | None = None,
 ) -> None:
     korean = _is_korean(context)
-    selected_source = source or typer.prompt(
-        "YouTube URL 또는 로컬 오디오/영상 경로"
-        if korean
-        else "YouTube URL or local audio/video path"
+    if transcript_path is not None and source_url is None:
+        typer.echo("--source-url is required with --transcript.")
+        raise typer.Exit(2)
+    if source is not None and source_url is not None and source != source_url:
+        typer.echo("Use either SOURCE or --source-url, not two different source URLs.")
+        raise typer.Exit(2)
+    selected_source = source_url or source or typer.prompt(
+        "YouTube URL 또는 로컬 오디오/영상 경로" if korean else "YouTube URL or local audio/video path"
     )
     local_media = looks_like_local_media_input(selected_source)
     try:
-        result = asyncio.run(_application_factory().generate(selected_source, profile, output, depth=depth))
+        generate = _application_factory().generate
+        if transcript_path is None:
+            result = asyncio.run(generate(selected_source, profile, output, depth=depth))
+        else:
+            result = asyncio.run(
+                generate(selected_source, profile, output, depth=depth, transcript_path=transcript_path)
+            )
     except KeyboardInterrupt:
         label = "작업이 사용자에 의해 중단되었습니다." if korean else "Operation cancelled by user."
         typer.echo(f"\n{label}")
@@ -214,17 +274,40 @@ def _run_generation(
         label = "로컬 미디어 오류" if korean else "Local media error"
         typer.echo(f"{label}: {error}")
         raise typer.Exit(2) from error
+    except UserTranscriptInputError as error:
+        typer.echo(f"Transcript input error: {error}")
+        raise typer.Exit(2) from error
+    except TranscriptRateLimited as error:
+        if korean:
+            typer.echo(
+                f"YouTube timedtext 요청이 HTTP 429로 제한되었습니다. 약 {error.retry_after_seconds}초 후 같은 명령을 다시 실행하세요. "
+                "계속되면 `chew summarize --transcript <VTT|SRT|TXT> --source-url <URL>`로 검증 가능한 "
+                "스크립트를 제공하거나 로컬 MP3/MP4를 사용하세요."
+            )
+        else:
+            typer.echo(
+                f"YouTube timedtext returned HTTP 429. Retry the same command in about "
+                f"{error.retry_after_seconds}s. If it persists, provide a verified transcript with "
+                "`chew summarize --transcript <VTT|SRT|TXT> --source-url <URL>` or use local MP3/MP4 media."
+            )
+        raise typer.Exit(2) from error
     except TranscriptUnavailable as error:
+        session_refresh_required = any(
+            "session_refresh_required" in attempt.reasons for attempt in error.attempts
+        )
         if korean and local_media:
             typer.echo(
-                "사용 가능한 음성 transcript를 만들지 못했습니다. "
-                "파일에 음성이 있는지와 오디오 품질을 확인하세요."
+                "사용 가능한 음성 transcript를 만들지 못했습니다. 파일에 음성이 있는지와 오디오 품질을 확인하세요."
             )
         elif local_media:
             typer.echo(
                 "No usable speech transcript could be created. Check that the file contains "
                 "speech and that its audio is readable."
             )
+        elif korean and session_refresh_required:
+            typer.echo("YouTube 세션을 사용하지 않습니다. VTT/SRT/TXT 스크립트를 제공해 계속 진행하세요.")
+        elif session_refresh_required:
+            typer.echo("Browser sessions are not used. Provide a VTT/SRT/TXT transcript to continue.")
         elif korean:
             typer.echo(
                 "사용 가능한 자막이 없습니다. 영상 오디오를 로컬에서 음성 인식하려면 "
@@ -260,36 +343,30 @@ def _run_generation(
                 "Run `pip install -e '.[youtube,whisper]'`."
             )
         raise typer.Exit(2) from error
-    try:
-        exported_report = telemetry.export_markdown_report("reports/trace_report.md")
-        if not json_output:
-            typer.echo(f"OpenTelemetry Trace Report: file://{exported_report.resolve()}")
-    except Exception:
-        pass
     _emit(_result_data(result), json_output, korean=korean)
 
 
 def summarize(
     context: typer.Context,
-    source: Annotated[
-        str | None, typer.Argument(help="YouTube URL or local audio/video path")
-    ] = None,
+    source: Annotated[str | None, typer.Argument(help="YouTube URL or local audio/video path")] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-output"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
         str | None,
         typer.Option("--depth", "--요약강도", "-d", help="Summary intensity: quick (short/brief), detailed, deep"),
     ] = None,
+    transcript: Annotated[Path | None, typer.Option("--transcript", help="Local VTT, SRT, or TXT transcript")] = None,
+    source_url: Annotated[str | None, typer.Option("--source-url", help="Original YouTube URL for --transcript")] = None,
 ) -> None:
     """Create a detailed digest from a video."""
-    _run_generation(context, source, "digest", output, json_output, depth=depth)
+    _run_generation(
+        context, source, "digest", output, json_output, depth=depth, transcript_path=transcript, source_url=source_url
+    )
 
 
 def blog(
     context: typer.Context,
-    source: Annotated[
-        str | None, typer.Argument(help="YouTube URL or local audio/video path")
-    ] = None,
+    source: Annotated[str | None, typer.Argument(help="YouTube URL or local audio/video path")] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-blog"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
@@ -303,9 +380,7 @@ def blog(
 
 def study(
     context: typer.Context,
-    source: Annotated[
-        str | None, typer.Argument(help="YouTube URL or local audio/video path")
-    ] = None,
+    source: Annotated[str | None, typer.Argument(help="YouTube URL or local audio/video path")] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-study"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
@@ -319,9 +394,7 @@ def study(
 
 def obsidian(
     context: typer.Context,
-    source: Annotated[
-        str | None, typer.Argument(help="YouTube URL or local audio/video path")
-    ] = None,
+    source: Annotated[str | None, typer.Argument(help="YouTube URL or local audio/video path")] = None,
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("chew-vault"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
     depth: Annotated[
@@ -361,12 +434,13 @@ def trace_ui(
     open_browser: Annotated[bool, typer.Option("--open/--no-open", "-b")] = True,
 ) -> None:
     """OpenTelemetry visual performance & tracing web UI dashboard."""
-    report_path = telemetry.export_markdown_report("reports/trace_report.md")
+    report_path = TelemetryManager().export_markdown_report("reports/trace_report.md")
     abs_path = report_path.resolve()
     typer.echo(f"OpenTelemetry Trace Report: file://{abs_path}")
     typer.echo("Jaeger OpenTelemetry UI: http://localhost:16686")
     if open_browser:
         import webbrowser
+
         webbrowser.open("http://localhost:16686")
 
 
@@ -424,6 +498,8 @@ def config(
         if created:
             label = "생성" if _is_korean(context) else "Created"
             typer.echo(f"{label}: " + ", ".join(str(path) for path in created))
+        if Path("CHEW.md") in created and sys.stdin.isatty():
+            _offer_ollama_model_setup(korean=_is_korean(context))
         else:
             typer.echo(
                 "기존 설정 파일을 유지했습니다."
@@ -442,6 +518,36 @@ app.command("config", help="Show or initialize Markdown configuration.")(config)
 app.command("설정", hidden=True)(config)
 
 
+def _offer_ollama_model_setup(*, korean: bool) -> None:
+    prompt = (
+        "로컬 모델 선택 [1=빠르게 시작 Qwen3 4B (약 2.5GB), 2=권장 Qwen3 8B (약 5.2GB), 3=나중에]"
+        if korean
+        else "Local model [1=Qwen3 4B (~2.5GB), 2=Qwen3 8B (~5.2GB), 3=configure later]"
+    )
+    choice = typer.prompt(prompt, default="3")
+    model = {"1": "qwen3:4b", "2": "qwen3:8b"}.get(choice)
+    if model is None:
+        return
+    config_path = Path("CHEW.md")
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        .replace("runtime: auto", "runtime: ollama")
+        .replace("ollama_model: null", f"ollama_model: {model}"),
+        encoding="utf-8",
+    )
+    if shutil.which("ollama") is None:
+        typer.echo(
+            "Ollama 앱을 설치한 뒤 `chew config --init`을 다시 실행하세요: https://ollama.com/download"
+            if korean
+            else "Install Ollama, then run `chew config --init` again: https://ollama.com/download"
+        )
+        return
+    if typer.confirm(
+        (f"{model}을 지금 다운로드할까요?" if korean else f"Download {model} now?"), default=True
+    ):
+        subprocess.run(["ollama", "pull", model], check=False)
+
+
 def doctor(
     context: typer.Context,
     json_output: Annotated[bool, typer.Option("--json")] = False,
@@ -453,15 +559,38 @@ app.command("doctor", help="Diagnose AI runtime installation and authentication.
 app.command("진단", hidden=True)(doctor)
 
 
+def serve(
+    context: typer.Context,
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 8080,
+) -> None:
+    """Start the health-check HTTP server (requires extras[server])."""
+    try:
+        import uvicorn
+
+        from chew.server import create_app
+    except ImportError:
+        typer.echo(
+            "The 'server' extras are required. Run: pip install 'youtube-summarizer-kit[server]'"
+        )
+        raise typer.Exit(1) from None
+    from chew.app.bootstrap import build_application as _build
+
+    _app = _build()
+    # Access the database through the bootstrap-built application if available
+    db = getattr(_app, "database", None) or getattr(getattr(_app, "_service", None), "database", None)
+    uvicorn.run(create_app(database=db), host=host, port=port)  # type: ignore[arg-type]
+
+
+app.command("serve", help="Start the FastAPI health/readiness server.")(serve)
+
+
 def _plan_data(plan: CleanupPlan) -> dict[str, object]:
     return {
         "policy": plan.policy,
         "created_at": plan.created_at.isoformat(),
         "run_ids": list(plan.run_ids),
-        "items": [
-            {"path": str(item.path), "reason": item.reason, "size": item.size}
-            for item in plan.items
-        ],
+        "items": [{"path": str(item.path), "reason": item.reason, "size": item.size} for item in plan.items],
     }
 
 
@@ -506,9 +635,7 @@ def delete(
     if not yes:
         typer.echo(json.dumps(_plan_data(plan), ensure_ascii=False))
         phrase = "삭제" if _is_korean(context) else "delete"
-        prompt = (
-            "삭제하려면 '삭제'를 입력하세요" if _is_korean(context) else "Type 'delete' to continue"
-        )
+        prompt = "삭제하려면 '삭제'를 입력하세요" if _is_korean(context) else "Type 'delete' to continue"
         if typer.prompt(prompt) != phrase:
             raise typer.Exit(1)
     _emit(asdict(planner.apply(plan)), json_output, korean=_is_korean(context))
@@ -557,18 +684,12 @@ benchmark_commands.command("목록", hidden=True)(benchmark_list)
 
 def benchmark_result(context: typer.Context, path: Annotated[Path, typer.Argument()]) -> None:
     if not path.is_file():
-        typer.echo(
-            f"결과 파일을 찾지 못했습니다: {path}"
-            if _is_korean(context)
-            else f"Result file not found: {path}"
-        )
+        typer.echo(f"결과 파일을 찾지 못했습니다: {path}" if _is_korean(context) else f"Result file not found: {path}")
         raise typer.Exit(1)
     typer.echo(path.read_text(encoding="utf-8"))
 
 
-benchmark_commands.command("results", help="Show a saved JSON or Markdown result.")(
-    benchmark_result
-)
+benchmark_commands.command("results", help="Show a saved JSON or Markdown result.")(benchmark_result)
 benchmark_commands.command("결과", hidden=True)(benchmark_result)
 
 
@@ -580,6 +701,7 @@ def benchmark_run(
     runtime: Annotated[str, typer.Option("--runtime")] = "codex",
     output: Annotated[Path, typer.Option("--output", "-o")] = Path("benchmark-results"),
     reference: Annotated[Path | None, typer.Option("--reference")] = None,
+    short_video: Annotated[bool, typer.Option("--short-video")] = False,
 ) -> None:
     if not live:
         typer.echo(
@@ -595,17 +717,37 @@ def benchmark_run(
             else "A ground-truth JSON file is required with --reference."
         )
         raise typer.Exit(2)
-    benchmark_reference = BenchmarkReference.from_json(reference.read_text(encoding="utf-8"))
-    report = asyncio.run(
-        BenchmarkRunner().run(
-            live_benchmark_spec(
+    try:
+        benchmark_reference = BenchmarkReference.from_json(reference.read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError) as error:
+        typer.echo(
+            f"잘못된 benchmark reference: {error}"
+            if _is_korean(context)
+            else f"Invalid benchmark reference: {error}"
+        )
+        raise typer.Exit(2) from error
+
+    async def _run_benchmark() -> BenchmarkReport:
+        if short_video:
+            spec = await short_video_benchmark_spec(
                 url,
                 reference=benchmark_reference,
                 repeats=repeats,
                 configured_runtime=runtime,
             )
-        )
-    )
+        else:
+            spec = live_benchmark_spec(
+                url,
+                reference=benchmark_reference,
+                repeats=repeats,
+                configured_runtime=runtime,
+            )
+        def show_progress(progress: BenchmarkProgress) -> None:
+            typer.echo(f"Running {progress.condition_id} repeat {progress.repeat}/{progress.total_repeats}")
+
+        return await BenchmarkRunner(progress_callback=show_progress).run(spec)
+
+    report = asyncio.run(_run_benchmark())
     _, markdown_path = write_benchmark_report(report, output)
     typer.echo(markdown_path)
 

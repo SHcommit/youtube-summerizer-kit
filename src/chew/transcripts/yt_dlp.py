@@ -8,22 +8,32 @@ import re
 from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from importlib import import_module
+from shutil import which
 from typing import Any, Literal, cast
 from urllib.request import urlopen
 
 from chew.domain import Chapter, Provenance, SourceIdentity, Transcript, TranscriptSegment
+from chew.transcripts.base import provider_failure_reason
 
 Extractor = Callable[[str], Mapping[str, Any]]
+
+
+def yt_dlp_options() -> dict[str, Any]:
+    """Build yt-dlp options for anonymous public caption reads."""
+
+    options: dict[str, Any] = {"quiet": True, "no_warnings": True, "skip_download": True}
+    if node_path := which("node"):
+        options["js_runtimes"] = {"node": {"path": node_path}}
+        options["remote_components"] = {"ejs:github"}
+    return options
 
 
 def _default_extract(url: str) -> Mapping[str, Any]:
     try:
         youtube_dl = import_module("yt_dlp").YoutubeDL
     except ImportError as error:
-        raise RuntimeError(
-            "yt-dlp가 필요합니다: pip install youtube-summarizer-kit[youtube]"
-        ) from error
-    options = {"quiet": True, "no_warnings": True, "skip_download": True}
+        raise RuntimeError("yt-dlp가 필요합니다: pip install youtube-summarizer-kit[youtube]") from error
+    options = yt_dlp_options()
     with youtube_dl(options) as downloader:
         value = downloader.extract_info(url, download=False)
         return cast(Mapping[str, Any], downloader.sanitize_info(value))
@@ -81,9 +91,7 @@ def _read_track(track: Mapping[str, Any]) -> str:
         return cast(bytes, response.read()).decode("utf-8")
 
 
-def _select_language(
-    captions: Mapping[str, Any], language: str
-) -> tuple[str, list[Mapping[str, Any]]]:
+def _select_language(captions: Mapping[str, Any], language: str) -> tuple[str, list[Mapping[str, Any]]]:
     base_lang = language.split("-", 1)[0]
     keys = (language, base_lang)
     for key in keys:
@@ -129,19 +137,17 @@ def _chapters(info: Mapping[str, Any]) -> tuple[Chapter, ...]:
 class YtDlpSubtitleProvider:
     def __init__(
         self,
-        extractor: Extractor = _default_extract,
+        extractor: Extractor | None = None,
         *,
         caption_kind: Literal["manual", "automatic", "both"] = "both",
     ) -> None:
-        self.extractor = extractor
+        self.extractor = extractor or _default_extract
         self.caption_kind = caption_kind
         self.name = f"yt-dlp-{caption_kind}"
         self._attempt_metadata: ContextVar[tuple[str | None, tuple[Chapter, ...]]] = ContextVar(
             f"chew_metadata_{id(self)}", default=(None, ())
         )
-        self._attempt_failure: ContextVar[tuple[str, ...]] = ContextVar(
-            f"chew_failure_{id(self)}", default=()
-        )
+        self._attempt_failure: ContextVar[tuple[str, ...]] = ContextVar(f"chew_failure_{id(self)}", default=())
 
     def attempt_metadata(self) -> tuple[str | None, tuple[Chapter, ...]]:
         return self._attempt_metadata.get()
@@ -194,6 +200,6 @@ class YtDlpSubtitleProvider:
                     chapters=chapters,
                 )
         except Exception as error:  # Provider failures are recorded by the fallback chain.
-            self._attempt_failure.set((f"provider_error:{type(error).__name__}",))
+            self._attempt_failure.set((provider_failure_reason(error),))
             return None
         return None

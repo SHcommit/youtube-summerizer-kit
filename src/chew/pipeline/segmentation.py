@@ -13,12 +13,20 @@ class SegmentationPolicy:
     target_ms: int = 5 * 60_000
     maximum_ms: int = 10 * 60_000
     overlap_ms: int = 15_000
+    max_input_tokens: int | None = None
+    reserved_output_tokens: int = 0
 
     def __post_init__(self) -> None:
         if not 0 < self.target_ms <= self.maximum_ms:
             raise ValueError("target_ms must be positive and no larger than maximum_ms")
         if not 0 <= self.overlap_ms < self.target_ms:
             raise ValueError("overlap_ms must be non-negative and smaller than target_ms")
+        if self.max_input_tokens is not None and self.max_input_tokens <= 0:
+            raise ValueError("max_input_tokens must be positive when configured")
+        if self.reserved_output_tokens < 0:
+            raise ValueError("reserved_output_tokens must be non-negative")
+        if self.max_input_tokens is not None and self.reserved_output_tokens >= self.max_input_tokens:
+            raise ValueError("reserved_output_tokens must be smaller than max_input_tokens")
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,9 +36,7 @@ class SegmentManifest:
 
 
 class BoundaryDetector(Protocol):
-    def choose(
-        self, transcript: Transcript, start_ms: int, target_ms: int, limit_ms: int
-    ) -> int: ...
+    def choose(self, transcript: Transcript, start_ms: int, target_ms: int, limit_ms: int) -> int: ...
 
 
 class PausePunctuationBoundaryDetector:
@@ -44,9 +50,7 @@ class PausePunctuationBoundaryDetector:
             if not lower <= segment.end_ms <= upper:
                 continue
             next_start = (
-                transcript.segments[index + 1].start_ms
-                if index + 1 < len(transcript.segments)
-                else segment.end_ms
+                transcript.segments[index + 1].start_ms if index + 1 < len(transcript.segments) else segment.end_ms
             )
             pause = min(30_000, max(0, next_start - segment.end_ms))
             punctuation = 30_000 if segment.text.rstrip().endswith((".", "?", "!", "다.")) else 0
@@ -87,12 +91,49 @@ def _boundaries(
     return result
 
 
-def coalesce_chapters(
-    chapters: tuple[Chapter, ...], duration_ms: int, depth: str = "detailed"
-) -> tuple[Chapter, ...]:
+def _estimated_tokens(text: str) -> int:
+    """Deterministic conservative estimate for segmentation, not provider billing."""
+    words = len(text.split())
+    non_whitespace = sum(not character.isspace() for character in text)
+    return max(words, (non_whitespace + 2) // 3, 1)
+
+
+def _apply_token_budget(
+    transcript: Transcript,
+    ranges: list[tuple[int, int]],
+    policy: SegmentationPolicy,
+) -> list[tuple[int, int]]:
+    if policy.max_input_tokens is None:
+        return ranges
+    allowance = policy.max_input_tokens - policy.reserved_output_tokens
+    bounded: list[tuple[int, int]] = []
+    for start, end in ranges:
+        indexes = [
+            index
+            for index, segment in enumerate(transcript.segments)
+            if segment.end_ms > start and segment.start_ms < end
+        ]
+        if not indexes:
+            bounded.append((start, end))
+            continue
+        current_start = start
+        used = 0
+        for index in indexes:
+            segment = transcript.segments[index]
+            estimate = _estimated_tokens(segment.text)
+            if used and used + estimate > allowance:
+                bounded.append((current_start, segment.start_ms))
+                current_start = segment.start_ms
+                used = 0
+            used += estimate
+        bounded.append((current_start, end))
+    return bounded
+
+
+def coalesce_chapters(chapters: tuple[Chapter, ...], duration_ms: int, depth: str = "detailed") -> tuple[Chapter, ...]:
     if not chapters:
         return ()
-    if depth in ("brief", "short", "quick", "simple", "concise", "초간단", "핵심", "간단"):
+    if depth in ("brief", "short", "quick", "simple", "concise"):
         max_chapters = 3
     elif depth in ("deep", "심층", "꽉찬"):
         max_chapters = 15
@@ -138,10 +179,17 @@ def segment_transcript(
     )
     topics: list[Topic] = []
     for chapter in selected_chapters:
-        ranges = _boundaries(transcript, chapter, policy, selected_detector)
+        ranges = _apply_token_budget(
+            transcript,
+            _boundaries(transcript, chapter, policy, selected_detector),
+            policy,
+        )
         for position, (start, end) in enumerate(ranges, start=1):
+            # Overlap is extra input. Omit it when enforcing a strict input budget.
             context_start = (
-                start if position == 1 else max(chapter.start_ms, start - policy.overlap_ms)
+                start
+                if position == 1 or policy.max_input_tokens is not None
+                else max(chapter.start_ms, start - policy.overlap_ms)
             )
             indexes = tuple(
                 index

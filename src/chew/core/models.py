@@ -96,16 +96,111 @@ class Evidence(FrozenModel):
     provenance: Provenance = Provenance.SOURCE
 
 
+class EvidenceCandidate(FrozenModel):
+    """An untrusted citation proposed by a generation runtime."""
+
+    segment_indexes: tuple[int, ...] = Field(min_length=1)
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+    quote: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> EvidenceCandidate:
+        if self.end_ms <= self.start_ms:
+            raise ValueError("candidate end must be after start")
+        if any(index < 0 for index in self.segment_indexes):
+            raise ValueError("candidate segment indexes must be non-negative")
+        return self
+
+
+class ValidatedEvidenceRef(FrozenModel):
+    """A source citation accepted by deterministic transcript validation."""
+
+    segment_indexes: tuple[int, ...] = Field(min_length=1)
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+    quote: str = Field(min_length=1)
+    raw_transcript_fingerprint: str = Field(min_length=1)
+
+
+class EvidenceValidationResult(FrozenModel):
+    """The validator outcome; invalid candidates cannot carry a trusted reference."""
+
+    valid: bool
+    reference: ValidatedEvidenceRef | None = None
+    reason: str | None = None
+
+    @model_validator(mode="after")
+    def validate_outcome(self) -> EvidenceValidationResult:
+        if self.valid and self.reference is None:
+            raise ValueError("valid evidence requires a reference")
+        if not self.valid and self.reference is not None:
+            raise ValueError("invalid evidence cannot carry a reference")
+        return self
+
+
+class TaskRoute(FrozenModel):
+    """An immutable runtime selection for one generation task."""
+
+    task: str = Field(min_length=1)
+    runtime_id: str = Field(min_length=1)
+
+
+class ExecutionPlan(FrozenModel):
+    """Policy-owned execution settings that harnesses may consume but not alter."""
+
+    policy_version: str = Field(min_length=1)
+    default_runtime_id: str = Field(min_length=1)
+    task_routes: tuple[TaskRoute, ...] = ()
+    fallback_runtime_id: str = Field(min_length=1)
+    local_accelerator_requested: bool = False
+    local_accelerator_available: bool | None = None
+    max_input_tokens: int | None = Field(default=None, gt=0)
+    reserved_output_tokens: int = Field(default=0, ge=0)
+    max_runtime_attempts: int = Field(default=2, ge=1)
+    max_rate_limit_attempts: int = Field(default=3, ge=1)
+    rate_limit_budget_ms: int = Field(default=60_000, gt=0)
+    rate_limit_backoff_cap_ms: int = Field(default=5_000, ge=0)
+    reason: str = Field(min_length=1)
+    plan_fingerprint: str = Field(min_length=1)
+
+    def runtime_for(self, task: str) -> str:
+        for route in self.task_routes:
+            if route.task == task:
+                return route.runtime_id
+        return self.default_runtime_id
+
+
 class Claim(FrozenModel):
     text: str
     evidence: tuple[Evidence, ...] = ()
+    evidence_refs: tuple[ValidatedEvidenceRef, ...] = ()
     provenance: Provenance = Provenance.SOURCE
 
     @model_validator(mode="after")
     def require_source_evidence(self) -> Claim:
-        if self.provenance == Provenance.SOURCE and not self.evidence:
+        if self.provenance == Provenance.SOURCE and not (self.evidence or self.evidence_refs):
             raise ValueError("source claims require evidence")
         return self
+
+
+class ClaimDraft(FrozenModel):
+    """Untrusted source claim and citations returned from a topic model."""
+
+    text: str
+    evidence_candidates: tuple[EvidenceCandidate, ...] = ()
+    provenance: Provenance = Provenance.SOURCE
+
+
+class TopicSummaryDraft(FrozenModel):
+    """Untrusted topic-model output that must be materialized before storage."""
+
+    topic_id: str
+    title: str
+    summary: str
+    claims: tuple[ClaimDraft, ...] = ()
+    concepts: tuple[str, ...] = ()
+    examples: tuple[str, ...] = ()
 
 
 class TopicSummary(FrozenModel):
@@ -124,6 +219,11 @@ class ChapterSummary(FrozenModel):
     topic_ids: tuple[str, ...]
 
 
+class MissingRange(FrozenModel):
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+
+
 class KnowledgePack(FrozenModel):
     source: SourceIdentity
     title: str
@@ -133,7 +233,121 @@ class KnowledgePack(FrozenModel):
     topics: tuple[TopicSummary, ...]
     chapters: tuple[ChapterSummary, ...]
     further_study: tuple[str, ...] = ()
+    completion_status: str = "complete"
+    failed_topic_ids: tuple[str, ...] = ()
+    missing_ranges: tuple[MissingRange, ...] = ()
+    runtime_id: str | None = None
+    model: str | None = None
     analysis_fingerprint: str
+    grounded_tree_fingerprint: str | None = None
+
+
+class OccurrenceDraft(FrozenModel):
+    """Untrusted source location proposed by a knowledge extraction runtime."""
+
+    occurrence_id: str = Field(min_length=1)
+    raw_segment_indexes: tuple[int, ...] = Field(min_length=1)
+    quote: str = Field(min_length=1)
+    context_type: str = "source"
+
+
+class ClaimNodeDraft(FrozenModel):
+    """Untrusted claim that becomes trusted only after occurrence grounding."""
+
+    claim_id: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    occurrence_ids: tuple[str, ...] = ()
+    provenance: Provenance = Provenance.SOURCE
+
+
+class ConceptDraft(FrozenModel):
+    concept_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    definition: str = Field(min_length=1)
+    claim_ids: tuple[str, ...] = ()
+    occurrence_ids: tuple[str, ...] = ()
+
+
+class TimelineSectionDraft(FrozenModel):
+    section_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    claim_ids: tuple[str, ...] = ()
+    anchor_occurrence_ids: tuple[str, ...] = ()
+
+
+class KnowledgeTreeDraft(FrozenModel):
+    """Untrusted structured Frontier output."""
+
+    schema_version: str = "gkt-draft-v1"
+    thesis_claim_id: str = Field(min_length=1)
+    summary_claim_ids: tuple[str, ...] = ()
+    claims: tuple[ClaimNodeDraft, ...] = Field(min_length=1)
+    occurrences: tuple[OccurrenceDraft, ...] = ()
+    concepts: tuple[ConceptDraft, ...] = ()
+    timeline_sections: tuple[TimelineSectionDraft, ...] = ()
+    relations: tuple[tuple[str, str, str], ...] = ()
+
+
+class GroundedOccurrence(FrozenModel):
+    occurrence_id: str = Field(min_length=1)
+    raw_segment_indexes: tuple[int, ...] = Field(min_length=1)
+    quote: str = Field(min_length=1)
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+    context_type: str = "source"
+
+    @model_validator(mode="after")
+    def validate_range(self) -> GroundedOccurrence:
+        if self.end_ms <= self.start_ms:
+            raise ValueError("grounded occurrence end must be after start")
+        return self
+
+
+class GroundedClaim(FrozenModel):
+    claim_id: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    occurrence_ids: tuple[str, ...] = Field(min_length=1)
+    provenance: Provenance = Provenance.SOURCE
+
+
+class GroundedConcept(FrozenModel):
+    concept_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    definition: str = Field(min_length=1)
+    claim_ids: tuple[str, ...] = ()
+    occurrence_ids: tuple[str, ...] = ()
+
+
+class GroundedTimelineSection(FrozenModel):
+    section_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    claim_ids: tuple[str, ...] = ()
+    anchor_occurrence_ids: tuple[str, ...] = ()
+
+
+class GroundingDiagnostics(FrozenModel):
+    candidate_occurrence_count: int = Field(ge=0)
+    grounded_occurrence_count: int = Field(ge=0)
+    unsupported_claim_count: int = Field(ge=0)
+    ambiguous_anchor_count: int = Field(ge=0)
+    dangling_reference_count: int = Field(ge=0)
+
+
+class GroundedKnowledgeTree(FrozenModel):
+    """Immutable locally-grounded knowledge artifact."""
+
+    schema_version: str = "gkt-v1"
+    raw_transcript_fingerprint: str = Field(min_length=1)
+    prepared_transcript_fingerprint: str = Field(min_length=1)
+    thesis_claim_id: str = Field(min_length=1)
+    summary_claim_ids: tuple[str, ...] = ()
+    claims: tuple[GroundedClaim, ...] = ()
+    occurrences: tuple[GroundedOccurrence, ...] = ()
+    concepts: tuple[GroundedConcept, ...] = ()
+    timeline_sections: tuple[GroundedTimelineSection, ...] = ()
+    relations: tuple[tuple[str, str, str], ...] = ()
+    diagnostics: GroundingDiagnostics
+    fingerprint: str = Field(min_length=1)
 
 
 class GenerationRequest(FrozenModel):

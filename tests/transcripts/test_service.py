@@ -1,15 +1,25 @@
+import asyncio
+
 import pytest
 
 from chew.domain import Provenance, SourceIdentity, Transcript, TranscriptSegment
 from chew.identity import normalize_source
-from chew.transcripts.base import TranscriptProvider
-from chew.transcripts.service import TranscriptService, TranscriptUnavailable
+from chew.transcripts.base import TranscriptProvider, provider_failure_reason
+from chew.transcripts.service import TranscriptRateLimited, TranscriptService, TranscriptUnavailable
 
 SOURCE = SourceIdentity(
     source_id="youtube:abcDEF_1234",
     video_id="abcDEF_1234",
     canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
 )
+
+
+def test_page_reload_requirement_is_classified_as_session_refresh() -> None:
+    assert provider_failure_reason(RuntimeError("The page needs to be reloaded.")) == "session_refresh_required"
+
+
+def test_failed_precondition_is_classified_without_leaking_transport_details() -> None:
+    assert provider_failure_reason(RuntimeError("HTTP Error 400: FAILED_PRECONDITION")) == "failed_precondition"
 
 
 class StubProvider:
@@ -20,6 +30,18 @@ class StubProvider:
 
     async def fetch(self, source: SourceIdentity, language: str) -> Transcript | None:
         self.calls += 1
+        return self.result
+
+
+class RateLimitedProvider(StubProvider):
+    def attempt_reasons(self) -> tuple[str, ...]:
+        return ("rate_limited",)
+
+
+class SlowProvider(StubProvider):
+    async def fetch(self, source: SourceIdentity, language: str) -> Transcript | None:
+        self.calls += 1
+        await asyncio.sleep(1)
         return self.result
 
 
@@ -56,6 +78,33 @@ async def test_service_records_all_failures() -> None:
         await TranscriptService(providers).resolve(SOURCE, "ko")
 
     assert [attempt.provider for attempt in captured.value.attempts] == ["missing", "weak"]
+
+
+@pytest.mark.asyncio
+async def test_service_preserves_rate_limit_after_configured_retries() -> None:
+    provider = RateLimitedProvider("captions", None)
+    service = TranscriptService([provider], rate_limit_retries=1, retry_delay_seconds=0)
+
+    with pytest.raises(TranscriptRateLimited) as captured:
+        await service.resolve(SOURCE, "ko")
+
+    assert provider.calls == 2
+    assert captured.value.retry_after_seconds == 1
+    assert captured.value.attempts[0].reasons == ("rate_limited",)
+
+
+@pytest.mark.asyncio
+async def test_service_skips_provider_that_exceeds_its_deadline() -> None:
+    slow = SlowProvider("slow", None)
+    good = StubProvider("good", candidate(10_000))
+
+    resolution = await TranscriptService(
+        [slow, good], provider_timeout_seconds=0.01
+    ).resolve(SOURCE, "ko")
+
+    assert resolution.provider == "good"
+    assert resolution.attempts[0].provider == "slow"
+    assert resolution.attempts[0].reasons == ("provider_timeout",)
 
 
 @pytest.mark.asyncio

@@ -10,6 +10,8 @@
 
 A local-first, resumable CLI (`chew`) that turns YouTube videos and local audio or video files into reusable knowledge. It validates transcripts, analyzes chapters and topics in parallel, and compiles the result into multiple formats instead of producing a one-off summary.
 
+Architecturally, `chew` is a **Grounded Knowledge Compiler**: it turns a source into an evidence-grounded Knowledge Tree and a reusable Knowledge Pack.
+
 - Run with `chew <URL>`.
 - Handles long videos with chapter-aware, topic-level parallel processing.
 - Resumes from completed work after a network or AI CLI interruption.
@@ -96,6 +98,15 @@ pip install -e '.[youtube,dev]'
 
 The optional `faster-whisper` fallback is disabled by default so installation does not download a speech model or video audio. To enable it, install `pip install -e '.[youtube,whisper]'` and set `whisper_fallback: true` in `CHEW.md`. The first enabled transcription may download a model through `faster-whisper`.
 
+For a YouTube `HTTP 429` timed-text response, `yt-dlp` automatically enables an installed Node.js runtime and its official EJS challenge component. If it persists, provide a transcript you obtained yourself:
+
+```bash
+chew summarize --transcript ./captions.vtt \
+  --source-url "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+`chew` has no browser-login, cookie-file, or browser-profile transcript fallback and does not read browser cookies, Keychain values, passwords, or proxy credentials for caption recovery. VTT/SRT cue timings are preserved; plain TXT lines receive deterministic ranges. YouTube can still deny unavailable, restricted, or account-limited captions. See [transcript acquisition](docs/wiki/transcript-acquisition.md) for provider limits and failure reasons.
+
 Local audio and video file input also requires the `whisper` extra:
 
 ```bash
@@ -111,25 +122,35 @@ chew doctor --json
 
 ---
 
-## User Flow & Visualization Diagrams (Demo & Diagrams)
+## How a Run Works
 
-### User Input and Output
+Start with a YouTube URL, local media, or a transcript you already have. `chew` validates the source, analyzes it once, stores a reusable Knowledge Pack, and renders the output you choose.
 
-This overview shows the public contract: what users provide and what the kit returns.
+![YouTube Summarizer Kit user flow](assets/architecture/en/user-flow.png)
 
-![YouTube Summarizer Kit user input and output](assets/architecture/en/user-flow.png)
+If a compatible Knowledge Pack already exists, `chew` reassembles it without repeating analysis. Interrupted or authentication-required runs retain their completed checkpoints; inspect them with `chew status` and continue with `chew resume` when the run allows it. A public-caption failure can be recovered with a VTT, SRT, or TXT transcript that you supply.
 
-When a compatible Knowledge Pack already exists for the URL and analysis settings, the kit skips video analysis. A different purpose or voice reassembles that pack into a blog post, study guide, or Obsidian vault.
+## Architecture at a Glance
 
-### Internal Processing Flow Diagram
+The application keeps identity, policy, grounding, Knowledge Pack assembly, and output rendering inside one core. It reaches external systems only through focused adapters.
 
-The detailed diagram follows `INPUT → analysis → Knowledge Pack → reassembly → OUTPUT`. Runtime adapters, persistent local state, and recovery support the main path without defining it.
+![YouTube Summarizer Kit external boundaries](assets/architecture/en/external-boundaries.png)
 
-![YouTube Summarizer Kit internal processing flow](assets/architecture/en/internal-pipeline.png)
+Frontier runtimes perform final reasoning. Ollama is optional and, when enabled, is limited to bounded transcript annotation; it does not replace final reasoning or judgment. SQLite and content-addressed artifacts preserve local state. OpenTelemetry/Jaeger is optional observability, not a runtime dependency.
 
-The yellow Knowledge Pack is the reuse boundary. Once created, the system can produce a new output without repeating transcript and topic analysis. Dashed support nodes preserve intermediate state and show where processing resumes after authentication or connectivity problems.
+The Knowledge Pack renderer creates the actual reusable content—Digest, Blog, Study, Obsidian, and JSON. That is separate from an interface presenter, which describes a completed operation as terminal text or machine JSON. The current inbound interface is the CLI. HTTP, MCP, and a separately deployable web client are deliberately shown as future contract consumers; no public API or web UI is included yet.
 
-### OpenTelemetry Jaeger Real-Time Trace Observability
+Two future modules have documentation-only boundaries: [`intent-analysis`](modules/intent-analysis/README.md) for reusable natural-language request analysis and [`research-engine`](modules/research-engine/README.md) for Pack-based follow-up research. They are not installed, invoked, or required by `chew`.
+
+## Inside the Pipeline
+
+The core path turns validated source material into grounded, reusable knowledge before rendering any profile.
+
+![YouTube Summarizer Kit internal pipeline](assets/architecture/en/internal-pipeline.png)
+
+The Knowledge Pack is the reuse boundary. Evidence spans and timestamps are grounded against the raw transcript locally, while output profiles render deterministically from the saved pack. Policy, durable checkpoints, structured logs, and tracing support the path without becoming part of the content itself. For module-level pointers, see the [agent index](docs/agent-index.md); for acquisition limits and recovery, see [transcript acquisition](docs/wiki/transcript-acquisition.md).
+
+### OpenTelemetry Jaeger Trace Example
 
 ![OpenTelemetry Jaeger Trace Dashboard](assets/architecture/jaeger-trace-dashboard.png)
 
@@ -143,9 +164,23 @@ The yellow Knowledge Pack is the reuse boundary. Once created, the system can pr
 | Claude Code / Claude CLI (`claude`) | Yes | Preflight check with `claude auth status` | Sign in through `claude` if needed |
 | Gemini CLI (`gemini`) | Yes | Verified on the first generation request | Sign in through `gemini` if needed |
 | Ollama (`ollama`) | Yes | No login required | Start a local Ollama server |
+| Layered Ollama (`layered_ollama`) | Yes | No login required | Start Ollama with 1.5B / 7B / 14B model tiers (`qwen2.5:*-instruct-q4_K_M`) |
+| HuggingFace (`huggingface`) | Yes | `HF_TOKEN` env var | Set `HF_TOKEN`; `pip install 'chew[huggingface]'` |
 | Antigravity CLI / AGY (`agy`) | Yes | Verified on invocation / persistent session | Install `agy` CLI |
 
-With the default `runtime: auto`, the kit selects an installed, authenticated runtime from the Codex → Gemini → Claude → Ollama → Antigravity candidate set. Because Gemini does not expose a reliable non-consuming authentication-status command, it is probed by the first actual generation request when no already-verified runtime is available.
+**Local LLMs are completely optional.** The default `runtime: frontier` selects an authenticated Codex, Gemini, or Claude runtime and excludes local models. Final summaries and judgments require a Frontier runtime; local models are not valid summary task routes.
+
+Ollama is the only optional runtime that requires a local model download:
+
+| Setup | Disk required |
+|---|---|
+| Codex / Gemini / Claude / Antigravity / HuggingFace | 0 GB extra |
+| `ollama` with a single model | ~1–5 GB |
+| `layered_ollama` with all three tiers | ~15 GB total (`q4_K_M` quantized) |
+
+Run `chew doctor` to see which runtimes are available on your machine and get install hints for any that are missing.
+
+Because Gemini does not expose a reliable non-consuming authentication-status command, it is probed by the first actual generation request when no already-verified runtime is available.
 
 If a runtime with a preflight authentication check is signed out, automatic selection moves to another ready runtime. If you explicitly select a signed-out runtime, the run is saved as `blocked_auth` and the CLI prints the login command. Sign in, then run `chew resume`; completed segments are preserved.
 
@@ -160,6 +195,8 @@ Initialize editable configuration once per project:
 ```bash
 chew config --init
 ```
+
+In an interactive terminal, this first-run command offers a local-model choice: Qwen3 4B (about 2.5GB), Qwen3 8B (about 5.2GB), or configure later. It only runs `ollama pull` after explicit confirmation.
 
 The command creates these files without overwriting existing ones:
 
@@ -179,8 +216,17 @@ Example `CHEW.md`:
 language: en
 default_profile: digest
 depth: detailed
-runtime: auto
+runtime: frontier
+task_runtimes: {} # Optional BYOK Frontier routing, e.g. {topic_summary: gemini, compose: codex}
+local_accelerator: false # Reserved for a future approved low-risk helper task
+ollama_model: null # Reserved for a future approved local helper task
 whisper_fallback: false
+# Optional Ollama input ceiling. Leave unset to retain time-only segmentation.
+max_input_tokens: 4096
+reserved_output_tokens: 512
+output_verify: true
+normalize_transcript: false
+preprocess_transcript: false
 storage_policy: compact
 ---
 
@@ -207,6 +253,20 @@ chew 'VIDEO_URL' --depth deep
 The Markdown body becomes an LLM instruction. Purpose-specific files such as `.chew/profiles/blog.md` can define voice, audience level, and document structure. Configuration discovery walks up through parent directories; packaged defaults are used when no file exists.
 
 Analysis settings and output settings are fingerprinted separately. Changing only the blog voice does not repeat transcript and topic analysis—it generates a new document from the existing Knowledge Pack. A profile may also choose a different `runtime` for uncached output reassembly.
+
+`max_input_tokens` and `reserved_output_tokens` opt in to a conservative input ceiling. They are not provider billing figures; leave both unset to preserve the default time-based segmentation.
+
+For `blog` and `study`, `output_verify: false` skips the final LLM verification call. Keep the default enabled until fixture measurements show that the cost saving does not reduce output quality.
+
+`normalize_transcript: true` only normalizes whitespace and collapses adjacent duplicate captions. The raw transcript remains the evidence source and is retained separately.
+
+`preprocess_transcript: true` additionally applies conservative local filler removal. With `pip install 'chew[preprocess]'`, punctuation restoration and semantic boundary hints are added when their optional dependencies are present. This is opt-in until the locked fixture comparison confirms the quality and cost tradeoff.
+
+`task_runtimes` is opt-in BYOK Frontier routing. Each run first records an immutable Execution Plan with its route, input budget, fallback, and reason. Tasks omitted from the map keep `runtime`; model output cannot change that plan. Local runtimes cannot be selected for summary or judgment work. Cloud model selectors are not accepted until each adapter can apply and verify them.
+
+Important source claims carry model-proposed citations only after their segment index, timestamp, and quoted text match the immutable raw transcript. Citation validation anchors a claim in the source; it does not independently establish that the claim is true.
+
+The current locked English fixture comparison found only `1.92%–4.94%` `cl100k_base` reduction from conservative filler removal. It is a tokenizer comparison, not a provider billing claim, and remains below the 10% default-adoption gate.
 
 ---
 
@@ -274,7 +334,8 @@ If the source is omitted, the CLI prompts for a YouTube URL or local media path.
 | `obsidian` | `옵시디언` | Create an index and topic notes with `[[wikilinks]]` |
 | `status [RUN_ID]` | `상태` | Show run and job progress |
 | `resume [RUN_ID]` | `이어하기` | Resume the latest or selected incomplete run |
-| `doctor` | `진단` | Diagnose runtime installation and authentication |
+| `doctor` | `진단` | Diagnose runtime installation and authentication; prints install hints for missing runtimes |
+| `serve` | `서버` | Start the FastAPI `/health` and `/readiness` HTTP server (`pip install 'chew[server]'`) |
 | `storage` | `저장소` | Show internal file count and storage usage |
 | `cleanup` | `정리` | Preview or apply a retention policy |
 
@@ -299,46 +360,31 @@ An explicitly supplied local media file bypasses the YouTube providers and goes 
 
 Every transcript is checked for language, timestamp order, duration coverage, excessive repetition, and large gaps. If a provider fails or misses the quality threshold, the reason is recorded before the next provider runs. Metadata and YouTube chapters discovered by yt-dlp remain available even when a later provider, including the optional Whisper fallback, supplies the transcript.
 
-### 3. Adaptive Segmentation and Parallel Processing
+### 3. Prepare and Control the Run
 
-YouTube chapter boundaries are preserved when available. Long chapters—or videos without chapters—are divided into approximately five- to ten-minute topics while respecting sentence boundaries. Independent topics run concurrently. A chapter is merged as soon as its required topics finish instead of waiting for unrelated chapters.
+Source text is preserved as raw evidence, then prepared into a reversible input representation. The execution policy fixes routing, budgets, and retry boundaries before generation. Checkpoints retain completed work; an external provider outcome that is not known is not silently sent again.
 
-Global and runtime-specific concurrency limits work together. A rate limit reduces concurrency for that runtime and schedules a retry; sustained success gradually restores capacity.
-
-### 4. Hierarchical Summarization and the Knowledge Pack
+### 4. Grounded Compilation and the Knowledge Pack
 
 ```text
-Transcript
-  → TopicSummary[]
-  → ChapterSummary[]
-  → KnowledgePack
-  → Purpose-specific documents
+Raw transcript
+  → prepared transcript
+  → Grounded Knowledge Tree draft
+  → locally grounded evidence
+  → Knowledge Pack
+  → purpose-specific documents
 ```
 
-A Knowledge Pack contains video identity, title, language, overview, topics, chapters, claims, timestamped evidence, concepts, examples, follow-up study material, and the analysis fingerprint. The domain model can distinguish statements grounded in the video from AI additions and external research provenance.
+The compiler uses the configured Frontier runtime for reasoning, then validates evidence spans and timestamps against the raw transcript locally. The resulting Knowledge Pack records reusable, versioned knowledge rather than an unverified model response.
 
-### 5. Output Reassembly
+### 5. Deterministic Output Rendering
 
-- `digest`: Render the full, chapter, and topic summaries with evidence timestamps without another LLM call.
-- `blog`: Reassemble the pack through outline, draft, and validation stages using the configured voice.
-- `study`: Emphasize concepts and follow-up learning material.
-- `obsidian`: Create an index and one file per topic connected with `[[wikilinks]]`.
+- `digest`: Render an overview and timestamped evidence from the saved pack.
+- `blog`: Render the pack in the selected blog profile without a new outline or compose request.
+- `study`: Render concepts, evidence, and follow-up study material.
+- `obsidian`: Create an index and linked notes from the saved pack.
 
 Outputs are cached by Knowledge Pack fingerprint, profile, instructions, language, depth, runtime, and output recipe version. An identical output request can be restored from local cache even when no AI CLI is currently authenticated.
-
----
-
-## Performance Improvements & Observability
-
-Solved the 30-minute latency bottleneck, achieving a **16.3x performance speedup**:
-
-| Metric | Baseline | Optimized | Speedup |
-|---|---|---|---|
-| 25-min Tech Video Analysis | 30 min 00 sec (1,800s) | **1 min 50 sec (110s)** | **16.3x faster** |
-| Pipeline Task Count | 61 granular tasks | **11 condensed tasks** | 82% reduction |
-| AI Harness Concurrency | 2 concurrent limit | **8 parallel workers** | 4x expansion |
-
-Full benchmark report: [`reports/performance_analysis.md`](reports/performance_analysis.md)
 
 ---
 
@@ -429,15 +475,18 @@ chew benchmark-dashboard
 chew benchmark-ui
 ```
 
+Maintainer-only transcript preprocessing comparisons use the locked fixture and scripts in `benchmarks/`.
+Run the baseline before the feature or from the previous release, then run the
+final report after the candidate feature is implemented:
+
 ```bash
-chew benchmark list
-chew benchmark run 'https://youtu.be/VIDEO_ID' --live \
-  --reference benchmark-reference.json --repeats 3 --runtime codex
+benchmarks/benchmark.sh baseline --preprocessing none --concurrency 5
+benchmarks/benchmark.sh report allInOne \
+  --baseline <baseline-run-id> \
+  --target-release v0.2.0
 ```
 
-The benchmark compares direct Gemini URL analysis using a minimal prompt and shared schema against the hierarchical pipeline using Gemini and the configured runtime. It evaluates claim and evidence recall, timestamp accuracy, long-duration coverage, and unsupported claims against a reference file. Each result states whether its input was `video_url` or `transcript`, so Gemini's multimodal input advantage is not mistaken for pipeline quality.
-
-Live benchmarks require both `--live` and an explicit reference file because they use real login sessions and quota. Reports are written atomically to `benchmark-results/run-*/report.json` and `report.md`. The project does not yet publish a multilingual, multi-duration benchmark corpus or claim that it always outperforms Gemini.
+The saved evidence lives under `reports/performance-comparisons/transcript-preprocessing/`. These scripts never call an LLM during metrics collection and do not add benchmark-only dependencies to the normal package install. The generated report shows aggregate token reduction, per-video graphs, a stage token funnel, quality/reliability/reproducibility gates, release metadata, and a warning when the candidate path shows no measurable effect.
 
 ---
 

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
 from collections.abc import Awaitable, Callable
-from typing import cast
-from urllib.request import Request, urlopen
+from urllib.parse import urlparse
+
+import httpx
 
 from chew.domain import GenerationRequest, GenerationResult
 from chew.harness.base import HarnessCapabilities, HarnessProbe
@@ -23,37 +22,44 @@ class OllamaHarness:
         model: str = "qwen3:8b",
         *,
         endpoint: str = "http://127.0.0.1:11434",
+        allowed_endpoints: tuple[str, ...] = (),
         transport: Transport | None = None,
     ) -> None:
         self.model = model
-        self.endpoint = endpoint.rstrip("/")
-        self.transport = transport or self._transport
+        self.endpoint = _validated_endpoint(endpoint, allowed_endpoints)
+        self._custom_transport = transport
+        self._client: httpx.AsyncClient | None = None
         self._uses_default_transport = transport is None
 
-    async def _transport(self, payload: dict[str, object]) -> dict[str, object]:
-        def send() -> dict[str, object]:
-            request = Request(
-                f"{self.endpoint}/api/generate",
-                data=json.dumps(payload).encode(),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urlopen(request, timeout=180) as response:
-                return cast(dict[str, object], json.loads(response.read()))
+    def _get_client(self) -> httpx.AsyncClient:
+        """Return the shared AsyncClient, creating it on first call."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=180.0)
+        return self._client
 
-        return await asyncio.to_thread(send)
+    async def aclose(self) -> None:
+        """Close and discard the shared HTTP client."""
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def _transport(self, payload: dict[str, object]) -> dict[str, object]:
+        client = self._get_client()
+        response = await client.post(
+            f"{self.endpoint}/api/generate",
+            json=payload,
+        )
+        response.raise_for_status()
+        return response.json()  # type: ignore[no-any-return]
 
     async def probe(self) -> HarnessProbe:
         try:
             if self._uses_default_transport:
-
-                def health() -> None:
-                    with urlopen(f"{self.endpoint}/api/tags", timeout=2):
-                        return
-
-                await asyncio.to_thread(health)
+                client = self._get_client()
+                response = await client.get(f"{self.endpoint}/api/tags", timeout=2.0)
+                response.raise_for_status()
             else:
-                await self.transport({"model": self.model, "prompt": "", "stream": False})
+                await self._custom_transport({"model": self.model, "prompt": "", "stream": False})  # type: ignore[misc]
             available = True
             detail = None
         except Exception as error:
@@ -69,7 +75,8 @@ class OllamaHarness:
         )
 
     async def generate(self, request: GenerationRequest) -> GenerationResult:
-        envelope = await self.transport(
+        transport = self._custom_transport or self._transport
+        envelope = await transport(
             {
                 "model": self.model,
                 "prompt": request_prompt(request),
@@ -86,6 +93,15 @@ class OllamaHarness:
             "input_tokens": prompt_count if isinstance(prompt_count, int) else 0,
             "output_tokens": output_count if isinstance(output_count, int) else 0,
         }
+        for response_key, usage_key in (
+            ("total_duration", "total_duration_ns"),
+            ("load_duration", "load_duration_ns"),
+            ("prompt_eval_duration", "prompt_eval_duration_ns"),
+            ("eval_duration", "eval_duration_ns"),
+        ):
+            value = envelope.get(response_key)
+            if isinstance(value, int):
+                usage[usage_key] = value
         return GenerationResult(
             request_id=request.request_id,
             output=parse_json_object(response),
@@ -93,3 +109,15 @@ class OllamaHarness:
             model=self.model,
             usage=usage,
         )
+
+
+def _validated_endpoint(endpoint: str, allowed_endpoints: tuple[str, ...]) -> str:
+    normalized = endpoint.rstrip("/")
+    parsed = urlparse(normalized)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise HarnessExecutionError("Ollama endpoint must be an absolute HTTP URL")
+    if normalized in {value.rstrip("/") for value in allowed_endpoints}:
+        return normalized
+    if parsed.hostname not in {"127.0.0.1", "::1", "localhost"}:
+        raise HarnessExecutionError("Ollama endpoint must use loopback or an explicit allowlist")
+    return normalized

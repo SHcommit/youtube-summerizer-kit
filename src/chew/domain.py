@@ -5,6 +5,9 @@ from chew.core.models import (
     ChapterSummary,
     Claim,
     Evidence,
+    EvidenceCandidate,
+    EvidenceValidationResult,
+    ExecutionPlan,
     FrozenModel,
     GenerationRequest,
     GenerationResult,
@@ -12,10 +15,12 @@ from chew.core.models import (
     Provenance,
     SourceIdentity,
     SourceKind,
+    TaskRoute,
     Topic,
     TopicSummary,
     Transcript,
     TranscriptSegment,
+    ValidatedEvidenceRef,
 )
 
 __all__ = [
@@ -23,6 +28,9 @@ __all__ = [
     "ChapterSummary",
     "Claim",
     "Evidence",
+    "EvidenceCandidate",
+    "EvidenceValidationResult",
+    "ExecutionPlan",
     "FrozenModel",
     "GenerationRequest",
     "GenerationResult",
@@ -30,8 +38,10 @@ __all__ = [
     "Provenance",
     "SourceIdentity",
     "SourceKind",
+    "TaskRoute",
     "Topic",
     "TopicSummary",
     "Transcript",
     "TranscriptSegment",
+    "ValidatedEvidenceRef",
 ]

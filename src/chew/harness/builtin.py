@@ -37,6 +37,11 @@ class HarnessRateLimitError(HarnessExecutionError, RateLimitSignal):
     pass
 
 
+MAX_JSON_RESPONSE_CHARS = 1_000_000
+MAX_JSON_DEPTH = 64
+MAX_JSON_COLLECTION_ITEMS = 10_000
+
+
 def request_prompt(request: GenerationRequest) -> str:
     return json.dumps(
         {
@@ -56,12 +61,30 @@ def request_prompt(request: GenerationRequest) -> str:
 
 def parse_json_object(value: str) -> dict[str, object]:
     raw = value.strip()
+    if len(raw) > MAX_JSON_RESPONSE_CHARS:
+        raise HarnessExecutionError("AI response is too large")
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
     decoded = json.loads(raw)
     if not isinstance(decoded, dict):
         raise HarnessExecutionError("AI 실행기가 JSON 객체를 반환하지 않았습니다.")
+    _validate_json_depth(decoded)
     return decoded
+
+
+def _validate_json_depth(value: object, depth: int = 1) -> None:
+    if depth > MAX_JSON_DEPTH:
+        raise HarnessExecutionError("AI response is too deeply nested")
+    if isinstance(value, dict):
+        if len(value) > MAX_JSON_COLLECTION_ITEMS:
+            raise HarnessExecutionError("AI response collection is too large")
+        for child in value.values():
+            _validate_json_depth(child, depth + 1)
+    elif isinstance(value, list):
+        if len(value) > MAX_JSON_COLLECTION_ITEMS:
+            raise HarnessExecutionError("AI response collection is too large")
+        for child in value:
+            _validate_json_depth(child, depth + 1)
 
 
 def ensure_success(runtime_id: str, result: ProcessResult) -> None:
@@ -71,9 +94,7 @@ def ensure_success(runtime_id: str, result: ProcessResult) -> None:
     normalized = detail.lower()
     auth_tokens = ("not logged", "authentication", "unauthorized", "401")
     if any(token in normalized for token in auth_tokens):
-        login = {"codex": "codex login", "gemini": "gemini", "claude": "claude"}.get(
-            runtime_id, runtime_id
-        )
+        login = {"codex": "codex login", "gemini": "gemini", "claude": "claude"}.get(runtime_id, runtime_id)
         raise HarnessAuthenticationError(runtime_id, login)
     if "429" in normalized or "rate limit" in normalized or "usage limit" in normalized:
         raise HarnessRateLimitError(f"{runtime_id} 요청 한도에 도달했습니다")

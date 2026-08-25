@@ -28,30 +28,52 @@ src/chew/
 │
 ├── harness/           # Layer 4: AI Runtime Adapters (LLM Execution Engines)
 │   ├── base.py / builtin.py / registry.py
-│   └── [codex, gemini, claude, ollama, antigravity].py
+│   └── [codex, gemini, claude, ollama, layered_ollama, huggingface, antigravity].py
 │
 ├── transcripts/       # Layer 5: Data Input Adapters (Transcripts & Speech-to-Text)
 │   ├── base.py / service.py / validation.py
-│   └── [youtube_api, yt_dlp, whisper].py
+│   └── [youtube_api, yt_dlp, user_input, whisper].py
 │
 ├── app/               # Layer 6: Application Service & Container Bootstrap
 │   ├── service.py     (Application use-case orchestrator)
 │   ├── bootstrap.py   (Dependency injection container & AutoHarness)
 │   └── config.py      (Markdown-based settings loader: CHEW.md)
 │
-├── retention/         # Layer 7: Storage Retention & Cleanup Policies
+├── agents/            # Layer 7: Bounded Agent Control Contracts
+│   ├── contracts/     (Immutable budget, grant, request/result values)
+│   ├── policy/        (Pure guarded tool invocation)
+│   ├── ports/         (AgentTool protocol)
+│   └── adapters/      (Future optional graph runtime adapters only)
+│
+├── retention/         # Layer 8: Storage Retention & Cleanup Policies
 │   └── planner.py     (Retention policy planner & cleaner)
 │
-├── benchmark/         # Layer 8: Quality Benchmarking Framework
+├── benchmark/         # Layer 9: Quality Benchmarking Framework
 │   └── runner.py      (Benchmark runner & comparison reports)
 │
-└── cli/               # Layer 9: Presentation Layer (Typer CLI Commands)
+├── interfaces/        # Layer 10: Inbound Interface Contracts & Presenters
+│   ├── contracts/     (Protocol-neutral response envelopes)
+│   ├── presenters/    (Application result → terminal/JSON data)
+│   └── [cli, http, mcp]/ (Current CLI migration namespace; future adapters)
+│
+└── cli/               # Layer 11: Current Typer CLI compatibility entry point
     └── main.py        (Bilingual Korean/English Typer commands)
+
+modules/               # Future extractable modules; documentation boundaries only
+├── intent-analysis/   # Natural-language request analysis; no package/runtime yet
+└── research-engine/   # Pack-based follow-up research; no package/runtime yet
 
 reports/               # Central Benchmarking & Performance Observability Reports
 ├── BENCHMARK.md       (Release performance history & OpenTelemetry Jaeger setup)
 ├── performance_analysis.md (Baseline vs optimized commit diff comparisons)
-└── trace_report.md    (Generated OpenTelemetry span execution report)
+├── trace_report.md    (Generated OpenTelemetry span execution report)
+└── performance-comparisons/transcript-preprocessing/
+                        (Immutable preprocessing benchmark runs + latest summary)
+
+benchmarks/            # Maintainer-only post-feature validation scripts
+├── benchmark.sh       (Friendly wrapper: report allInOne, baseline, quality, render)
+├── videos.lock.json   (Canonical locked preprocessing-video catalog)
+└── *.py               (Metrics, quality validation, and Markdown/HTML report rendering)
 ```
 
 ---
@@ -63,6 +85,11 @@ reports/               # Central Benchmarking & Performance Observability Report
    - `pipeline` orchestrates synthesis without knowing vendor LLM details.
    - `harness` adapters implement the `Harness` protocol in `harness/base.py`.
    - `transcripts` providers implement `TranscriptProvider` in `transcripts/base.py`.
+   - `agents` contracts and policy are dependency-free; a future graph runtime is an optional adapter
+     and receives only policy-scoped tools.
+   - `interfaces` translates an inbound protocol to an application use case and presents its result.
+     It MUST NOT invoke storage, transcript, or runtime adapters directly. `pipeline/outputs.py`
+     remains a product-content renderer, not a web/CLI view layer.
 
 2. **Backward Compatibility**:
    - Re-export modules at the package root (`src/chew/domain.py`, `src/chew/pipeline.py`, `src/chew/config.py`, `src/chew/cli.py`) MUST be maintained so tests and external entrypoints remain compatible.
@@ -100,5 +127,20 @@ reports/               # Central Benchmarking & Performance Observability Report
    - Use `chew benchmark-dashboard` or `chew benchmark-ui` to generate `reports/trace_report.md` and inspect real-time OpenTelemetry trace graphs in Jaeger UI at `http://localhost:16686`.
    - Before tagging a new production release, AI Agents MUST record and update the best benchmark scores table in `reports/BENCHMARK.md` (symlinked at `BENCHMARK.md`) and synchronize the latest performance reports to [GitHub Wiki](https://github.com/SHcommit/youtube-summerizer-kit/wiki).
 
+10. **Plan-Driven Context Hygiene & Task Compacting**:
+    - When executing multi-step implementation plans or sequential tasks, if subsequent sub-tasks do NOT have direct dependencies on preceding conversational context (e.g., intermediate debug logs, verbose tool outputs), AI Agents SHOULD compact or clear unnecessary context or checkpoint progress in structured artifacts (`implementation_plan.md` / `walkthrough.md`) before proceeding with independent sub-tasks to ensure token efficiency, focus, and clean execution state.
 
+11. **Agent Documentation Index — Read First, Keep in Sync**:
+    - Before exploring the codebase, read `docs/agent-index.md`. It provides a layer map, key file pointers, harness table, CLI command table, protocol signatures, and a sync checklist — all in one place.
+    - Whenever you add a harness, CLI command, new layer, optional extras group, or make a schema/protocol change, you MUST update the relevant section(s) of `docs/agent-index.md` in the same commit. The sync checklist in §10 of that doc tells you exactly what to update for each change type.
+    - Also keep `CHANGELOG.md` (under `## [Unreleased]`), `README.md`, and `README.ko.md` in sync as required by Rule 4.
 
+12. **Documentation Lifecycle and Handoff Discipline**:
+    - `IMPROVEMENTS.md` contains only unfinished active engineering work, its acceptance gates, and explicitly accepted operating constraints. Do not retain completed implementation descriptions there.
+    - `CHANGELOG.md` under `## [Unreleased]` is the durable record of completed meaningful behavior, architecture, CLI, and documentation changes. Move completed work there before removing it from `IMPROVEMENTS.md`.
+    - `PRODUCT_ROADMAP.md` contains deferred product opportunities. It is not an implementation queue or release commitment.
+    - `handoff.md` is a concise, continuously refreshed execution index for a new agent or session. It is not a roadmap or a duplicate status document. It may contain the branch, the next one to three objectives, uncommitted changes, verification state, and immediate next action, with links to the canonical documents.
+    - Update `handoff.md` whenever the next action, branch, verification state, or active priority changes. Keep only current execution context; remove completed-history prose.
+    - Required documentation flow: classify work as active or deferred; update the appropriate canonical document; implement and verify; record completed behavior in `CHANGELOG.md`; remove the completed item from `IMPROVEMENTS.md`; refresh the short `handoff.md` execution index.
+    - `docs/wiki/` contains durable operational decisions and reproducible external-service failures.
+      Add a short index entry in `docs/agent-index.md`; do not duplicate the full history in `handoff.md`.

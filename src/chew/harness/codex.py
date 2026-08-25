@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from copy import deepcopy
+from typing import Any
 
 from chew.domain import GenerationRequest, GenerationResult
 from chew.harness.builtin import (
@@ -30,7 +32,7 @@ class CodexHarness(CliHarnessBase):
         descriptor, schema_path = tempfile.mkstemp(prefix="chew-schema-", suffix=".json")
         try:
             with os.fdopen(descriptor, "w", encoding="utf-8") as schema:
-                json.dump(request.output_schema, schema, ensure_ascii=False)
+                json.dump(_strict_output_schema(request.output_schema), schema, ensure_ascii=False)
             argv = (
                 self.executable,
                 "exec",
@@ -43,9 +45,7 @@ class CodexHarness(CliHarnessBase):
                 schema_path,
                 "-",
             )
-            result = await self.executor.run(
-                argv, request_prompt(request), request.timeout_ms / 1_000
-            )
+            result = await self.executor.run(argv, request_prompt(request), request.timeout_ms / 1_000)
         finally:
             if os.path.exists(schema_path):
                 os.unlink(schema_path)
@@ -71,3 +71,29 @@ class CodexHarness(CliHarnessBase):
             runtime_id=self.runtime_id,
             usage=usage,
         )
+
+
+def _strict_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Normalize Pydantic schemas for Codex strict structured output."""
+
+    normalized = deepcopy(schema)
+    _require_all_object_properties(normalized)
+    return normalized
+
+
+def _require_all_object_properties(value: object) -> None:
+    if isinstance(value, dict):
+        value.pop("default", None)
+        properties = value.get("properties")
+        if isinstance(properties, dict):
+            value["required"] = list(properties)
+            value["additionalProperties"] = False
+        elif value.get("type") == "object":
+            value["additionalProperties"] = False
+        if value.get("type") == "array" and isinstance(value.get("prefixItems"), list):
+            value["items"] = {"type": "string"}
+        for child in value.values():
+            _require_all_object_properties(child)
+    elif isinstance(value, list):
+        for child in value:
+            _require_all_object_properties(child)

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
+
+from chew.core.redaction import redact_sensitive
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,26 +42,37 @@ def _timestamp(value: datetime) -> str:
 
 
 class Database:
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 8
+    _local: threading.local  # class-level annotation; one per Database instance via __init__
 
     def __init__(self, path: Path) -> None:
         self.path = path
+        self._local = threading.local()
         path.parent.mkdir(parents=True, exist_ok=True)
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path, timeout=5, isolation_level=None)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 5000")
+        connection: sqlite3.Connection | None = getattr(self._local, "connection", None)
+        if connection is None:
+            connection = sqlite3.connect(self.path, timeout=5, isolation_level=None)
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA busy_timeout = 5000")
+            self._local.connection = connection
         return connection
+
+    def close(self) -> None:
+        """Close and discard the thread-local connection for the current thread."""
+        connection: sqlite3.Connection | None = getattr(self._local, "connection", None)
+        if connection is not None:
+            connection.close()
+            self._local.connection = None
 
     def initialize(self) -> None:
         with self._connect() as connection:
             current_version = int(connection.execute("PRAGMA user_version").fetchone()[0])
             if current_version > self.SCHEMA_VERSION:
                 raise RuntimeError(
-                    f"database schema {current_version} is newer than supported "
-                    f"schema {self.SCHEMA_VERSION}"
+                    f"database schema {current_version} is newer than supported schema {self.SCHEMA_VERSION}"
                 )
             connection.execute("PRAGMA journal_mode = WAL")
             connection.executescript(
@@ -69,6 +84,7 @@ class Database:
                     analysis_key TEXT NOT NULL,
                     request_key TEXT NOT NULL DEFAULT '',
                     recipe_json TEXT NOT NULL DEFAULT '',
+                    execution_plan_json TEXT NOT NULL DEFAULT '',
                     status TEXT NOT NULL DEFAULT 'pending',
                     knowledge_pack_hash TEXT,
                     created_at TEXT NOT NULL,
@@ -120,33 +136,73 @@ class Database:
                     artifact_hash TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS job_measurements (
+                    measurement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT NOT NULL REFERENCES jobs(job_id) ON DELETE CASCADE,
+                    request_id TEXT NOT NULL,
+                    task TEXT NOT NULL,
+                    runtime_id TEXT NOT NULL,
+                    model TEXT,
+                    usage_json TEXT NOT NULL,
+                    details_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS compiler_checkpoints (
+                    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+                    stage TEXT NOT NULL,
+                    attempt INTEGER NOT NULL,
+                    artifact_hash TEXT NOT NULL,
+                    measurement_json TEXT NOT NULL DEFAULT '{}',
+                    policy_fingerprint TEXT NOT NULL,
+                    correlation_id TEXT NOT NULL,
+                    completed_at TEXT NOT NULL,
+                    PRIMARY KEY(run_id, stage, attempt)
+                );
                 """
             )
-            columns = {
-                str(row[1]) for row in connection.execute("PRAGMA table_info(runs)").fetchall()
-            }
-            if "request_key" not in columns:
-                connection.execute(
-                    "ALTER TABLE runs ADD COLUMN request_key TEXT NOT NULL DEFAULT ''"
-                )
-            if "recipe_json" not in columns:
-                connection.execute(
-                    "ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''"
-                )
-            if "source_locator" not in columns:
-                connection.execute(
-                    "ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''"
-                )
+            for version in range(current_version + 1, self.SCHEMA_VERSION + 1):
+                self._apply_migration(connection, version)
+                connection.execute(f"PRAGMA user_version = {version}")
+
+    @staticmethod
+    def _has_column(connection: sqlite3.Connection, table: str, column: str) -> bool:
+        return column in {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
+
+    def _apply_migration(self, connection: sqlite3.Connection, version: int) -> None:
+        if version == 1:
+            return
+        if version == 2 and not self._has_column(connection, "runs", "request_key"):
+            connection.execute("ALTER TABLE runs ADD COLUMN request_key TEXT NOT NULL DEFAULT ''")
+        elif version == 3 and not self._has_column(connection, "runs", "recipe_json"):
+            connection.execute("ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''")
+        elif version == 4 and not self._has_column(connection, "runs", "source_locator"):
+            connection.execute("ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''")
+        elif version == 5 and not self._has_column(connection, "runs", "execution_plan_json"):
+            connection.execute("ALTER TABLE runs ADD COLUMN execution_plan_json TEXT NOT NULL DEFAULT ''")
+        elif version == 6 and not self._has_column(connection, "job_measurements", "details_json"):
+            connection.execute("ALTER TABLE job_measurements ADD COLUMN details_json TEXT NOT NULL DEFAULT '{}'")
+        elif version == 7:
+            connection.execute("CREATE INDEX IF NOT EXISTS runs_reuse_idx ON runs(source_id, request_key, updated_at DESC)")
+            connection.execute("CREATE INDEX IF NOT EXISTS job_measurements_job_idx ON job_measurements(job_id, measurement_id)")
+        elif version == 8:
             connection.execute(
-                "CREATE INDEX IF NOT EXISTS runs_reuse_idx "
-                "ON runs(source_id, request_key, updated_at DESC)"
+                "CREATE TABLE IF NOT EXISTS compiler_checkpoints ("
+                "run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE, "
+                "stage TEXT NOT NULL, attempt INTEGER NOT NULL, artifact_hash TEXT NOT NULL, "
+                "measurement_json TEXT NOT NULL DEFAULT '{}', policy_fingerprint TEXT NOT NULL, "
+                "correlation_id TEXT NOT NULL, completed_at TEXT NOT NULL, "
+                "PRIMARY KEY(run_id, stage, attempt))"
             )
-            connection.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
     def journal_mode(self) -> str:
         with self._connect() as connection:
             row = connection.execute("PRAGMA journal_mode").fetchone()
         return str(row[0])
+
+    def checkpoint(self) -> None:
+        """Flush the WAL to the main database file."""
+        with self._connect() as connection:
+            connection.execute("PRAGMA wal_checkpoint(FULL)")
 
     def schema_version(self) -> int:
         with self._connect() as connection:
@@ -161,12 +217,13 @@ class Database:
         request_key: str = "",
         recipe_json: str = "",
         source_locator: str = "",
+        execution_plan_json: str = "",
     ) -> None:
         now = _timestamp(datetime.now(UTC))
         with self._connect() as connection:
             connection.execute(
                 "INSERT INTO runs(run_id, source_id, source_locator, analysis_key, request_key, "
-                "recipe_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "recipe_json, execution_plan_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     run_id,
                     source_id,
@@ -174,6 +231,7 @@ class Database:
                     analysis_key,
                     request_key,
                     recipe_json,
+                    execution_plan_json,
                     now,
                     now,
                 ),
@@ -181,21 +239,27 @@ class Database:
 
     def get_run_source_locator(self, run_id: str) -> str | None:
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT source_locator FROM runs WHERE run_id = ?", (run_id,)
-            ).fetchone()
+            row = connection.execute("SELECT source_locator FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         if row is None or not row[0]:
             return None
         return str(row[0])
 
     def get_run_recipe(self, run_id: str) -> str | None:
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT recipe_json FROM runs WHERE run_id = ?", (run_id,)
-            ).fetchone()
+            row = connection.execute("SELECT recipe_json FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         if row is None or not row[0]:
             return None
         return str(row[0])
+
+    def get_run_execution_plan(self, run_id: str) -> dict[str, object] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT execution_plan_json FROM runs WHERE run_id = ?", (run_id,)
+            ).fetchone()
+        if row is None or not row[0]:
+            return None
+        value = json.loads(str(row[0]))
+        return value if isinstance(value, dict) else None
 
     def find_reusable_run(self, source_id: str, request_key: str) -> str | None:
         with self._connect() as connection:
@@ -254,11 +318,58 @@ class Database:
             ).fetchone()
         return None if row is None else str(row[0])
 
+    def record_job_measurement(
+        self,
+        *,
+        job_id: str,
+        request_id: str,
+        task: str,
+        runtime_id: str,
+        model: str | None,
+        usage: dict[str, int],
+        details: dict[str, object],
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO job_measurements(job_id, request_id, task, runtime_id, model, usage_json, "
+                "details_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    job_id,
+                    request_id,
+                    task,
+                    runtime_id,
+                    model,
+                    json.dumps(usage, sort_keys=True),
+                    json.dumps(redact_sensitive(details), sort_keys=True),
+                    _timestamp(datetime.now(UTC)),
+                ),
+            )
+
+    def list_job_measurements(
+        self, job_id: str
+    ) -> list[tuple[str, str, str, str | None, dict[str, int], dict[str, object]]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT request_id, task, runtime_id, model, usage_json, details_json FROM job_measurements "
+                "WHERE job_id = ? ORDER BY measurement_id",
+                (job_id,),
+            ).fetchall()
+        return [
+            (
+                str(row["request_id"]),
+                str(row["task"]),
+                str(row["runtime_id"]),
+                None if row["model"] is None else str(row["model"]),
+                {str(key): int(value) for key, value in json.loads(str(row["usage_json"])).items()},
+                {str(key): value for key, value in json.loads(str(row["details_json"])).items()},
+            )
+            for row in rows
+        ]
+
     def find_compatible_run(self, source_id: str, analysis_key: str) -> str | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT run_id FROM runs WHERE source_id = ? AND analysis_key = ? "
-                "ORDER BY updated_at DESC LIMIT 1",
+                "SELECT run_id FROM runs WHERE source_id = ? AND analysis_key = ? ORDER BY updated_at DESC LIMIT 1",
                 (source_id, analysis_key),
             ).fetchone()
         return None if row is None else str(row["run_id"])
@@ -306,8 +417,7 @@ class Database:
                 ),
             )
             connection.executemany(
-                "INSERT INTO job_dependencies(job_id, depends_on) VALUES (?, ?) "
-                "ON CONFLICT DO NOTHING",
+                "INSERT INTO job_dependencies(job_id, depends_on) VALUES (?, ?) ON CONFLICT DO NOTHING",
                 ((spec.job_id, dependency) for dependency in spec.dependencies),
             )
             connection.commit()
@@ -330,7 +440,7 @@ class Database:
                   AND NOT EXISTS (
                     SELECT 1 FROM job_dependencies d
                     JOIN jobs parent ON parent.job_id = d.depends_on
-                    WHERE d.job_id = j.job_id AND parent.status != 'completed'
+                    WHERE d.job_id = j.job_id AND parent.status NOT IN ('completed', 'failed_runtime')
                   )
                 ORDER BY j.priority ASC, j.job_id ASC
                 LIMIT ?
@@ -362,9 +472,7 @@ class Database:
 
     def complete_job(self, job_id: str, result_hash: str, worker_id: str | None = None) -> bool:
         ownership = "" if worker_id is None else " AND worker_id = ?"
-        parameters: tuple[str, ...] = (
-            (result_hash, job_id) if worker_id is None else (result_hash, job_id, worker_id)
-        )
+        parameters: tuple[str, ...] = (result_hash, job_id) if worker_id is None else (result_hash, job_id, worker_id)
         with self._connect() as connection:
             cursor = connection.execute(
                 "UPDATE jobs SET status = 'completed', result_hash = ?, worker_id = NULL, "
@@ -375,13 +483,10 @@ class Database:
 
     def fail_job(self, job_id: str, status: str = "failed", worker_id: str | None = None) -> bool:
         ownership = "" if worker_id is None else " AND worker_id = ?"
-        parameters: tuple[str, ...] = (
-            (status, job_id) if worker_id is None else (status, job_id, worker_id)
-        )
+        parameters: tuple[str, ...] = (status, job_id) if worker_id is None else (status, job_id, worker_id)
         with self._connect() as connection:
             cursor = connection.execute(
-                "UPDATE jobs SET status = ?, worker_id = NULL, lease_expires_at = NULL "
-                f"WHERE job_id = ?{ownership}",
+                f"UPDATE jobs SET status = ?, worker_id = NULL, lease_expires_at = NULL WHERE job_id = ?{ownership}",
                 parameters,
             )
             if cursor.rowcount == 1:
@@ -426,22 +531,45 @@ class Database:
 
     def prepare_resume(self, run_id: str) -> int:
         with self._connect() as connection:
-            cursor = connection.execute(
-                "UPDATE jobs SET status = 'pending', worker_id = NULL, lease_expires_at = NULL "
-                "WHERE run_id = ? AND status IN ('failed', 'blocked_auth')",
+            resumable_jobs = """
+                WITH RECURSIVE resumable(job_id) AS (
+                    SELECT job_id FROM jobs
+                    WHERE run_id = ? AND status IN ('failed', 'failed_runtime', 'blocked_auth')
+                    UNION
+                    SELECT dependency.job_id
+                    FROM job_dependencies AS dependency
+                    JOIN resumable AS parent ON dependency.depends_on = parent.job_id
+                )
+            """
+            count = int(
+                connection.execute(resumable_jobs + "SELECT COUNT(*) FROM resumable", (run_id,)).fetchone()[0]
+            )
+            connection.execute(
+                """
+                WITH RECURSIVE resumable(job_id) AS (
+                    SELECT job_id FROM jobs
+                    WHERE run_id = ? AND status IN ('failed', 'failed_runtime', 'blocked_auth')
+                    UNION
+                    SELECT dependency.job_id
+                    FROM job_dependencies AS dependency
+                    JOIN resumable AS parent ON dependency.depends_on = parent.job_id
+                )
+                UPDATE jobs
+                SET status = 'pending', worker_id = NULL, lease_expires_at = NULL, result_hash = NULL
+                WHERE job_id IN (SELECT job_id FROM resumable)
+                """,
                 (run_id,),
             )
             connection.execute(
                 "UPDATE runs SET status = 'pending', updated_at = ? WHERE run_id = ?",
                 (_timestamp(datetime.now(UTC)), run_id),
             )
-        return cursor.rowcount
+        return count
 
     def renew_lease(self, job_id: str, worker_id: str, now: datetime, lease_seconds: int) -> bool:
         with self._connect() as connection:
             cursor = connection.execute(
-                "UPDATE jobs SET lease_expires_at = ? WHERE job_id = ? "
-                "AND worker_id = ? AND status = 'running'",
+                "UPDATE jobs SET lease_expires_at = ? WHERE job_id = ? AND worker_id = ? AND status = 'running'",
                 (_timestamp(now + timedelta(seconds=lease_seconds)), job_id, worker_id),
             )
         return cursor.rowcount == 1
@@ -473,8 +601,7 @@ class Database:
     def note_runtime_success(self, runtime_id: str) -> int:
         with self._connect() as connection:
             connection.execute(
-                "UPDATE runtime_limits SET success_streak = success_streak + 1 "
-                "WHERE runtime_id = ?",
+                "UPDATE runtime_limits SET success_streak = success_streak + 1 WHERE runtime_id = ?",
                 (runtime_id,),
             )
             connection.execute(
@@ -516,25 +643,110 @@ class Database:
     def results_by_kind(self, run_id: str, kind: str) -> list[str]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT result_hash FROM jobs WHERE run_id = ? AND kind = ? "
-                "AND status = 'completed' ORDER BY job_id",
+                "SELECT result_hash FROM jobs WHERE run_id = ? AND kind = ? AND status = 'completed' ORDER BY job_id",
                 (run_id, kind),
             ).fetchall()
         return [str(row[0]) for row in rows if row[0] is not None]
 
+    def failed_job_ids(self, run_id: str, kind: str) -> list[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT job_id FROM jobs WHERE run_id = ? AND kind = ? AND status = 'failed_runtime' ORDER BY job_id",
+                (run_id, kind),
+            ).fetchall()
+        return [str(row[0]) for row in rows]
+
     def set_run_pack(self, run_id: str, digest: str) -> None:
         with self._connect() as connection:
             connection.execute(
-                "UPDATE runs SET status = 'completed', knowledge_pack_hash = ?, updated_at = ? "
-                "WHERE run_id = ?",
+                "UPDATE runs SET status = 'completed', knowledge_pack_hash = ?, updated_at = ? WHERE run_id = ?",
                 (digest, _timestamp(datetime.now(UTC)), run_id),
             )
 
+    def record_compiler_checkpoint(
+        self,
+        *,
+        run_id: str,
+        stage: str,
+        attempt: int,
+        artifact_hash: str,
+        measurement: dict[str, object],
+        policy_fingerprint: str,
+        correlation_id: str,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO compiler_checkpoints(run_id, stage, attempt, artifact_hash, measurement_json, "
+                "policy_fingerprint, correlation_id, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    run_id,
+                    stage,
+                    attempt,
+                    artifact_hash,
+                    json.dumps(redact_sensitive(measurement), sort_keys=True),
+                    policy_fingerprint,
+                    correlation_id,
+                    _timestamp(datetime.now(UTC)),
+                ),
+            )
+
+    def list_compiler_checkpoints(
+        self, run_id: str
+    ) -> list[tuple[str, int, str, dict[str, object], str, str]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT stage, attempt, artifact_hash, measurement_json, policy_fingerprint, correlation_id "
+                "FROM compiler_checkpoints WHERE run_id = ? ORDER BY completed_at, stage, attempt",
+                (run_id,),
+            ).fetchall()
+        return [
+            (
+                str(row["stage"]),
+                int(row["attempt"]),
+                str(row["artifact_hash"]),
+                {str(key): value for key, value in json.loads(str(row["measurement_json"])).items()},
+                str(row["policy_fingerprint"]),
+                str(row["correlation_id"]),
+            )
+            for row in rows
+        ]
+
+    def mark_external_outcome_unknown(self, run_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE runs SET status = 'external_outcome_unknown', updated_at = ? WHERE run_id = ?",
+                (_timestamp(datetime.now(UTC)), run_id),
+            )
+
+    def prepare_explicit_retry(self, run_id: str) -> int:
+        """Reopen an uncertain external request only after an explicit user action."""
+        with self._connect() as connection:
+            row = connection.execute("SELECT status FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+            if row is None:
+                raise LookupError(f"run not found: {run_id}")
+            if str(row["status"]) != "external_outcome_unknown":
+                raise ValueError("only an unknown external outcome can be explicitly retried")
+            max_attempt = int(
+                connection.execute(
+                    "SELECT COALESCE(MAX(attempt), 0) FROM compiler_checkpoints WHERE run_id = ?",
+                    (run_id,),
+                ).fetchone()[0]
+            )
+            attempt = max(2, max_attempt + 1)
+            connection.execute(
+                "UPDATE runs SET status = 'pending', updated_at = ? WHERE run_id = ?",
+                (_timestamp(datetime.now(UTC)), run_id),
+            )
+        return attempt
+
+    def get_run_state(self, run_id: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute("SELECT status FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+        return None if row is None else str(row["status"])
+
     def get_run_pack(self, run_id: str) -> str | None:
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT knowledge_pack_hash FROM runs WHERE run_id = ?", (run_id,)
-            ).fetchone()
+            row = connection.execute("SELECT knowledge_pack_hash FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         if row is None or row[0] is None:
             return None
         return str(row[0])
@@ -544,8 +756,7 @@ class Database:
             raise FileNotFoundError(path)
         with self._connect() as connection:
             connection.execute(
-                "INSERT OR REPLACE INTO exports(run_id, path, verified, created_at) "
-                "VALUES (?, ?, 1, ?)",
+                "INSERT OR REPLACE INTO exports(run_id, path, verified, created_at) VALUES (?, ?, 1, ?)",
                 (run_id, str(path.resolve()), _timestamp(datetime.now(UTC))),
             )
 
@@ -569,12 +780,8 @@ class Database:
                     (*exclude_runs, *exclude_runs),
                 ).fetchall()
                 excluded_sources = tuple(str(row[0]) for row in source_rows)
-            pack_rows = connection.execute(
-                "SELECT knowledge_pack_hash FROM runs" + clause, parameters
-            ).fetchall()
-            job_rows = connection.execute(
-                "SELECT payload_hash, result_hash FROM jobs" + clause, parameters
-            ).fetchall()
+            pack_rows = connection.execute("SELECT knowledge_pack_hash FROM runs" + clause, parameters).fetchall()
+            job_rows = connection.execute("SELECT payload_hash, result_hash FROM jobs" + clause, parameters).fetchall()
             source_clause = ""
             source_parameters: tuple[str, ...] = ()
             if excluded_sources:

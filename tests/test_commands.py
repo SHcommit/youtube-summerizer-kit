@@ -11,7 +11,7 @@ from chew.application import AuthenticationRequired, CommandResult, RunStatus
 from chew.cli import app, normalize_cli_args
 from chew.config import ConfigurationError
 from chew.identity import SourceInputError
-from chew.transcripts.service import TranscriptUnavailable
+from chew.transcripts.service import TranscriptRateLimited, TranscriptUnavailable
 from chew.transcripts.whisper import WhisperDependencyMissing
 
 URL = "https://youtu.be/abcDEF_1234"
@@ -23,9 +23,7 @@ class StubApplication:
     error: Exception | None = None
     resume_error: Exception | None = None
 
-    async def generate(
-        self, url: str, profile: str, destination: Path, depth: str | None = None
-    ) -> CommandResult:
+    async def generate(self, url: str, profile: str, destination: Path, depth: str | None = None) -> CommandResult:
         self.calls.append((url, profile))
         if self.error is not None:
             raise self.error
@@ -94,9 +92,22 @@ def test_authentication_failure_is_actionable(stub: StubApplication, tmp_path: P
     assert "codex login" in result.stdout
 
 
-def test_english_authentication_failure_is_in_english(
-    stub: StubApplication, tmp_path: Path
-) -> None:
+def test_cli_does_not_offer_youtube_browser_authentication() -> None:
+    result = CliRunner().invoke(app, ["auth", "youtube", "--status"])
+
+    assert result.exit_code == 2
+
+
+def test_rate_limit_recommends_user_provided_transcript(stub: StubApplication, tmp_path: Path) -> None:
+    stub.error = TranscriptRateLimited((), retry_after_seconds=60)
+
+    result = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])
+
+    assert result.exit_code == 2
+    assert "--transcript" in result.stdout
+
+
+def test_english_authentication_failure_is_in_english(stub: StubApplication, tmp_path: Path) -> None:
     stub.error = AuthenticationRequired("codex", "codex login")
     result = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])
     assert result.exit_code == 2
@@ -104,9 +115,7 @@ def test_english_authentication_failure_is_in_english(
     assert "codex login" in result.stdout
 
 
-def test_configuration_errors_follow_the_invoked_command_language(
-    stub: StubApplication, tmp_path: Path
-) -> None:
+def test_configuration_errors_follow_the_invoked_command_language(stub: StubApplication, tmp_path: Path) -> None:
     stub.error = ConfigurationError("Invalid YAML front matter in YTSUM.md")
 
     english = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])
@@ -117,9 +126,7 @@ def test_configuration_errors_follow_the_invoked_command_language(
     assert "설정 오류" in korean.stdout
 
 
-def test_local_media_input_errors_follow_the_invoked_command_language(
-    stub: StubApplication, tmp_path: Path
-) -> None:
+def test_local_media_input_errors_follow_the_invoked_command_language(stub: StubApplication, tmp_path: Path) -> None:
     stub.error = SourceInputError("local media file not found")
 
     english = CliRunner().invoke(app, ["summarize", "missing.mp3", "--output", str(tmp_path)])
@@ -146,9 +153,7 @@ def test_missing_captions_explain_how_to_enable_local_audio_transcription(
     assert ".[youtube,whisper]" in english.stdout
 
 
-def test_missing_whisper_dependency_has_bilingual_install_guidance(
-    stub: StubApplication, tmp_path: Path
-) -> None:
+def test_missing_whisper_dependency_has_bilingual_install_guidance(stub: StubApplication, tmp_path: Path) -> None:
     stub.error = WhisperDependencyMissing("faster-whisper is not installed")
 
     english = CliRunner().invoke(app, ["summarize", URL, "--output", str(tmp_path)])
@@ -173,9 +178,7 @@ def test_local_media_transcription_errors_do_not_suggest_enabling_youtube_fallba
     assert "whisper_fallback" not in no_speech.stdout
 
     stub.error = WhisperDependencyMissing("faster-whisper is not installed")
-    missing_dependency = CliRunner().invoke(
-        app, ["summarize", local_source, "--output", str(tmp_path)]
-    )
+    missing_dependency = CliRunner().invoke(app, ["summarize", local_source, "--output", str(tmp_path)])
 
     assert missing_dependency.exit_code == 2
     assert "Local media transcription requires" in missing_dependency.stdout
@@ -194,6 +197,7 @@ def test_json_output_has_stable_envelope(stub: StubApplication, tmp_path: Path) 
             "profile": "digest",
             "reused": True,
             "run_id": "run-1",
+            "usage": None,
         },
         "ok": True,
     }
@@ -242,3 +246,72 @@ def test_resume_authentication_guidance_follows_the_invoked_command_language(
     assert "Authentication required" in english.stdout
     assert "로그인이 필요" in korean.stdout
     assert "codex login" in english.stdout + korean.stdout
+
+
+def test_doctor_shows_install_hint_for_unavailable_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When a runtime is not installed, doctor prints a hint on the next line."""
+    class UnavailableStub(StubApplication):
+        def diagnostics(self) -> dict[str, object]:
+            return {"runtimes": [{"id": "ollama", "available": False}]}
+
+    monkeypatch.setattr("chew.cli._application_factory", lambda: UnavailableStub())
+    result = CliRunner().invoke(app, ["doctor"])
+    assert result.exit_code == 0
+    assert "not installed" in result.stdout
+    assert "Install:" in result.stdout
+    assert "ollama.com/install.sh" in result.stdout
+
+
+def test_doctor_no_hint_when_runtime_is_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When a runtime is available, no install hint is printed."""
+    class AvailableStub(StubApplication):
+        def diagnostics(self) -> dict[str, object]:
+            return {"runtimes": [{"id": "ollama", "available": True}]}
+
+    monkeypatch.setattr("chew.cli._application_factory", lambda: AvailableStub())
+    result = CliRunner().invoke(app, ["doctor"])
+    assert result.exit_code == 0
+    assert "Install:" not in result.stdout
+
+
+def test_doctor_json_output_unchanged_by_hint_logic(monkeypatch: pytest.MonkeyPatch) -> None:
+    """JSON mode passes diagnostics dict through without hint lines."""
+    class UnavailableStub(StubApplication):
+        def diagnostics(self) -> dict[str, object]:
+            return {"runtimes": [{"id": "ollama", "available": False}]}
+
+    monkeypatch.setattr("chew.cli._application_factory", lambda: UnavailableStub())
+    result = CliRunner().invoke(app, ["doctor", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["ok"] is True
+    assert "Install:" not in result.stdout
+
+
+def test_doctor_unknown_runtime_has_no_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unknown runtime IDs silently skip the hint (no KeyError)."""
+    class UnknownStub(StubApplication):
+        def diagnostics(self) -> dict[str, object]:
+            return {"runtimes": [{"id": "mystery_runtime", "available": False}]}
+
+    monkeypatch.setattr("chew.cli._application_factory", lambda: UnknownStub())
+    result = CliRunner().invoke(app, ["doctor"])
+    assert result.exit_code == 0
+    assert "mystery_runtime: not installed" in result.stdout
+    assert "Install:" not in result.stdout
+
+
+def test_serve_command_exits_cleanly_without_server_extras(monkeypatch: pytest.MonkeyPatch) -> None:
+    """serve exits with code 1 and a helpful message when fastapi/uvicorn are absent."""
+    import builtins
+    real_import = builtins.__import__
+
+    def _block_server(name: str, *args: object, **kwargs: object) -> object:
+        if name in ("uvicorn", "fastapi"):
+            raise ImportError(f"No module named '{name}'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _block_server)
+    result = CliRunner().invoke(app, ["serve"])
+    assert result.exit_code == 1
+    assert "server" in result.stdout.lower() or "extras" in result.stdout.lower()

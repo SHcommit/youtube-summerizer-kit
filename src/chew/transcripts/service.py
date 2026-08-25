@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -29,6 +31,14 @@ class TranscriptUnavailable(RuntimeError):
         self.attempts = attempts
 
 
+class TranscriptRateLimited(TranscriptUnavailable):
+    """All viable caption providers were rate-limited after bounded retries."""
+
+    def __init__(self, attempts: tuple[TranscriptAttempt, ...], retry_after_seconds: int) -> None:
+        super().__init__(attempts)
+        self.retry_after_seconds = retry_after_seconds
+
+
 class TranscriptService:
     def __init__(
         self,
@@ -36,10 +46,24 @@ class TranscriptService:
         *,
         optional_providers: Sequence[TranscriptProvider] = (),
         local_providers: Sequence[TranscriptProvider] = (),
+        rate_limit_retries: int = 1,
+        retry_delay_seconds: float = 1.0,
+        provider_timeout_seconds: float = 20.0,
+        acquisition_timeout_seconds: float = 60.0,
     ) -> None:
+        if rate_limit_retries < 0:
+            raise ValueError("rate_limit_retries must not be negative")
+        if provider_timeout_seconds <= 0:
+            raise ValueError("provider_timeout_seconds must be positive")
+        if acquisition_timeout_seconds <= 0:
+            raise ValueError("acquisition_timeout_seconds must be positive")
         self.providers = providers
         self.optional_providers = optional_providers
         self.local_providers = local_providers
+        self.rate_limit_retries = rate_limit_retries
+        self.retry_delay_seconds = retry_delay_seconds
+        self.provider_timeout_seconds = provider_timeout_seconds
+        self.acquisition_timeout_seconds = acquisition_timeout_seconds
 
     async def resolve(
         self, source: SourceIdentity, language: str, *, include_optional: bool = False
@@ -50,19 +74,30 @@ class TranscriptService:
         if source.kind == SourceKind.LOCAL_MEDIA:
             providers = self.local_providers
         else:
-            providers = (
-                (*self.providers, *self.optional_providers) if include_optional else self.providers
-            )
+            providers = (*self.providers, *self.optional_providers) if include_optional else self.providers
+        deadline = time.monotonic() + self.acquisition_timeout_seconds
         for provider in providers:
-            candidate = await provider.fetch(source, language)
+            candidate, reasons = await self._fetch_with_deadline(provider, source, language, deadline)
+            if "acquisition_timeout" in reasons:
+                attempts.append(TranscriptAttempt(provider.name, reasons))
+                break
+            for retry in range(self.rate_limit_retries):
+                if candidate is not None or "rate_limited" not in reasons:
+                    break
+                delay = self.retry_delay_seconds * (2**retry)
+                if time.monotonic() + delay >= deadline:
+                    reasons = ("acquisition_timeout",)
+                    break
+                await asyncio.sleep(delay)
+                candidate, reasons = await self._fetch_with_deadline(provider, source, language, deadline)
+                if "acquisition_timeout" in reasons:
+                    break
             if candidate is None:
                 attempt_metadata = getattr(provider, "attempt_metadata", None)
                 if callable(attempt_metadata):
                     provider_title, provider_chapters = attempt_metadata()
                     metadata_title = metadata_title or provider_title
                     metadata_chapters = metadata_chapters or provider_chapters
-                attempt_reasons = getattr(provider, "attempt_reasons", None)
-                reasons = attempt_reasons() if callable(attempt_reasons) else ()
                 attempts.append(TranscriptAttempt(provider.name, reasons or ("not_available",)))
                 continue
             metadata_title = metadata_title or candidate.title
@@ -88,4 +123,29 @@ class TranscriptService:
                 )
                 return TranscriptResolution(normalized, provider.name, tuple(attempts))
             attempts.append(TranscriptAttempt(provider.name, report.reasons))
-        raise TranscriptUnavailable(tuple(attempts))
+        recorded_attempts = tuple(attempts)
+        if recorded_attempts and all("rate_limited" in attempt.reasons for attempt in recorded_attempts):
+            retry_after = max(1, round(self.retry_delay_seconds * (2**self.rate_limit_retries)))
+            raise TranscriptRateLimited(recorded_attempts, retry_after)
+        raise TranscriptUnavailable(recorded_attempts)
+
+    async def _fetch_with_deadline(
+        self,
+        provider: TranscriptProvider,
+        source: SourceIdentity,
+        language: str,
+        deadline: float,
+    ) -> tuple[Transcript | None, tuple[str, ...]]:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None, ("acquisition_timeout",)
+        try:
+            candidate = await asyncio.wait_for(
+                provider.fetch(source, language), timeout=min(self.provider_timeout_seconds, remaining)
+            )
+        except TimeoutError:
+            reason = "acquisition_timeout" if time.monotonic() >= deadline else "provider_timeout"
+            return None, (reason,)
+        attempt_reasons = getattr(provider, "attempt_reasons", None)
+        reasons = attempt_reasons() if callable(attempt_reasons) else ()
+        return candidate, reasons

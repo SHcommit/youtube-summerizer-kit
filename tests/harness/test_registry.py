@@ -63,3 +63,10 @@ async def test_auto_prefers_verified_login_over_unverified_runtime() -> None:
     registry = HarnessRegistry([unverified, StubHarness("claude", True)])
 
     assert (await registry.select("auto")).runtime_id == "claude"
+
+
+@pytest.mark.asyncio
+async def test_frontier_selector_excludes_available_local_ollama_runtime() -> None:
+    registry = HarnessRegistry([StubHarness("ollama", True), StubHarness("gemini", True)])
+
+    assert (await registry.select("frontier")).runtime_id == "gemini"

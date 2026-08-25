@@ -34,9 +34,7 @@ class ProcessExecutor:
         timeout: float,
         environment: Mapping[str, str] | None = None,
     ) -> ProcessResult:
-        child_environment = {
-            name: os.environ[name] for name in self._INHERITED_ENV if name in os.environ
-        }
+        child_environment = {name: os.environ[name] for name in self._INHERITED_ENV if name in os.environ}
         child_environment.update(environment or {})
         process = await asyncio.create_subprocess_exec(
             *argv,
@@ -47,12 +45,14 @@ class ProcessExecutor:
             start_new_session=True,
         )
         try:
-            assert process.stdin is not None
+            if process.stdin is None:
+                raise RuntimeError("Expected subprocess stdin pipe but got None")
             stdout_task = asyncio.create_task(self._read_bounded(process.stdout))
             stderr_task = asyncio.create_task(self._read_bounded(process.stderr))
 
             async def feed_stdin() -> None:
-                assert process.stdin is not None
+                if process.stdin is None:
+                    raise RuntimeError("Expected subprocess stdin pipe but got None")
                 try:
                     process.stdin.write(stdin.encode("utf-8"))
                     await process.stdin.drain()
@@ -67,11 +67,11 @@ class ProcessExecutor:
             )
         except TimeoutError as error:
             self._terminate(process)
-            await process.wait()
+            await self._await_termination(process)
             raise ProcessTimeout(f"process timed out after {timeout} seconds") from error
         except asyncio.CancelledError:
             self._terminate(process)
-            await process.wait()
+            await self._await_termination(process)
             raise
         return ProcessResult(
             exit_code=int(process.returncode or 0),
@@ -94,4 +94,13 @@ class ProcessExecutor:
         if process.returncode is not None:
             return
         with suppress(ProcessLookupError):
-            os.killpg(process.pid, signal.SIGKILL)
+            os.killpg(process.pid, signal.SIGTERM)
+
+    @staticmethod
+    async def _await_termination(process: asyncio.subprocess.Process, sigterm_timeout: float = 5.0) -> None:
+        try:
+            await asyncio.wait_for(process.wait(), timeout=sigterm_timeout)
+        except TimeoutError:
+            with suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+            await process.wait()
