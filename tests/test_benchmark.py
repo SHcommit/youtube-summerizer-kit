@@ -226,7 +226,13 @@ async def test_short_video_benchmark_resolves_one_snapshot_for_all_conditions_an
                 output: dict[str, object] = {
                     "thesis_claim_id": "claim-1",
                     "claims": [{"claim_id": "claim-1", "text": "topic", "occurrence_ids": ["occ-1"]}],
-                    "occurrences": [{"occurrence_id": "occ-1", "raw_segment_indexes": [0], "quote": "segment"}],
+                    "occurrences": [
+                        {
+                            "occurrence_id": "occ-1",
+                            "raw_segment_indexes": [0],
+                            "quote": "shared snapshot evidence",
+                        }
+                    ],
                 }
             elif request.task == "topic_summary":
                 output: dict[str, object] = {
@@ -263,7 +269,7 @@ async def test_short_video_benchmark_resolves_one_snapshot_for_all_conditions_an
         repeats=2,
         configured_runtime="codex",
     )
-    await BenchmarkRunner().run(spec)
+    report = await BenchmarkRunner().run(spec)
 
     assert RecordingTranscriptService.calls == 1
     assert spec.repeats == 2
@@ -272,6 +278,10 @@ async def test_short_video_benchmark_resolves_one_snapshot_for_all_conditions_an
         ("frontier-hierarchical", "transcript"),
         ("gkt-deterministic", "transcript"),
     ]
+    gkt = next(result for result in report.results if result.condition_id == "gkt-deterministic")
+    assert gkt.median_metrics["frontier_call_count"] == 1
+    assert gkt.median_metrics["grounding_coverage"] == 1
+    assert gkt.median_metrics["ambiguous_anchor_count"] == 0
 
 
 def test_reference_scoring_penalizes_hallucinations_and_wrong_timestamps() -> None:

@@ -289,6 +289,10 @@ def _similarity(left: object, right: object) -> float:
     return SequenceMatcher(None, normalized_left, normalized_right).ratio()
 
 
+def _metric_number(value: object) -> float:
+    return float(value) if isinstance(value, int | float) and not isinstance(value, bool) else 0.0
+
+
 def _score_output(output: dict[str, object], reference: BenchmarkReference) -> tuple[dict[str, float], int]:
     key_points = output.get("key_points")
     points = [point for point in key_points if isinstance(point, dict)] if isinstance(key_points, list) else []
@@ -627,6 +631,7 @@ async def short_video_benchmark_spec(
                     ),
                     transcript=transcript,
                 )
+                checkpoints = database.list_compiler_checkpoints(result.run_id)
             points = [
                 {
                     "text": claim.text,
@@ -643,6 +648,22 @@ async def short_video_benchmark_spec(
                     "further_study": list(result.pack.further_study),
                 },
                 reference,
+            )
+            grounding = next(
+                (measurement for stage, _, _, measurement, _, _ in checkpoints if stage == "evidence.ground"),
+                {},
+            )
+            candidate_count = _metric_number(grounding.get("candidate_occurrence_count", 0))
+            grounded_count = _metric_number(grounding.get("grounded_occurrence_count", 0))
+            metrics.update(
+                {
+                    "frontier_call_count": float(
+                        sum(1 for stage, _, _, _, _, _ in checkpoints if stage == "frontier.generate")
+                    ),
+                    "grounding_coverage": grounded_count / candidate_count if candidate_count else 0.0,
+                    "ambiguous_anchor_count": _metric_number(grounding.get("ambiguous_anchor_count", 0)),
+                    "unsupported_tree_claim_count": _metric_number(grounding.get("unsupported_claim_count", 0)),
+                }
             )
             return BenchmarkObservation(
                 metrics,
