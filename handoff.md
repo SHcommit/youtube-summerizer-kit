@@ -50,6 +50,6 @@
   mypy clean.
 - `cb0c8b0` adds protocol-neutral interface result presentation and preserves CLI machine fields;
   full verification was `319 passed, 2 skipped`, Ruff and mypy clean.
-- The current documentation/diagram refresh distinguishes implemented CLI presentation from deferred
-  HTTP, MCP, and web consumers. Full verification is `319 passed, 2 skipped`; Ruff and mypy are
-  clean. No live Frontier benchmark was run.
+- `e8b53b1` documents and diagrams the same boundary, distinguishing implemented CLI presentation
+  from deferred HTTP, MCP, and web consumers. Full verification is `319 passed, 2 skipped`; Ruff
+  and mypy are clean. No live Frontier benchmark was run.
