@@ -5,7 +5,9 @@
 
 ## Branch and State
 
-- Branch: `feature/benchmark-quality-readiness`
+- Release branch: `release/v0.2.0` (from `develop`)
+- Release target: `master` with tag `v0.2.0`; CD publishes the verified wheel and GitHub Release,
+  then publishes to PyPI when the repository `PYPI_API_TOKEN` secret is configured.
 - Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)

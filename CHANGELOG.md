@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-26
+
 ### Fixed
 - **Auto Labeler configuration**: migrates `.github/labeler.yml` to the `actions/labeler@v5`
   match-object format, removes obsolete `src/ytsum` paths, and limits automatic labels to labels
