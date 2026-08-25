@@ -91,7 +91,7 @@ def _require_all_object_properties(value: object) -> None:
         elif value.get("type") == "object":
             value["additionalProperties"] = False
         if value.get("type") == "array" and isinstance(value.get("prefixItems"), list):
-            value.setdefault("items", False)
+            value["items"] = {"type": "string"}
         for child in value.values():
             _require_all_object_properties(child)
     elif isinstance(value, list):

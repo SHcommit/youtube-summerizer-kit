@@ -85,9 +85,10 @@
   labelled as a user review decision. Six structurally validated JSON references contain the 14
   approved claims; five `수정` entries remain excluded. `tests/test_benchmark.py` passed (11 tests),
   as did JSON schema validation and Ruff. No live Frontier benchmark has run yet.
-- The first final GKT benchmark attempt exposed a Codex 400: the generated `relations` tuple schema
-  omitted `items`. The fix adds `items: false` for fixed tuples; its focused Codex harness regression
-  test, Ruff, and mypy pass. Re-run the same approved 14m34s benchmark before interpreting results.
+- The first final GKT benchmark attempt exposed Codex strict-schema incompatibilities for the
+  generated `relations` tuple: it requires an object-valued `items` schema. The fix emits string
+  items while Pydantic retains tuple-length validation; its focused Codex harness regression test,
+  Ruff, and mypy pass. Re-run the same approved 14m34s benchmark before interpreting results.
 - The 2026-08-25 metrics-only run covers all seven locked fixtures with the same lock and concurrency
   (`baseline-20260825T052411Z`, `current-20260825T052533Z`). All succeeded; tokenizer input fell
   from 132,312 to 118,716 (10.28%). The Korean lecture fell 22,916 -> 22,747 (0.74%) and the Korean

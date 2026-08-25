@@ -126,7 +126,7 @@ async def test_codex_marks_fixed_length_relation_tuples_as_closed_arrays() -> No
 
     assert executor.schema is not None
     relation_tuple = executor.schema["properties"]["relations"]["items"]
-    assert relation_tuple["items"] is False
+    assert relation_tuple["items"] == {"type": "string"}
 
 
 @pytest.mark.asyncio
