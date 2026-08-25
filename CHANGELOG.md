@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Comparable GKT benchmark condition**: short-video benchmark specifications now include a
   `gkt-deterministic` condition alongside the historical single-pass and hierarchical paths,
   using the same resolved transcript snapshot and configured Frontier runtime.
+- **GKT trace vocabulary**: compiler execution now emits `input.compile`, `frontier.generate`,
+  `evidence.ground`, and `tree.assemble` spans, aligned with immutable compiler checkpoints.
 - **Benchmark-reference review queues**: adds non-executable, AI-assisted Markdown candidate
   queues for the current short, long, and Korean fixtures. Human approval is required before any
   candidate can enter a live benchmark reference.

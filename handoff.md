@@ -12,8 +12,8 @@
 
 ## Next Priorities
 
-1. Complete GKT stage trace/report compatibility and independently reviewed benchmark references
-   before the final integrated Frontier benchmark; then implement optional agents.
+1. Complete GKT benchmark report measurements and independently reviewed references before the
+   final integrated Frontier benchmark; then implement optional agents.
 2. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
    compiler state and policy are complete.
 3. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
@@ -79,6 +79,8 @@
 - `e0608f5` adds the offline-testable `gkt-deterministic` short-video benchmark condition beside
   the legacy conditions, sharing the same transcript snapshot and runtime. Full verification:
   `307 passed, 2 skipped`; Ruff and mypy passed. No live benchmark was run.
+- `3bac3cb` emits GKT stage spans aligned with durable checkpoints. Focused pipeline/telemetry
+  tests, Ruff, and mypy passed.
 
 - `0baee5d` contains the credential-boundary, transcript pipeline, bounded-runtime-policy,
   telemetry, P0 benchmark-snapshot, and migration work. Full verification at that point was
