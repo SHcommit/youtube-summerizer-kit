@@ -26,6 +26,13 @@ class BenchmarkObservation:
     metadata: dict[str, str] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class BenchmarkProgress:
+    condition_id: str
+    repeat: int
+    total_repeats: int
+
+
 ConditionRunner = Callable[[str], Awaitable[BenchmarkObservation]]
 
 
@@ -36,6 +43,16 @@ class ReferenceClaim:
     timestamp_ms: int
     tolerance_ms: int = 30_000
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.text, str) or not self.text.strip():
+            raise ValueError("reference claim text must be non-empty")
+        if not isinstance(self.evidence, str) or not self.evidence.strip():
+            raise ValueError("reference claim evidence must be non-empty")
+        if isinstance(self.timestamp_ms, bool) or not isinstance(self.timestamp_ms, int) or self.timestamp_ms < 0:
+            raise ValueError("reference claim timestamp_ms must be a non-negative integer")
+        if isinstance(self.tolerance_ms, bool) or not isinstance(self.tolerance_ms, int) or self.tolerance_ms <= 0:
+            raise ValueError("reference claim tolerance_ms must be a positive integer")
+
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkReference:
@@ -44,14 +61,44 @@ class BenchmarkReference:
     duration_ms: int
     claims: tuple[ReferenceClaim, ...]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_id, str) or not self.source_id.strip():
+            raise ValueError("reference source_id must be non-empty")
+        if not isinstance(self.language, str) or not self.language.strip():
+            raise ValueError("reference language must be non-empty")
+        if isinstance(self.duration_ms, bool) or not isinstance(self.duration_ms, int) or self.duration_ms <= 0:
+            raise ValueError("reference duration_ms must be a positive integer")
+        if not self.claims:
+            raise ValueError("reference requires at least one claim")
+        if any(claim.timestamp_ms > self.duration_ms for claim in self.claims):
+            raise ValueError("reference claim timestamp_ms must be within the reference duration")
+
     @classmethod
     def from_json(cls, value: str) -> BenchmarkReference:
         payload = json.loads(value)
+        if not isinstance(payload, dict):
+            raise ValueError("benchmark reference must be a JSON object")
+        claims = payload.get("claims")
+        if not isinstance(claims, list):
+            raise ValueError("reference claims must be a list")
+        source_id = payload.get("source_id")
+        language = payload.get("language")
+        duration_ms = payload.get("duration_ms")
+        if not isinstance(source_id, str) or not isinstance(language, str):
+            raise ValueError("reference source_id and language must be strings")
+        if isinstance(duration_ms, bool) or not isinstance(duration_ms, int):
+            raise ValueError("reference duration_ms must be an integer")
+        try:
+            parsed_claims = tuple(ReferenceClaim(**claim) for claim in claims if isinstance(claim, dict))
+        except TypeError as error:
+            raise ValueError("reference claims must contain text, evidence, and timestamp_ms") from error
+        if len(parsed_claims) != len(claims):
+            raise ValueError("reference claims must be objects")
         return cls(
-            source_id=str(payload["source_id"]),
-            language=str(payload["language"]),
-            duration_ms=int(payload["duration_ms"]),
-            claims=tuple(ReferenceClaim(**claim) for claim in payload["claims"]),
+            source_id=source_id,
+            language=language,
+            duration_ms=duration_ms,
+            claims=parsed_claims,
         )
 
 
@@ -147,8 +194,9 @@ def write_benchmark_report(report: BenchmarkReport, output: Path) -> tuple[Path,
 
 
 class BenchmarkRunner:
-    def __init__(self) -> None:
+    def __init__(self, progress_callback: Callable[[BenchmarkProgress], None] | None = None) -> None:
         self.live_calls = 0
+        self.progress_callback = progress_callback
 
     async def run(self, spec: BenchmarkSpec) -> BenchmarkReport:
         if spec.repeats < 1:
@@ -159,7 +207,11 @@ class BenchmarkRunner:
         )
         results: list[ConditionResult] = []
         for index, condition in enumerate(ordered):
-            observations = [await self._observe(condition, spec.source_id) for _ in range(spec.repeats)]
+            observations: list[BenchmarkObservation] = []
+            for repeat in range(1, spec.repeats + 1):
+                if self.progress_callback is not None:
+                    self.progress_callback(BenchmarkProgress(condition.condition_id, repeat, spec.repeats))
+                observations.append(await self._observe(condition, spec.source_id))
             metric_names = sorted(set().union(*(observation.metrics.keys() for observation in observations)))
             medians: dict[str, float] = {}
             variances: dict[str, float] = {}
@@ -247,6 +299,10 @@ def _similarity(left: object, right: object) -> float:
     if not normalized_left or not normalized_right:
         return 0.0
     return SequenceMatcher(None, normalized_left, normalized_right).ratio()
+
+
+def _metric_number(value: object) -> float:
+    return float(value) if isinstance(value, int | float) and not isinstance(value, bool) else 0.0
 
 
 def _score_output(output: dict[str, object], reference: BenchmarkReference) -> tuple[dict[str, float], int]:
@@ -425,7 +481,7 @@ def live_benchmark_spec(
     )
 
 
-def short_video_benchmark_spec(
+async def short_video_benchmark_spec(
     url: str,
     *,
     reference: BenchmarkReference,
@@ -448,6 +504,13 @@ def short_video_benchmark_spec(
     source = normalize_youtube_url(url)
     if reference.source_id != source.source_id:
         raise ValueError("benchmark reference source_id does not match URL")
+    transcript = (
+        await TranscriptService(default_providers()).resolve(
+            source,
+            reference.language,
+            include_optional=False,
+        )
+    ).transcript
     registry = default_registry()
     runtime_lock = Lock()
 
@@ -458,9 +521,6 @@ def short_video_benchmark_spec(
     def single_pass() -> ConditionRunner:
         async def observe(_: str) -> BenchmarkObservation:
             selected = await selected_runtime()
-            transcript = (
-                await TranscriptService(default_providers()).resolve(source, reference.language, include_optional=False)
-            ).transcript
             request = GenerationRequest(
                 request_id=str(uuid4()),
                 task="benchmark_single_pass_transcript",
@@ -520,6 +580,7 @@ def short_video_benchmark_spec(
                         runtime=configured_runtime,
                         recipe_json="{}",
                     ),
+                    transcript=transcript,
                 )
             points = [
                 {
@@ -553,6 +614,85 @@ def short_video_benchmark_spec(
 
         return observe
 
+    def gkt_deterministic() -> ConditionRunner:
+        async def observe(_: str) -> BenchmarkObservation:
+            selected = await selected_runtime()
+            capabilities = (await selected.probe()).capabilities
+            started = monotonic()
+            with tempfile.TemporaryDirectory(prefix="chew-gkt-benchmark-") as temporary:
+                root = Path(temporary)
+                database = Database(root / "state.sqlite3")
+                database.initialize()
+                pipeline = AnalysisPipeline(
+                    database=database,
+                    artifacts=ArtifactStore(root),
+                    transcripts=TranscriptService(default_providers()),
+                    harness=selected,
+                    concurrency=capabilities.max_concurrency,
+                )
+                result = await pipeline.analyze(
+                    url,
+                    AnalysisConfig(
+                        language=reference.language,
+                        depth="detailed",
+                        instructions="",
+                        whisper_fallback=False,
+                        runtime=configured_runtime,
+                        recipe_json="{}",
+                        compiler_strategy="gkt",
+                    ),
+                    transcript=transcript,
+                )
+                checkpoints = database.list_compiler_checkpoints(result.run_id)
+            points = [
+                {
+                    "text": claim.text,
+                    "timestamp_ms": claim.evidence[0].start_ms if claim.evidence else 0,
+                    "evidence": claim.evidence[0].text if claim.evidence else "",
+                }
+                for topic in result.pack.topics
+                for claim in topic.claims
+            ]
+            metrics, unsupported = _score_output(
+                {
+                    "overview": result.pack.overview,
+                    "key_points": points,
+                    "further_study": list(result.pack.further_study),
+                },
+                reference,
+            )
+            grounding = next(
+                (measurement for stage, _, _, measurement, _, _ in checkpoints if stage == "evidence.ground"),
+                {},
+            )
+            candidate_count = _metric_number(grounding.get("candidate_occurrence_count", 0))
+            grounded_count = _metric_number(grounding.get("grounded_occurrence_count", 0))
+            metrics.update(
+                {
+                    "frontier_call_count": float(
+                        sum(1 for stage, _, _, _, _, _ in checkpoints if stage == "frontier.generate")
+                    ),
+                    "grounding_coverage": grounded_count / candidate_count if candidate_count else 0.0,
+                    "ambiguous_anchor_count": _metric_number(grounding.get("ambiguous_anchor_count", 0)),
+                    "unsupported_tree_claim_count": _metric_number(grounding.get("unsupported_claim_count", 0)),
+                }
+            )
+            return BenchmarkObservation(
+                metrics,
+                monotonic() - started,
+                sum((result.usage or {}).values()),
+                unsupported,
+                {
+                    "runtime": selected.runtime_id,
+                    "model": ",".join(result.models) or "default",
+                    "prompt_fingerprint": "gkt-v1",
+                    "comparison": "same_frontier_transcript",
+                    "strategy": "gkt_deterministic",
+                },
+            )
+
+        return observe
+
     return BenchmarkSpec(
         source_id=source.source_id,
         repeats=repeats,
@@ -569,6 +709,13 @@ def short_video_benchmark_spec(
                 "Hierarchical / configured Frontier",
                 "transcript",
                 hierarchical(),
+                True,
+            ),
+            BenchmarkCondition(
+                "gkt-deterministic",
+                "Grounded Knowledge Tree / configured Frontier",
+                "transcript",
+                gkt_deterministic(),
                 True,
             ),
         ),

@@ -18,6 +18,10 @@ def test_policy_keeps_frontier_as_default_route_and_records_budget() -> None:
     assert plan.runtime_for("compose") == "gemini"
     assert plan.fallback_runtime_id == "gemini"
     assert plan.max_input_tokens == 3_200
+    assert plan.max_runtime_attempts == 2
+    assert plan.max_rate_limit_attempts == 3
+    assert plan.rate_limit_budget_ms == 60_000
+    assert plan.rate_limit_backoff_cap_ms == 5_000
     assert plan.reason == "frontier_only"
     assert plan.plan_fingerprint
 
@@ -88,3 +92,18 @@ def test_execution_plan_is_immutable_after_policy_decision() -> None:
 
     with pytest.raises(ValidationError):
         plan.default_runtime_id = "ollama"  # type: ignore[misc]
+
+
+def test_policy_allows_one_local_annotation_route_without_changing_extractor() -> None:
+    plan = build_execution_plan(
+        frontier_runtime_id="codex",
+        requested_task_runtimes={"transcript_annotate": "ollama"},
+        local_accelerator_requested=True,
+        local_accelerator_available=True,
+        max_input_tokens=None,
+        reserved_output_tokens=0,
+    )
+
+    assert plan.runtime_for("transcript_annotate") == "ollama"
+    assert plan.runtime_for("knowledge_extract") == "codex"
+    assert plan.reason == "frontier_with_local_annotation"

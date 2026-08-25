@@ -61,11 +61,33 @@ def test_documented_benchmark_scripts_show_help_from_repo_root() -> None:
         assert "usage:" in result.stdout
 
 
+def test_canonical_lock_includes_korean_fixtures_with_their_caption_languages() -> None:
+    locked = load_video_lock(REPO_ROOT / "benchmarks" / "videos.lock.json")
+    by_key = {video.key: video for video in locked.videos}
+
+    assert by_key["youtube_ko_45m46s_for_benchmark"].youtube_id == "YcA31dmSNMk"
+    assert by_key["youtube_ko_45m46s_for_benchmark"].language == "ko"
+    assert by_key["youtube_ko_45m46s_for_benchmark"].duration_seconds == 2746
+    assert by_key["youtube_ko_38m48s_for_benchmark"].youtube_id == "wVJrspYo-18"
+    assert by_key["youtube_ko_38m48s_for_benchmark"].language == "ko"
+    assert by_key["youtube_ko_38m48s_for_benchmark"].duration_seconds == 2328
+
+
+def test_metrics_runner_counts_korean_and_english_fillers() -> None:
+    assert run_preprocessing._count_fillers("음 어 um you know") == 4
+
+
 @pytest.mark.asyncio
 async def test_metrics_runner_uses_transcript_resolution_service() -> None:
     service = ResolvingTranscriptService()
 
-    row = await run_preprocessing._measure_video("5m_en", "c4GaJKprGEs", service, "detailed")
+    row = await run_preprocessing._measure_video(
+        "youtube_en_4m35s_for_benchmark",
+        "c4GaJKprGEs",
+        "en",
+        service,
+        "detailed",
+    )
 
     assert row["status"] == "success"
     assert row["transcript_provider"] == "fake-provider"
@@ -75,12 +97,28 @@ async def test_metrics_runner_uses_transcript_resolution_service() -> None:
 
 
 @pytest.mark.asyncio
+async def test_metrics_runner_uses_the_locked_korean_language() -> None:
+    service = ResolvingTranscriptService()
+
+    await run_preprocessing._measure_video(
+        "youtube_ko_45m46s_for_benchmark",
+        "YcA31dmSNMk",
+        "ko",
+        service,
+        "detailed",
+    )
+
+    assert service.calls[0][1] == "ko"
+
+
+@pytest.mark.asyncio
 async def test_metrics_runner_records_stage_latencies_for_post_feature_validation() -> None:
     service = ResolvingTranscriptService()
 
     row = await run_preprocessing._measure_video(
-        "5m_en",
+        "youtube_en_4m35s_for_benchmark",
         "c4GaJKprGEs",
+        "en",
         service,
         "detailed",
         preprocessing="current",
@@ -109,7 +147,7 @@ def test_report_and_quality_scripts_refuse_to_overwrite_artifacts(tmp_path: Path
             {
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "evidence_recall": 1.0,
                         "timestamp_accuracy": 1.0,
                         "unsupported_claims": 0,
@@ -159,15 +197,17 @@ def test_video_lock_rejects_duplicate_video_keys(tmp_path: Path) -> None:
                 "verification_method": "yt-dlp",
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "youtube_id": "c4GaJKprGEs",
                         "title": "First",
+                        "language": "en",
                         "duration_seconds": 275,
                     },
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "youtube_id": "ZIaOBAjvc38",
                         "title": "Second",
+                        "language": "en",
                         "duration_seconds": 2340,
                     },
                 ],
@@ -177,6 +217,30 @@ def test_video_lock_rejects_duplicate_video_keys(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ValueError, match="duplicate video key"):
+        load_video_lock(lock_path)
+
+
+def test_video_lock_requires_a_language(tmp_path: Path) -> None:
+    lock_path = tmp_path / "videos.lock.json"
+    lock_path.write_text(
+        json.dumps(
+            {
+                "locked_at": "2026-08-24",
+                "verification_method": "yt-dlp",
+                "videos": [
+                    {
+                        "key": "youtube_ko_45m46s_for_benchmark",
+                        "youtube_id": "YcA31dmSNMk",
+                        "title": "Korean lecture",
+                        "duration_seconds": 2746,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="language"):
         load_video_lock(lock_path)
 
 
@@ -204,7 +268,7 @@ def test_comparison_requires_matching_lock_hash_and_successful_videos(tmp_path: 
         "lock_file_sha256": "same-lock",
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "status": "success",
                 "substituted": False,
             }
@@ -217,7 +281,7 @@ def test_comparison_requires_matching_lock_hash_and_successful_videos(tmp_path: 
         "lock_file_sha256": "different-lock",
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "status": "failed",
                 "substituted": False,
             }
@@ -229,7 +293,7 @@ def test_comparison_requires_matching_lock_hash_and_successful_videos(tmp_path: 
     assert eligibility.eligible is False
     assert eligibility.reasons == (
         "lock_file_sha256 differs",
-        "current video 5m_en status is failed",
+        "current video youtube_en_4m35s_for_benchmark status is failed",
     )
 
 
@@ -238,7 +302,7 @@ def test_quality_gate_fails_for_low_recall_and_unsupported_claims() -> None:
         {
             "videos": [
                 {
-                    "key": "5m_en",
+                    "key": "youtube_en_4m35s_for_benchmark",
                     "evidence_recall": 0.75,
                     "timestamp_accuracy": 0.95,
                     "unsupported_claims": 1,
@@ -250,8 +314,8 @@ def test_quality_gate_fails_for_low_recall_and_unsupported_claims() -> None:
 
     assert result.passed is False
     assert result.failures == (
-        "5m_en evidence_recall 0.7500 below floor 0.9000",
-        "5m_en unsupported_claims 1 above floor 0",
+        "youtube_en_4m35s_for_benchmark evidence_recall 0.7500 below floor 0.9000",
+        "youtube_en_4m35s_for_benchmark unsupported_claims 1 above floor 0",
     )
 
 
@@ -269,7 +333,7 @@ def test_report_data_calculates_token_reduction_from_saved_metrics(tmp_path: Pat
                 "lock_file_sha256": "same-lock",
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "status": "success",
                         "substituted": False,
                         "raw_input_tokens": 1000,
@@ -291,7 +355,7 @@ def test_report_data_calculates_token_reduction_from_saved_metrics(tmp_path: Pat
                 "lock_file_sha256": "same-lock",
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "status": "success",
                         "substituted": False,
                         "raw_input_tokens": 1000,
@@ -310,7 +374,7 @@ def test_report_data_calculates_token_reduction_from_saved_metrics(tmp_path: Pat
     assert report["eligible"] is True
     assert report["videos"] == [
         {
-            "key": "5m_en",
+            "key": "youtube_en_4m35s_for_benchmark",
             "baseline_tokens": 1000,
             "current_tokens": 700,
             "token_delta": -300,
@@ -334,7 +398,7 @@ def test_report_data_summarizes_totals_and_warns_when_candidate_has_no_measurabl
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 1.0,
                 "timestamp_accuracy": 1.0,
                 "unsupported_claims": 0,
@@ -358,7 +422,7 @@ def test_report_data_detects_per_video_effect_even_when_totals_cancel_out() -> N
     current = _metrics_payload("current-1", 900, 1.0)
     baseline["videos"].append(
         {
-            "key": "39m_en",
+            "key": "youtube_en_39m00s_for_benchmark",
             "status": "success",
             "substituted": False,
             "raw_input_tokens": 1000,
@@ -369,7 +433,7 @@ def test_report_data_detects_per_video_effect_even_when_totals_cancel_out() -> N
     )
     current["videos"].append(
         {
-            "key": "39m_en",
+            "key": "youtube_en_39m00s_for_benchmark",
             "status": "success",
             "substituted": False,
             "raw_input_tokens": 1000,
@@ -392,7 +456,7 @@ def test_report_data_marks_quality_failure_as_reject() -> None:
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.72,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -414,7 +478,7 @@ def test_report_data_marks_speed_regression_as_revise_despite_token_win() -> Non
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.96,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -438,7 +502,7 @@ def test_decision_summary_does_not_claim_token_win_when_speed_regresses_without_
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 1.0,
                 "timestamp_accuracy": 1.0,
                 "unsupported_claims": 0,
@@ -459,7 +523,7 @@ def test_report_data_uses_saved_quality_gate_decision() -> None:
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.96,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -472,7 +536,7 @@ def test_report_data_uses_saved_quality_gate_decision() -> None:
         },
         "quality_gate": {
             "passed": False,
-            "failures": ["5m_en evidence_recall 0.9600 below floor 0.9900"],
+            "failures": ["youtube_en_4m35s_for_benchmark evidence_recall 0.9600 below floor 0.9900"],
         },
     }
 
@@ -481,7 +545,7 @@ def test_report_data_uses_saved_quality_gate_decision() -> None:
     assert report["decision"]["status"] == "reject"
     assert report["quality_gate"] == {
         "passed": False,
-        "failures": ["5m_en evidence_recall 0.9600 below floor 0.9900"],
+        "failures": ["youtube_en_4m35s_for_benchmark evidence_recall 0.9600 below floor 0.9900"],
     }
     assert report["dimensions"][2]["status"] == "fail"
 
@@ -491,7 +555,7 @@ def test_report_data_rejects_quality_from_a_different_current_run() -> None:
         "current_run_id": "current-other",
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 1.0,
                 "timestamp_accuracy": 1.0,
                 "unsupported_claims": 0,
@@ -515,7 +579,7 @@ def test_report_data_rejects_quality_with_missing_video_keys() -> None:
     current = _metrics_payload("current-1", 700, 0.9)
     baseline["videos"].append(
         {
-            "key": "39m_en",
+            "key": "youtube_en_39m00s_for_benchmark",
             "status": "success",
             "substituted": False,
             "raw_input_tokens": 2000,
@@ -526,7 +590,7 @@ def test_report_data_rejects_quality_with_missing_video_keys() -> None:
     )
     current["videos"].append(
         {
-            "key": "39m_en",
+            "key": "youtube_en_39m00s_for_benchmark",
             "status": "success",
             "substituted": False,
             "raw_input_tokens": 2000,
@@ -538,7 +602,7 @@ def test_report_data_rejects_quality_with_missing_video_keys() -> None:
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.96,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -551,7 +615,7 @@ def test_report_data_rejects_quality_with_missing_video_keys() -> None:
 
     assert report["decision"]["status"] == "reject"
     assert report["dimensions"][2]["status"] == "fail"
-    assert any("Quality keys differ: missing 39m_en" in risk for risk in report["risks"])
+    assert any("Quality keys differ: missing youtube_en_39m00s_for_benchmark" in risk for risk in report["risks"])
 
 
 def test_report_renders_previous_current_change_and_state_sections() -> None:
@@ -566,7 +630,7 @@ def test_report_renders_previous_current_change_and_state_sections() -> None:
     quality = {
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "evidence_recall": 0.96,
                 "timestamp_accuracy": 0.91,
                 "unsupported_claims": 0,
@@ -594,6 +658,26 @@ def test_report_renders_previous_current_change_and_state_sections() -> None:
     assert "border-left" not in html
 
 
+def test_display_video_label_uses_language_and_duration() -> None:
+    assert render_report.display_video_label("youtube_en_2h00m09s_for_benchmark") == "English · 2h 00m"
+    assert render_report.display_video_label("youtube_en_4m35s_for_benchmark") == "English · 4m 35s"
+    assert render_report.display_video_label("youtube_ko_45m46s_for_benchmark") == "Korean · 45m 46s"
+    assert render_report.display_video_label("custom-video") == "custom-video"
+
+
+def test_report_renders_display_labels_without_changing_fixture_keys() -> None:
+    report = build_report_data(_metrics_payload("baseline-1", 1000, 1.0), _metrics_payload("current-1", 700, 0.9))
+
+    markdown = render_report.render_markdown(report)
+    html = render_report.render_html(report)
+
+    assert report["videos"][0]["key"] == "youtube_en_4m35s_for_benchmark"
+    assert "English · 4m 35s" in markdown
+    assert "English · 4m 35s" in html
+    assert "youtube_en_4m35s_for_benchmark" not in markdown
+    assert "youtube_en_4m35s_for_benchmark" not in html
+
+
 def test_metrics_payload_preserves_release_metadata_and_stage_counts(tmp_path: Path) -> None:
     lock_path = tmp_path / "videos.lock.json"
     lock_path.write_text(
@@ -603,9 +687,10 @@ def test_metrics_payload_preserves_release_metadata_and_stage_counts(tmp_path: P
                 "verification_method": "fixture",
                 "videos": [
                     {
-                        "key": "5m_en",
+                        "key": "youtube_en_4m35s_for_benchmark",
                         "youtube_id": "c4GaJKprGEs",
                         "title": "Locked title",
+                        "language": "en",
                         "duration_seconds": 275,
                     }
                 ],
@@ -632,7 +717,7 @@ def test_metrics_payload_preserves_release_metadata_and_stage_counts(tmp_path: P
         },
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "youtube_id": "c4GaJKprGEs",
                 "locked_title": "Locked title",
                 "locked_duration_seconds": 275,
@@ -824,7 +909,7 @@ def _metrics_payload(run_id: str, processed_tokens: int, latency_seconds: float)
         "lock_file_sha256": "same-lock",
         "videos": [
             {
-                "key": "5m_en",
+                "key": "youtube_en_4m35s_for_benchmark",
                 "status": "success",
                 "substituted": False,
                 "raw_input_tokens": 1000,

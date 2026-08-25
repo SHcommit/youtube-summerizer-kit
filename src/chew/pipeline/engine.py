@@ -31,15 +31,19 @@ from chew.core.prompts import (
     REPAIR_PROMPT,
     TOPIC_PROMPT,
 )
-from chew.harness.base import Harness
+from chew.harness.base import ExternalOutcomeUnknown, Harness
+from chew.pipeline.annotation import TranscriptAnnotator
 from chew.pipeline.evidence import materialize_topic_summary
+from chew.pipeline.extraction import AnalysisSpec, KnowledgeExtractor
+from chew.pipeline.input_compiler import InputBudget, InputCompiler
 from chew.pipeline.knowledge import build_knowledge_pack
 from chew.pipeline.preprocessing import PreprocessingStats, TranscriptPreprocessor
 from chew.pipeline.scheduler import Scheduler
 from chew.pipeline.segmentation import SegmentationPolicy, SegmentManifest, segment_transcript
+from chew.pipeline.tree import KnowledgePackProjector, TreeAssembler
 from chew.storage.artifacts import ArtifactCorruptError, ArtifactStore
 from chew.storage.database import Database, JobRecord, JobSpec
-from chew.telemetry import telemetry
+from chew.telemetry import NullTelemetry, Telemetry
 from chew.transcripts.service import TranscriptService
 from chew.transcripts.validation import normalize_transcript
 
@@ -58,6 +62,7 @@ class AnalysisConfig:
     normalize_transcript: bool = False
     preprocess_transcript: bool = False
     execution_plan: ExecutionPlan | None = None
+    compiler_strategy: str = "legacy_hierarchical"
 
 
 class PipelineExecutionError(RuntimeError):
@@ -128,12 +133,14 @@ class AnalysisPipeline:
         transcripts: TranscriptService,
         harness: Harness,
         concurrency: int = 2,
+        telemetry: Telemetry | None = None,
     ) -> None:
         self.database = database
         self.artifacts = artifacts
         self.transcripts = transcripts
         self.harness = harness
         self.concurrency = concurrency
+        self.telemetry = telemetry or NullTelemetry()
 
     async def analyze(
         self,
@@ -166,6 +173,7 @@ class AnalysisPipeline:
                     "recipe": 1,
                 },
                 "schema": 1,
+                "compiler_strategy": config.compiler_strategy,
                 "provided_transcript": fingerprint(transcript) if transcript is not None else None,
             }
         )
@@ -189,7 +197,7 @@ class AnalysisPipeline:
         if transcript is not None:
             self.artifacts.put_json(transcript)
         elif cached_hash is None:
-            with telemetry.span("chew.transcript_acquisition", {"source": source.canonical_url or source.source_id}):
+            with self.telemetry.span("chew.transcript_acquisition", {"source": source.canonical_url or source.source_id}):
                 resolution = await self.transcripts.resolve(
                     source,
                     config.language,
@@ -216,7 +224,7 @@ class AnalysisPipeline:
             self.artifacts.put_json(analysis_transcript)
         transcript_hash = fingerprint(analysis_transcript)
         selected_chapters = chapters or transcript.chapters
-        with telemetry.span(
+        with self.telemetry.span(
             "chew.segmentation",
             {
                 "raw_chapters": len(transcript.chapters),
@@ -268,6 +276,122 @@ class AnalysisPipeline:
                 if winner is None:
                     raise
                 run_id = winner
+
+        if config.compiler_strategy == "gkt":
+            with self.telemetry.span("input.compile", {"strategy": "gkt"}):
+                prepared = InputCompiler().compile(
+                    transcript,
+                    InputBudget(
+                        max_input_tokens=config.max_input_tokens,
+                        reserved_output_tokens=config.reserved_output_tokens,
+                    ),
+                )
+            prepared_ref = self.artifacts.put_json(prepared)
+            checkpoint_policy = (
+                config.execution_plan.plan_fingerprint if config.execution_plan is not None else ""
+            )
+            self.database.record_compiler_checkpoint(
+                run_id=run_id,
+                stage="input.compile",
+                attempt=1,
+                artifact_hash=prepared_ref.digest,
+                measurement={"paragraph_count": len(prepared.paragraphs), "estimated_tokens": prepared.estimated_input_tokens},
+                policy_fingerprint=checkpoint_policy,
+                correlation_id=run_id,
+            )
+            if (
+                config.execution_plan is not None
+                and config.execution_plan.runtime_for("transcript_annotate") == "ollama"
+            ):
+                with self.telemetry.span("local.optimize", {"strategy": "gkt"}):
+                    annotation = await TranscriptAnnotator(self.harness).annotate(prepared, trace_id=run_id)
+                annotation_ref = self.artifacts.put_json(annotation)
+                self.database.record_compiler_checkpoint(
+                    run_id=run_id,
+                    stage="local.optimize",
+                    attempt=1,
+                    artifact_hash=annotation_ref.digest,
+                    measurement={"accepted": annotation.accepted, "reason": annotation.reason or ""},
+                    policy_fingerprint=checkpoint_policy,
+                    correlation_id=run_id,
+                )
+                prepared = annotation.prepared
+            with self.telemetry.span(
+                "frontier.generate",
+                {"strategy": "gkt", "prepared_fingerprint": prepared.fingerprint},
+            ):
+                try:
+                    extracted = await KnowledgeExtractor(self.harness).extract(
+                        prepared,
+                        AnalysisSpec(
+                            language=config.language,
+                            depth=config.depth,
+                            instructions=config.instructions,
+                        ),
+                        trace_id=run_id,
+                    )
+                except ExternalOutcomeUnknown as error:
+                    self.database.mark_external_outcome_unknown(run_id)
+                    raise PipelineExecutionError(
+                        "Frontier provider outcome is unknown; explicit retry is required."
+                    ) from error
+            draft_ref = self.artifacts.put_json(extracted.draft)
+            self.database.record_compiler_checkpoint(
+                run_id=run_id,
+                stage="frontier.generate",
+                attempt=1,
+                artifact_hash=draft_ref.digest,
+                measurement={"call_strategy": extracted.call_strategy, "usage": extracted.usage},
+                policy_fingerprint=checkpoint_policy,
+                correlation_id=run_id,
+            )
+            with self.telemetry.span("evidence.ground", {"strategy": "gkt"}):
+                tree = TreeAssembler().assemble(
+                    extracted.draft,
+                    raw_transcript=transcript,
+                    raw_transcript_fingerprint=raw_transcript_hash,
+                    prepared_transcript_fingerprint=prepared.fingerprint,
+                )
+            tree_ref = self.artifacts.put_json(tree)
+            self.database.record_compiler_checkpoint(
+                run_id=run_id,
+                stage="evidence.ground",
+                attempt=1,
+                artifact_hash=tree_ref.digest,
+                measurement=tree.diagnostics.model_dump(mode="json"),
+                policy_fingerprint=checkpoint_policy,
+                correlation_id=run_id,
+            )
+            with self.telemetry.span("tree.assemble", {"strategy": "gkt"}):
+                pack = KnowledgePackProjector().project(
+                    tree=tree,
+                    transcript=transcript,
+                    source=source,
+                    title=title or transcript.title or "YouTube 영상",
+                    language=config.language,
+                    analysis_fingerprint=analysis_key,
+                    runtime_id=extracted.runtime_id,
+                    model=extracted.model,
+                )
+            pack_ref = self.artifacts.put_json(pack)
+            self.database.record_compiler_checkpoint(
+                run_id=run_id,
+                stage="tree.assemble",
+                attempt=1,
+                artifact_hash=pack_ref.digest,
+                measurement={"topic_count": len(pack.topics), "tree_fingerprint": tree.fingerprint},
+                policy_fingerprint=checkpoint_policy,
+                correlation_id=run_id,
+            )
+            self.database.set_run_pack(run_id, pack_ref.digest)
+            return AnalysisResult(
+                run_id,
+                pack,
+                False,
+                dict(extracted.usage),
+                (extracted.model,) if extracted.model else (),
+                preprocessing_stats,
+            )
 
         graph = build_analysis_job_graph(run_id, manifest, self.harness.runtime_id)
         topic_by_id = {topic.topic_id: topic for topic in manifest.topics}
@@ -328,8 +452,9 @@ class AnalysisPipeline:
             handler,
             global_concurrency=self.concurrency,
             runtime_limits={self.harness.runtime_id: self.concurrency},
+            execution_plan=config.execution_plan,
         )
-        with telemetry.span(
+        with self.telemetry.span(
             "chew.dag_scheduler",
             {
                 "total_jobs": len(graph),

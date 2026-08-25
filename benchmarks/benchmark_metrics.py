@@ -15,6 +15,7 @@ class BenchmarkVideo:
     key: str
     youtube_id: str
     title: str
+    language: str
     duration_seconds: int
 
     @property
@@ -88,6 +89,7 @@ def load_video_lock(path: Path) -> VideoLock:
         key = _required_string(raw_video, "key")
         youtube_id = _required_string(raw_video, "youtube_id")
         title = _required_string(raw_video, "title")
+        language = _required_string(raw_video, "language")
         duration_seconds = raw_video.get("duration_seconds")
         if not isinstance(duration_seconds, int) or duration_seconds <= 0:
             raise ValueError(f"video {key} duration_seconds must be a positive integer")
@@ -97,7 +99,7 @@ def load_video_lock(path: Path) -> VideoLock:
             raise ValueError(f"duplicate youtube_id: {youtube_id}")
         seen_keys.add(key)
         seen_ids.add(youtube_id)
-        videos.append(BenchmarkVideo(key, youtube_id, title, duration_seconds))
+        videos.append(BenchmarkVideo(key, youtube_id, title, language, duration_seconds))
     return VideoLock(locked_at, verification_method, tuple(videos))
 
 

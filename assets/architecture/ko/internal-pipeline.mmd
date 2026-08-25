@@ -1,43 +1,35 @@
-%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, Apple SD Gothic Neo, Noto Sans KR, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b","clusterBkg":"#ffffff","clusterBorder":"#cbd5e1"},"flowchart":{"curve":"basis","nodeSpacing":38,"rankSpacing":52,"htmlLabels":false}}}%%
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Apple SD Gothic Neo, Noto Sans KR, Malgun Gothic, sans-serif","primaryTextColor":"#172554","lineColor":"#64748b","clusterBkg":"#ffffff","clusterBorder":"#cbd5e1"},"flowchart":{"curve":"basis","nodeSpacing":32,"rankSpacing":44,"htmlLabels":true}}}%%
 flowchart TB
-    INPUT["INPUT<br/>YouTube URL 또는 로컬 미디어 · 요약 강도(depth) · 설정"]
-    IDENTITY["1 · 식별과 재사용 판단<br/>URL/콘텐츠 SHA-256 정규화 · 호환 분석 확인"]
-    INPUT --> IDENTITY
-    IDENTITY --> CACHE{"Knowledge Pack이<br/>이미 있는가?"}
+    SOURCE["원문 식별 + raw transcript"]
+    VALIDATE["자막 준비"]
+    EXTRACT["근거 기반 추출<br/>Frontier 추론"]
+    GROUND["로컬 evidence grounding<br/>원문 span + timestamp 검증"]
+    PACK["Knowledge Pack<br/>버전이 있는 재사용 지식"]
+    RENDER["결정론적 출력 렌더링<br/>Digest · Blog · Study · Obsidian"]
 
-    CACHE -->|아니요| ACQUIRE["2 · 자막 수집과 검증<br/>yt-dlp → API → faster-whisper 품질 검사"]
-    ACQUIRE --> SEGMENT["3 · 적응형 동적 분할<br/>30분 미만 5개 제한 및 소주제 분할"]
-    SEGMENT --> SYNTHESIS["4 · 16.3배 속도 DAG 병렬 처리<br/>8개 워커 동시 처리 (Topic → Chapter → Pack)"]
-    SYNTHESIS --> PACK["Knowledge Pack<br/>개요 · 소주제 · 챕터 · 주장 · 근거 타임스탬프"]
-    CACHE --> PACK
+    SOURCE --> VALIDATE --> EXTRACT --> GROUND --> PACK --> RENDER
 
-    PACK --> REUSE["재분석 없이 활용<br/>목적과 문체별 1초 재조립"]
-    REUSE --> ASSEMBLY["5 · 출력 생성과 검증"]
-    ASSEMBLY --> OUTPUT["OUTPUT<br/>전체 요약본 · 블로그 · 학습 노트 · Obsidian"]
+    CONTROL["실행 제어<br/>정책 · immutable checkpoint · pause/resume<br/>불명확한 외부 결과 처리"]
+    STATE["지속 상태<br/>SQLite job 상태 · content-addressed artifact"]
+    OBSERVE["관측성<br/>structured log · OpenTelemetry span · 선택 Jaeger export"]
 
-    CLOUD["클라우드 실행기 (추가 용량 없음)<br/>Codex · Gemini · Claude<br/>HuggingFace (HF_TOKEN) · Antigravity (agy)"] -.-> SYNTHESIS
-    CLOUD -.-> ASSEMBLY
-    LOCAL_LLM["로컬 LLM 실행기<br/>Ollama (단일 모델 · 1–5 GB)<br/>LayeredOllama (1.5B / 7B / 14B · q4_K_M · 약 15 GB)"] -.-> SYNTHESIS
-    LOCAL_LLM -.-> ASSEMBLY
+    CONTROL -.-> VALIDATE
+    CONTROL -.-> EXTRACT
+    CONTROL -.-> GROUND
+    STATE -.-> SOURCE
+    STATE -.-> PACK
+    STATE -.-> RENDER
+    OBSERVE -.-> VALIDATE
+    OBSERVE -.-> EXTRACT
+    OBSERVE -.-> GROUND
 
-    LOCAL["Local State & Cache (SQLite WAL & zstd)<br/>중간 결과 저장 · 중단 복구 · 콘텐츠 해시 재사용"] -.-> IDENTITY
-    LOCAL -.-> SYNTHESIS
-    LOCAL -.-> PACK
-    LOCAL -.-> ASSEMBLY
-
-    TELEMETRY["OpenTelemetry Jaeger Observability<br/>실시간 트레이스 관측성 · benchmark-dashboard"] -.-> SYNTHESIS
-
-    RECOVERY["로그인 또는 연결 문제<br/>완료 결과 유지 → 문제 해결 → 이어하기 (chew resume)"] -.-> SYNTHESIS
-
-    classDef input fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#172554;
+    classDef source fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#172554;
     classDef process fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065;
     classDef knowledge fill:#fef3c7,stroke:#d97706,stroke-width:2.5px,color:#78350f;
     classDef output fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
     classDef support fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,stroke-dasharray:5 3,color:#0f172a;
-    classDef recovery fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d;
-    class INPUT input;
-    class IDENTITY,CACHE,ACQUIRE,SEGMENT,SYNTHESIS,REUSE,ASSEMBLY process;
+    class SOURCE source;
+    class VALIDATE,EXTRACT,GROUND process;
     class PACK knowledge;
-    class OUTPUT output;
-    class CLOUD,LOCAL_LLM,LOCAL,TELEMETRY support;
-    class RECOVERY recovery;
+    class RENDER output;
+    class CONTROL,STATE,OBSERVE support;

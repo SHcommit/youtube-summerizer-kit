@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 from uuid import uuid4
 
+from chew.core.models import ExecutionPlan
 from chew.harness.base import RateLimitSignal
 from chew.harness.builtin import HarnessAuthenticationError
 from chew.log import job_id_var, run_id_var
@@ -78,6 +79,7 @@ class Scheduler:
         lease_seconds: int = 60,
         poll_interval: float = 0.005,
         shutdown_event: asyncio.Event | None = None,
+        execution_plan: ExecutionPlan | None = None,
     ) -> None:
         if global_concurrency < 1:
             raise ValueError("global_concurrency must be positive")
@@ -93,6 +95,9 @@ class Scheduler:
         self.failed_jobs = 0
         self.terminal_error: Exception | None = None
         self.shutdown_event = shutdown_event
+        self.execution_plan = execution_plan
+        self._rate_limit_started_at: dict[str, float] = {}
+        self._rate_limit_attempts: dict[str, int] = {}
 
     async def run(self, run_id: str) -> RunSummary:
         worker_id = f"worker-{uuid4()}"
@@ -168,6 +173,7 @@ class Scheduler:
 
     async def _execute(self, job: JobRecord) -> None:
         limiter = self.runtime_limiters.setdefault(job.runtime_id, AdaptiveLimiter(1))
+        rate_limit_delay: float | None = None
         async with limiter.slot():
             token_r = run_id_var.set(job.run_id)
             token_j = job_id_var.set(job.job_id)
@@ -182,13 +188,35 @@ class Scheduler:
             except (RateLimited, RateLimitSignal) as error:
                 new_limit = self.database.note_rate_limit(job.runtime_id)
                 await limiter.set_limit(new_limit)
+                elapsed = _time.monotonic() - self._rate_limit_started_at.setdefault(
+                    job.job_id, _time.monotonic()
+                )
+                rate_limit_attempts = self._rate_limit_attempts.get(job.job_id, 0) + 1
+                self._rate_limit_attempts[job.job_id] = rate_limit_attempts
+                policy = self.execution_plan
+                max_attempts = policy.max_rate_limit_attempts if policy is not None else 3
+                budget_seconds = (policy.rate_limit_budget_ms / 1000) if policy is not None else 60.0
+                max_backoff = (
+                    policy.rate_limit_backoff_cap_ms / 1000 if policy is not None else 5.0
+                )
+                if rate_limit_attempts >= max_attempts or elapsed >= budget_seconds:
+                    self._fail_runtime(job, error, reason="rate_limit_exhausted")
+                    return
+                rate_limit_delay = min(
+                    _backoff_sleep(error.retry_after, job.attempts, max_cap=max_backoff),
+                    max(0.0, budget_seconds - elapsed),
+                )
                 self.database.retry_job(job.job_id, job.worker_id)
                 logger.warning(
                     "rate_limited",
-                    extra={"runtime_id": job.runtime_id, "retry_after": error.retry_after, "new_limit": new_limit},
+                    extra={
+                        "runtime_id": job.runtime_id,
+                        "retry_after": error.retry_after,
+                        "new_limit": new_limit,
+                        "attempts": rate_limit_attempts,
+                        "retry_delay_seconds": rate_limit_delay,
+                    },
                 )
-                await asyncio.sleep(_backoff_sleep(error.retry_after, job.attempts))
-                return
             except HarnessAuthenticationError as error:
                 if self.database.fail_job(job.job_id, "blocked_auth", job.worker_id):
                     self.failed_jobs += 1
@@ -202,15 +230,13 @@ class Scheduler:
             except Exception as error:
                 err_msg = str(error).lower()
                 is_quota = "usage limit" in err_msg or "quota" in err_msg
-                if is_quota or job.attempts >= 2:
-                    if self.database.fail_job(job.job_id, "failed_runtime", job.worker_id):
-                        self.failed_jobs += 1
-                    logger.error(
-                        "job_failed",
-                        extra={"kind": job.kind, "error": str(error), "attempts": job.attempts},
-                    )
-                    if job.kind != "topic":
-                        self.terminal_error = error
+                max_attempts = (
+                    self.execution_plan.max_runtime_attempts
+                    if self.execution_plan is not None
+                    else 2
+                )
+                if is_quota or job.attempts >= max_attempts:
+                    self._fail_runtime(job, error, reason="runtime_exhausted")
                     return
                 self.database.retry_job(job.job_id, job.worker_id)
                 logger.warning(
@@ -224,12 +250,31 @@ class Scheduler:
                     await heartbeat
                 run_id_var.reset(token_r)
                 job_id_var.reset(token_j)
-            latency_ms = int((_time.monotonic() - start) * 1000)
-            if not self.database.complete_job(job.job_id, result_hash, job.worker_id):
+            if rate_limit_delay is None:
+                latency_ms = int((_time.monotonic() - start) * 1000)
+                if not self.database.complete_job(job.job_id, result_hash, job.worker_id):
+                    return
+                self._rate_limit_started_at.pop(job.job_id, None)
+                self._rate_limit_attempts.pop(job.job_id, None)
+                new_limit = self.database.note_runtime_success(job.runtime_id)
+                await limiter.set_limit(new_limit)
+                logger.info(
+                    "job_completed",
+                    extra={"kind": job.kind, "latency_ms": latency_ms, "runtime_id": job.runtime_id},
+                )
                 return
-            new_limit = self.database.note_runtime_success(job.runtime_id)
-            await limiter.set_limit(new_limit)
-            logger.info(
-                "job_completed",
-                extra={"kind": job.kind, "latency_ms": latency_ms, "runtime_id": job.runtime_id},
-            )
+
+        if rate_limit_delay is not None:
+            await asyncio.sleep(rate_limit_delay)
+
+    def _fail_runtime(self, job: JobRecord, error: Exception, *, reason: str) -> None:
+        self._rate_limit_started_at.pop(job.job_id, None)
+        self._rate_limit_attempts.pop(job.job_id, None)
+        if self.database.fail_job(job.job_id, "failed_runtime", job.worker_id):
+            self.failed_jobs += 1
+        logger.error(
+            "job_failed",
+            extra={"kind": job.kind, "error": str(error), "attempts": job.attempts, "reason": reason},
+        )
+        if job.kind != "topic":
+            self.terminal_error = error

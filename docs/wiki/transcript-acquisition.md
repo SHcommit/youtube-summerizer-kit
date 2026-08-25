@@ -8,8 +8,9 @@ next actions in [`handoff.md`](../../handoff.md), not here.
 
 ## Product Boundary
 
-- `chew` never uses a proxy service, proxy rotation, third-party transcript website, browser
-  cookie store, password, or macOS Keychain for transcript recovery.
+- `chew` has no browser-login, cookie-file, or browser-profile transcript fallback and never uses
+  a proxy service, proxy rotation, third-party transcript website, browser cookie store, password,
+  or macOS Keychain for transcript recovery.
 - Public YouTube caption providers are best-effort. A user-provided VTT, SRT, or TXT file is the
   supported recovery path and is marked `USER_PROVIDED` provenance.
 - The final synthesis remains the user's configured Frontier runtime; acquisition does not make
@@ -66,16 +67,15 @@ The original failure was not one defect with one fix.
    action without exposing transport or credential data.
 3. The provider chain keeps independent public adapters and reaches `yt-dlp-automatic` after
    manual/public candidates fail. Both current fixtures succeeded at that fallback.
-4. Application bootstrap no longer passes configured browser profile or cookie-file settings to
-   default providers. There is no Keychain or browser-cookie recovery dependency in the normal
-   product path.
+4. Built-in yt-dlp providers accept no browser-profile or cookie-file settings, and the CLI has no
+   YouTube browser-authentication command. There is no Keychain or browser-cookie recovery path.
 5. `--transcript <VTT|SRT|TXT> --source-url <URL>` is the deterministic recovery path. It
    preserves original source identity and marks the raw evidence as `USER_PROVIDED`.
 
 ### Resolution Status
 
-**Resolved:** provider hangs have bounded handling; browser credential recovery is removed from
-the default pipeline; users have a credential-free transcript-input recovery path.
+**Resolved:** provider hangs have bounded handling; browser credential recovery is absent from all
+built-in transcript paths; users have a credential-free transcript-input recovery path.
 
 **Not solved and not claimed:** YouTube can still deny captions. Public extraction is best-effort,
 not an entitlement. The remaining P0 validation is a full user-transcript-to-Frontier-to-
@@ -105,9 +105,58 @@ TXT uses deterministic 30-second sequential ranges because it contains no native
 - This proves public acquisition can work on the fixture but is not a reliability guarantee.
   The run deliberately stopped before Frontier synthesis; it is not a Knowledge Pack benchmark.
 
+### 2026-08-24: Korean lecture preprocessing fixture
+
+- Fixture: `https://www.youtube.com/watch?v=YcA31dmSNMk`
+  (`youtube_ko_45m46s_for_benchmark`, 2,746 seconds, `ko`).
+- Anonymous public metadata lookup confirmed Korean automatic caption tracks (`ko`, `ko-orig`);
+  no manual subtitle track was published. This is sufficient for the credential-free preprocessing
+  fixture catalog, not a reliability guarantee or a completed Frontier benchmark.
+
+### 2026-08-24: Korean conversational preprocessing fixture
+
+- Fixture: `https://www.youtube.com/watch?v=wVJrspYo-18`
+  (`youtube_ko_38m48s_for_benchmark`, 2,328 seconds, `ko`).
+- Anonymous public metadata lookup confirmed Korean automatic caption tracks (`ko`, `ko-orig`);
+  no manual subtitle track was published. This is a credential-free fixture-catalog check only,
+  not a completed Frontier benchmark or a quality claim.
+
+### 2026-08-24: Five-minute URL-to-Knowledge-Pack execution
+
+- Fixture: `https://www.youtube.com/watch?v=c4GaJKprGEs`
+  (`youtube_en_4m35s_for_benchmark`).
+- The credential-free public path produced an `auto_subtitle` raw snapshot with **75** segments,
+  a **275,000 ms** duration, and SHA-256
+  `bbf138a6357609c99ba1bdda059c7c6cf71c673765e24fa55502876908ab2b75`.
+- The Frontier run `d2e4a1f7-9ab7-442a-9084-9a6129f7021d` completed its topic, chapter, and
+  compose jobs. It produced a Knowledge Pack with one topic and one chapter, no missing ranges,
+  and no failed topics. The deterministic evidence validator accepted 10 of 11 candidates.
+- The CLI reported **19,746** provider input tokens and **436** output tokens for the completed
+  run. The task runner observed **18.4 seconds** wall time for the URL-to-Digest command.
+- A first Blog reassembly exposed a Codex rejection of incomplete output schemas; that contract
+  was fixed. A second Blog request restored the resulting cached output without re-analysis:
+  `reused: true`, same run ID, and a **5,138-byte** Markdown file.
+- This validates the primary URL branch of the P0 flow. A user-provided VTT/SRT/TXT remains the
+  credential-free recovery path only when public YouTube caption providers cannot supply a raw
+  transcript; it is not a prerequisite for normal URL summarization.
+
+### 2026-08-24: Frontier evidence and partial-result validation
+
+- The completed five-minute Codex run above recorded 11 model-proposed evidence candidates. The
+  deterministic validator accepted 10 and rejected 1; rejected candidates do not become trusted
+  evidence in the Knowledge Pack.
+- A separate controlled validation used a short `USER_PROVIDED` fixture and the real Codex harness.
+  Its harness deliberately failed `retries-topic-001` on both normal runtime attempts while Codex
+  completed the remaining `topic_summary`, both `chapter_summary` jobs, and `compose`.
+- The resulting Knowledge Pack had `completion_status: partial`,
+  `failed_topic_ids: ["retries-topic-001"]`, and a missing range of 60,000-120,000 ms. This
+  confirms that user output can distinguish incomplete source coverage without discarding the
+  successfully synthesized content.
+
 ### 2026-08-24: Representative long-video fixture
 
-- Fixture: `https://www.youtube.com/watch?v=ZIaOBAjvc38` (`39m_en`, 2,340 seconds in the
+- Fixture: `https://www.youtube.com/watch?v=ZIaOBAjvc38`
+  (`youtube_en_39m00s_for_benchmark`, 2,340 seconds in the
   locked fixture catalog; this is the current representative video near the requested 30-minute
   class).
 - Cache-bypassed provider-chain run completed in **16.82 seconds**. `youtubei-transcript`
@@ -120,6 +169,8 @@ TXT uses deterministic 30-second sequential ranges because it contains no native
 
 - Browser cookie/profile extraction: may access OS credential storage and is not required for the
   supported product path.
+- Visible-panel browser capture and OCR: URL-based public providers are the normal path; these add
+  browser or OS permissions and transcription errors without improving the supported recovery path.
 - Central, residential, or rotating proxies: paid, operationally fragile, and do not resolve all
   `429`, session, or `FAILED_PRECONDITION` cases.
 - Third-party transcript websites as a fallback: violates source/provenance and availability

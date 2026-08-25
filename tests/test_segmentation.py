@@ -118,3 +118,12 @@ def test_explicit_token_budget_splits_before_time_limit() -> None:
     )
 
     assert [topic.segment_indexes for topic in manifest.topics] == [(0,), (1,), (2,)]
+
+
+def test_coalescing_does_not_treat_korean_text_as_a_depth_mode() -> None:
+    chapters = tuple(
+        Chapter(chapter_id=f"chapter-{index}", title=str(index), start_ms=index, end_ms=index + 1)
+        for index in range(4)
+    )
+
+    assert len(segment_transcript(make_transcript(12), chapters, SegmentationPolicy(), depth="핵심").chapters) == 4

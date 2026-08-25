@@ -1,28 +1,19 @@
-core:
-  - 'src/ytsum/core/**/*'
-
-pipeline:
-  - 'src/ytsum/pipeline/**/*'
-
-harness:
-  - 'src/ytsum/harness/**/*'
-
-transcripts:
-  - 'src/ytsum/transcripts/**/*'
-
-storage:
-  - 'src/ytsum/storage/**/*'
-
-cli:
-  - 'src/ytsum/cli/**/*'
-
+# actions/labeler@v5 requires each label to contain match objects.
+# Use only labels that already exist in this repository.
 documentation:
-  - 'README.md'
-  - 'README.ko.md'
-  - 'CHANGELOG.md'
-  - 'AGENTS.md'
-  - 'CONTRIBUTING.md'
-  - 'assets/**/*'
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+          - 'assets/**'
+          - 'modules/**'
 
-ci-cd:
-  - '.github/**/*'
+github_actions:
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'pyproject.toml'
+          - 'uv.lock'

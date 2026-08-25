@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import re
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -17,11 +16,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.benchmark_metrics import load_video_lock, lock_file_sha256, write_metrics_run
 from chew.core.identity import normalize_youtube_url
+from chew.pipeline.preprocessing import count_fillers
 from chew.pipeline.segmentation import SegmentationPolicy, segment_transcript
 from chew.transcripts import TranscriptService, default_providers
 
 REPORT_ROOT = Path("reports/performance-comparisons/transcript-preprocessing")
-FILLER_PATTERN = re.compile(r"\b(um|uh|erm|ah|like|you know)\b", re.IGNORECASE)
 
 
 def main() -> None:
@@ -63,8 +62,16 @@ async def run(
 
     async def measure(video: Any) -> dict[str, Any]:
         async with semaphore:
-            row = await _measure_video(video.key, video.youtube_id, service, depth, preprocessing=preprocessing)
+            row = await _measure_video(
+                video.key,
+                video.youtube_id,
+                video.language,
+                service,
+                depth,
+                preprocessing=preprocessing,
+            )
             row["locked_title"] = video.title
+            row["locked_language"] = video.language
             row["locked_duration_seconds"] = video.duration_seconds
             return row
 
@@ -91,6 +98,7 @@ async def run(
 async def _measure_video(
     key: str,
     youtube_id: str,
+    language: str,
     service: TranscriptService,
     depth: str,
     *,
@@ -100,7 +108,7 @@ async def _measure_video(
     started = monotonic()
     try:
         fetch_started = monotonic()
-        resolution = await service.resolve(source, "en", include_optional=False)
+        resolution = await service.resolve(source, language, include_optional=False)
         fetch_latency = monotonic() - fetch_started
         transcript = resolution.transcript
         text = "\n".join(segment.text for segment in transcript.segments)
@@ -121,10 +129,11 @@ async def _measure_video(
         total_latency = monotonic() - started
         raw_tokens = _count_tokens(text)
         processed_tokens = _count_tokens(processed_text)
-        filler_count = len(FILLER_PATTERN.findall(text))
+        filler_count = _count_fillers(text)
         return {
             "key": key,
             "youtube_id": youtube_id,
+            "requested_language": language,
             "status": "success",
             "substituted": False,
             "transcript_provider": resolution.provider,
@@ -171,6 +180,7 @@ async def _measure_video(
         return {
             "key": key,
             "youtube_id": youtube_id,
+            "requested_language": language,
             "status": "failed",
             "substituted": False,
             "error": f"{type(error).__name__}: {error}",
@@ -209,6 +219,10 @@ def _count_tokens(text: str) -> int:
         return len(text.split())
     encoding = tiktoken.get_encoding("cl100k_base")
     return len(encoding.encode(text))
+
+
+def _count_fillers(text: str) -> int:
+    return count_fillers(text)
 
 
 def _git_sha() -> str:

@@ -16,6 +16,7 @@ from chew.pipeline.outputs import OutputCompiler
 from chew.pipeline.policy import LOCAL_RUNTIME_IDS, build_execution_plan
 from chew.pipeline.preprocessing import PreprocessingStats
 from chew.storage.database import Database
+from chew.telemetry import TelemetryManager
 from chew.transcripts.user_input import UserTranscriptProvider
 
 
@@ -54,12 +55,14 @@ class ApplicationService:
         *,
         working_directory: Path | None = None,
         registry: HarnessRegistry | None = None,
+        telemetry: TelemetryManager | None = None,
     ) -> None:
         self.pipeline = pipeline
         self.compiler = compiler
         self.database = database
         self.working_directory = working_directory or Path.cwd()
         self.registry = registry
+        self.telemetry = telemetry
 
     async def generate(
         self,
@@ -91,12 +94,34 @@ class ApplicationService:
         *,
         transcript: Transcript | None = None,
     ) -> CommandResult:
+        if self.telemetry is None:
+            return await self._generate_in_scope(
+                url, profile, destination, analysis_settings, output_settings, transcript=transcript
+            )
+        with self.telemetry.run():
+            return await self._generate_in_scope(
+                url, profile, destination, analysis_settings, output_settings, transcript=transcript
+            )
+
+    async def _generate_in_scope(
+        self,
+        url: str,
+        profile: str,
+        destination: Path,
+        analysis_settings: Settings,
+        output_settings: Settings,
+        *,
+        transcript: Transcript | None = None,
+    ) -> CommandResult:
         local_requested = analysis_settings.local_accelerator or any(
             runtime_id in LOCAL_RUNTIME_IDS for runtime_id in analysis_settings.task_runtimes.values()
         )
+        requested_task_runtimes = dict(analysis_settings.task_runtimes)
+        if local_requested:
+            requested_task_runtimes.setdefault("transcript_annotate", "ollama")
         plan = build_execution_plan(
             frontier_runtime_id=analysis_settings.runtime,
-            requested_task_runtimes=analysis_settings.task_runtimes,
+            requested_task_runtimes=requested_task_runtimes,
             local_accelerator_requested=local_requested,
             local_accelerator_available=await self._local_accelerator_available(local_requested),
             max_input_tokens=analysis_settings.max_input_tokens,
@@ -120,6 +145,7 @@ class ApplicationService:
             normalize_transcript=analysis_settings.normalize_transcript,
             preprocess_transcript=analysis_settings.preprocess_transcript,
             execution_plan=plan,
+            compiler_strategy="gkt",
         )
         try:
             if transcript is None:
@@ -165,7 +191,10 @@ class ApplicationService:
             else Settings.model_validate_json(stored_recipe)
         )
         output_settings = load_settings(self.working_directory, "digest")
-        self.database.prepare_resume(selected_id)
+        if self.database.get_run_state(selected_id) == "external_outcome_unknown":
+            self.database.prepare_explicit_retry(selected_id)
+        else:
+            self.database.prepare_resume(selected_id)
         source_locator = self.database.get_run_source_locator(selected_id)
         if source_locator is None:
             video_id = source_id.removeprefix("youtube:")

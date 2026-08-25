@@ -20,11 +20,14 @@ spec으로 다시 검토한다.
 | Notion integration | Knowledge Pack을 Notion database와 page로 발행 | 안정적인 export schema와 실제 사용자 수요 | Deferred |
 | Podcast RSS and additional sources | RSS, article, PDF 등 입력 확대 | YouTube workflow 품질과 운영 안정성 확보 | Deferred |
 | Public Python API | 스크립트와 내부 도구에서 직접 분석 호출 | CLI API와 결과 schema 안정화 | Deferred |
+| Research Engine | 완료된 Knowledge Pack으로 후속 질문·근거 연결·별도 research session 수행 | 첫 user flow와 versioned read-only `KnowledgeGateway` 확정; [`design`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md) 및 [`module boundary`](modules/research-engine/README.md) 검토 | Deferred |
 | MCP server | Agent가 분석과 재조립 결과를 tool로 사용 | public API, 권한, 실행 격리 설계 확정 | Deferred |
 | REST API and automation | n8n, Zapier, Make 등 자동화 연결 | API 인증, rate limit, 장기 job 운영 모델 확정 | Deferred |
+| Scoped DI container | MCP/server/session의 app·run·action 수명과 resource cleanup을 일관되게 관리 | 수동 `ApplicationContainer`로 telemetry injection을 정리하고, 실제 다중 request/session lifecycle이 활성화될 것 | Deferred |
 
 ## Reconsideration Rules
 
 - 단발성 영상 요약에는 임베딩이나 RAG를 기본 경로에 넣지 않는다.
 - 최종 요약과 주장 판단은 Frontier runtime이 담당한다.
 - 각 기능은 실제 사용자 문제, 보안 경계, 유지 비용, 성능 측정이 확인될 때만 승격한다.
+- scoped DI container를 재검토할 때는 `dishka`의 async `APP → REQUEST/RUN → ACTION` scope가 수동 조립보다 lifecycle cleanup과 test override를 실제로 단순화하는지 spike로 확인한다. container는 entrypoint에서만 사용하며, core/pipeline code는 service locator에 의존하지 않는다.

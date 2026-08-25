@@ -7,6 +7,7 @@ from time import monotonic
 import pytest
 
 from chew.harness.builtin import HarnessAuthenticationError
+from chew.pipeline.policy import build_execution_plan
 from chew.pipeline.scheduler import _backoff_sleep
 from chew.scheduler import RateLimited, Scheduler
 from chew.storage.database import Database, JobRecord, JobSpec
@@ -102,6 +103,76 @@ async def test_rate_limit_retries_job_and_persists_lower_concurrency(tmp_path: P
 
     assert handler.calls["topic-0"] == 2
     assert database.get_runtime_limit("fake", 2) == 1
+
+
+@pytest.mark.asyncio
+async def test_persistent_rate_limit_fails_topic_after_three_attempts(tmp_path: Path) -> None:
+    database = database_with_run(tmp_path)
+    database.upsert_job(JobSpec("topic-0", "run-1", "topic", 20, runtime_id="fake"))
+
+    class AlwaysRateLimitedHandler(RecordingHandler):
+        async def handle(self, job: JobRecord) -> str:
+            self.calls[job.job_id] += 1
+            raise RateLimited(retry_after=0)
+
+    handler = AlwaysRateLimitedHandler({})
+    plan = build_execution_plan(
+        frontier_runtime_id="fake",
+        requested_task_runtimes={},
+        local_accelerator_requested=False,
+        local_accelerator_available=None,
+        max_input_tokens=None,
+        reserved_output_tokens=0,
+    )
+    summary = await Scheduler(
+        database,
+        handler,
+        global_concurrency=1,
+        runtime_limits={"fake": 1},
+        execution_plan=plan,
+    ).run("run-1")
+
+    assert handler.calls["topic-0"] == 3
+    assert summary.failed_jobs == 1
+    assert database.list_run_statuses("run-1")[0][2] == "failed_runtime"
+
+
+@pytest.mark.asyncio
+async def test_resume_starts_a_fresh_rate_limit_retry_budget(tmp_path: Path) -> None:
+    database = database_with_run(tmp_path)
+    database.upsert_job(JobSpec("topic-0", "run-1", "topic", 20, runtime_id="fake"))
+
+    class AlwaysRateLimitedHandler(RecordingHandler):
+        async def handle(self, job: JobRecord) -> str:
+            self.calls[job.job_id] += 1
+            raise RateLimited(retry_after=0)
+
+    plan = build_execution_plan(
+        frontier_runtime_id="fake",
+        requested_task_runtimes={},
+        local_accelerator_requested=False,
+        local_accelerator_available=None,
+        max_input_tokens=None,
+        reserved_output_tokens=0,
+    )
+    handler = AlwaysRateLimitedHandler({})
+    await Scheduler(
+        database,
+        handler,
+        global_concurrency=1,
+        runtime_limits={"fake": 1},
+        execution_plan=plan,
+    ).run("run-1")
+    database.prepare_resume("run-1")
+    await Scheduler(
+        database,
+        handler,
+        global_concurrency=1,
+        runtime_limits={"fake": 1},
+        execution_plan=plan,
+    ).run("run-1")
+
+    assert handler.calls["topic-0"] == 6
 
 
 @pytest.mark.asyncio

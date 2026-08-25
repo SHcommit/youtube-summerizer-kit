@@ -42,7 +42,7 @@ def _timestamp(value: datetime) -> str:
 
 
 class Database:
-    SCHEMA_VERSION = 7
+    SCHEMA_VERSION = 8
     _local: threading.local  # class-level annotation; one per Database instance via __init__
 
     def __init__(self, path: Path) -> None:
@@ -147,30 +147,52 @@ class Database:
                     details_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS compiler_checkpoints (
+                    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+                    stage TEXT NOT NULL,
+                    attempt INTEGER NOT NULL,
+                    artifact_hash TEXT NOT NULL,
+                    measurement_json TEXT NOT NULL DEFAULT '{}',
+                    policy_fingerprint TEXT NOT NULL,
+                    correlation_id TEXT NOT NULL,
+                    completed_at TEXT NOT NULL,
+                    PRIMARY KEY(run_id, stage, attempt)
+                );
                 """
             )
-            columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(runs)").fetchall()}
-            if "request_key" not in columns:
-                connection.execute("ALTER TABLE runs ADD COLUMN request_key TEXT NOT NULL DEFAULT ''")
-            if "recipe_json" not in columns:
-                connection.execute("ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''")
-            if "source_locator" not in columns:
-                connection.execute("ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''")
-            if "execution_plan_json" not in columns:
-                connection.execute("ALTER TABLE runs ADD COLUMN execution_plan_json TEXT NOT NULL DEFAULT ''")
-            measurement_columns = {
-                str(row[1]) for row in connection.execute("PRAGMA table_info(job_measurements)").fetchall()
-            }
-            if "details_json" not in measurement_columns:
-                connection.execute("ALTER TABLE job_measurements ADD COLUMN details_json TEXT NOT NULL DEFAULT '{}'")
+            for version in range(current_version + 1, self.SCHEMA_VERSION + 1):
+                self._apply_migration(connection, version)
+                connection.execute(f"PRAGMA user_version = {version}")
+
+    @staticmethod
+    def _has_column(connection: sqlite3.Connection, table: str, column: str) -> bool:
+        return column in {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
+
+    def _apply_migration(self, connection: sqlite3.Connection, version: int) -> None:
+        if version == 1:
+            return
+        if version == 2 and not self._has_column(connection, "runs", "request_key"):
+            connection.execute("ALTER TABLE runs ADD COLUMN request_key TEXT NOT NULL DEFAULT ''")
+        elif version == 3 and not self._has_column(connection, "runs", "recipe_json"):
+            connection.execute("ALTER TABLE runs ADD COLUMN recipe_json TEXT NOT NULL DEFAULT ''")
+        elif version == 4 and not self._has_column(connection, "runs", "source_locator"):
+            connection.execute("ALTER TABLE runs ADD COLUMN source_locator TEXT NOT NULL DEFAULT ''")
+        elif version == 5 and not self._has_column(connection, "runs", "execution_plan_json"):
+            connection.execute("ALTER TABLE runs ADD COLUMN execution_plan_json TEXT NOT NULL DEFAULT ''")
+        elif version == 6 and not self._has_column(connection, "job_measurements", "details_json"):
+            connection.execute("ALTER TABLE job_measurements ADD COLUMN details_json TEXT NOT NULL DEFAULT '{}'")
+        elif version == 7:
+            connection.execute("CREATE INDEX IF NOT EXISTS runs_reuse_idx ON runs(source_id, request_key, updated_at DESC)")
+            connection.execute("CREATE INDEX IF NOT EXISTS job_measurements_job_idx ON job_measurements(job_id, measurement_id)")
+        elif version == 8:
             connection.execute(
-                "CREATE INDEX IF NOT EXISTS runs_reuse_idx ON runs(source_id, request_key, updated_at DESC)"
+                "CREATE TABLE IF NOT EXISTS compiler_checkpoints ("
+                "run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE, "
+                "stage TEXT NOT NULL, attempt INTEGER NOT NULL, artifact_hash TEXT NOT NULL, "
+                "measurement_json TEXT NOT NULL DEFAULT '{}', policy_fingerprint TEXT NOT NULL, "
+                "correlation_id TEXT NOT NULL, completed_at TEXT NOT NULL, "
+                "PRIMARY KEY(run_id, stage, attempt))"
             )
-            connection.execute(
-                "CREATE INDEX IF NOT EXISTS job_measurements_job_idx "
-                "ON job_measurements(job_id, measurement_id)"
-            )
-            connection.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
     def journal_mode(self) -> str:
         with self._connect() as connection:
@@ -640,6 +662,87 @@ class Database:
                 "UPDATE runs SET status = 'completed', knowledge_pack_hash = ?, updated_at = ? WHERE run_id = ?",
                 (digest, _timestamp(datetime.now(UTC)), run_id),
             )
+
+    def record_compiler_checkpoint(
+        self,
+        *,
+        run_id: str,
+        stage: str,
+        attempt: int,
+        artifact_hash: str,
+        measurement: dict[str, object],
+        policy_fingerprint: str,
+        correlation_id: str,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO compiler_checkpoints(run_id, stage, attempt, artifact_hash, measurement_json, "
+                "policy_fingerprint, correlation_id, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    run_id,
+                    stage,
+                    attempt,
+                    artifact_hash,
+                    json.dumps(redact_sensitive(measurement), sort_keys=True),
+                    policy_fingerprint,
+                    correlation_id,
+                    _timestamp(datetime.now(UTC)),
+                ),
+            )
+
+    def list_compiler_checkpoints(
+        self, run_id: str
+    ) -> list[tuple[str, int, str, dict[str, object], str, str]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT stage, attempt, artifact_hash, measurement_json, policy_fingerprint, correlation_id "
+                "FROM compiler_checkpoints WHERE run_id = ? ORDER BY completed_at, stage, attempt",
+                (run_id,),
+            ).fetchall()
+        return [
+            (
+                str(row["stage"]),
+                int(row["attempt"]),
+                str(row["artifact_hash"]),
+                {str(key): value for key, value in json.loads(str(row["measurement_json"])).items()},
+                str(row["policy_fingerprint"]),
+                str(row["correlation_id"]),
+            )
+            for row in rows
+        ]
+
+    def mark_external_outcome_unknown(self, run_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE runs SET status = 'external_outcome_unknown', updated_at = ? WHERE run_id = ?",
+                (_timestamp(datetime.now(UTC)), run_id),
+            )
+
+    def prepare_explicit_retry(self, run_id: str) -> int:
+        """Reopen an uncertain external request only after an explicit user action."""
+        with self._connect() as connection:
+            row = connection.execute("SELECT status FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+            if row is None:
+                raise LookupError(f"run not found: {run_id}")
+            if str(row["status"]) != "external_outcome_unknown":
+                raise ValueError("only an unknown external outcome can be explicitly retried")
+            max_attempt = int(
+                connection.execute(
+                    "SELECT COALESCE(MAX(attempt), 0) FROM compiler_checkpoints WHERE run_id = ?",
+                    (run_id,),
+                ).fetchone()[0]
+            )
+            attempt = max(2, max_attempt + 1)
+            connection.execute(
+                "UPDATE runs SET status = 'pending', updated_at = ? WHERE run_id = ?",
+                (_timestamp(datetime.now(UTC)), run_id),
+            )
+        return attempt
+
+    def get_run_state(self, run_id: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute("SELECT status FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+        return None if row is None else str(row["status"])
 
     def get_run_pack(self, run_id: str) -> str | None:
         with self._connect() as connection:

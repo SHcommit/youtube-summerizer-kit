@@ -7,7 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Auto Labeler configuration**: migrates `.github/labeler.yml` to the `actions/labeler@v5`
+  match-object format, removes obsolete `src/ytsum` paths, and limits automatic labels to labels
+  that exist in the repository.
+
 ### Added
+- **Grounded Knowledge Compiler module boundaries**: documents `chew` as the Grounded Knowledge
+  Compiler and adds documentation-only `intent-analysis` and `research-engine` boundaries. Neither
+  is an installable package or runtime feature; LangGraph, RAG, MCP, HTTP, web UI, and model
+  dependencies remain deferred pending one selected user flow and a typed read-only
+  `KnowledgeGateway`.
+- **Bounded agent and interface foundations**: adds immutable agent budgets, named tool grants,
+  guarded tool invocation, and protocol-neutral interface response contracts. CLI machine-result
+  presentation now reuses a framework-independent presenter, while HTTP, MCP, LangGraph, and web
+  implementations remain deliberately deferred.
+- **Live benchmark progress**: each condition/repeat is emitted immediately before its external
+  provider call, making long explicit live runs observable before their final report is written.
+- **Grounded Knowledge Tree compiler foundation**: adds immutable untrusted tree drafts and
+  locally grounded tree artifacts, reversible prepared-transcript input, one-shot local annotation
+  sidecars, and a one-call Frontier extraction path (with a bounded two-call over-budget refine
+  adapter). The compatible Knowledge Pack now records the resulting tree fingerprint.
+- **Role-bound local annotation**: an already-installed single Ollama model may receive one
+  closed transcript-annotation sidecar request when explicitly enabled; policy keeps extraction
+  on the Frontier runtime and records the local stage separately.
+- **Explicit unknown-outcome retry**: a run whose provider acceptance is uncertain cannot be
+  silently resent; an explicit `resume` records a new retry attempt before reopening it.
+- **Comparable GKT benchmark condition**: short-video benchmark specifications now include a
+  `gkt-deterministic` condition alongside the historical single-pass and hierarchical paths,
+  using the same resolved transcript snapshot and configured Frontier runtime.
+- **GKT trace vocabulary**: compiler execution now emits `input.compile`, `frontier.generate`,
+  `evidence.ground`, and `tree.assemble` spans, aligned with immutable compiler checkpoints.
+- **GKT benchmark diagnostics**: deterministic GKT benchmark results now report Frontier call count,
+  grounding coverage, ambiguous anchors, and unsupported tree claims alongside quality metrics.
+- **Benchmark-reference review queues**: adds non-executable, AI-assisted Markdown candidate
+  queues for the current short, long, and Korean fixtures. Human approval is required before any
+  candidate can enter a live benchmark reference.
+- **User-reviewed benchmark references**: transcribes 14 approved claims across six source-specific
+  JSON reference artifacts. Five queue entries marked for revision remain excluded, and all reference
+  files pass the pre-provider structural validation.
+- **Korean conversational benchmark fixture**: adds the publicly captioned 38m48s Korean
+  conversational fixture `youtube_ko_38m48s_for_benchmark` to the locked maintainer preprocessing
+  catalog. It is a reproducibility input only; no live Frontier benchmark or quality claim was run.
+- **Korean lecture benchmark fixture**: adds the publicly captioned 45m46s Korean lecture
+  `youtube_ko_45m46s_for_benchmark` to the locked maintainer preprocessing catalog. It is a
+  reproducibility input only; no live Frontier benchmark or quality claim was run.
 - **Bounded, credential-free transcript recovery**:
   - Public transcript providers now have 20-second individual deadlines and a 60-second
     acquisition budget with structured timeout and YouTube failure reasons.
@@ -19,12 +63,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **YouTube caption acquisition hardening**:
   - Adds a player-bootstrap `youtubei` structured transcript provider and a direct player-response `captionTracks` provider ahead of third-party extractors.
   - Records timed-text `HTTP 429` explicitly and continues when YouTube rejects a `youtubei` request with `FAILED_PRECONDITION`.
-  - Enables an installed Node.js runtime for yt-dlp and adds an explicit `youtube_cookie_file` opt-in without automatic browser-profile discovery or cookie copying.
-  - Adds `chew auth youtube` as an explicit local-browser login fallback; it retains only the selected browser/profile name, reads no credentials until caption retrieval, and removes the selection with `--clear`.
+  - Enables an installed Node.js runtime for anonymous public yt-dlp caption retrieval.
 - **Resilient transcript acquisition**:
   - Adds `pytubefix` caption extraction as an independent fallback after yt-dlp and youtube-transcript-api.
   - Preserves 429 as a rate-limit outcome, retries it with bounded backoff, and gives an actionable CLI recovery message.
-  - Documents provider order, opt-in credential boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
+  - Documents provider order, credential-free boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
+
+### Changed
+- **Architecture documentation refresh**: README now presents a user flow, external adapter
+  boundaries, and the grounded core pipeline separately in English and Korean. Logging, tracing,
+  checkpoints, and durable state are shown as cross-cutting concerns rather than package inventory.
+- **Frontier benchmark fixture cleanup**: removed the human-review queues and executable reference
+  files that existed solely for Live Frontier comparisons, which are no longer an active workflow.
+- **Codex GKT strict-schema compatibility**: fixed-length relation tuples now emit a string-object
+  `items` schema while preserving their length validation, allowing Codex structured extraction to
+  accept the Grounded Knowledge Tree response contract.
+- **Locked preprocessing measurement**: the metrics-only baseline and candidate paths now have a
+  recorded seven-fixture run, including the Korean lecture and conversational fixtures. All seven
+  captions resolved with the entry-specific language; tokenizer input changed from 132,312 to
+  118,716 (10.28%). This remains non-billing, non-quality evidence and does not change the
+  opt-in preprocessing default.
+- **Reviewed preprocessing conclusion**: promoted the seven-fixture metrics-only result to the
+  maintainer benchmark index. The default remains opt-in because the report has no quality gate or
+  provider-billing evidence.
+- **Default compilation and rendering path**: application runs now select the GKT compiler;
+  default Digest, Blog, Study, JSON, and Obsidian profiles render deterministically from the
+  persisted Knowledge Pack without outline, compose, or verification model requests. The former
+  hierarchical pipeline remains available only as an explicit compatibility/benchmark strategy.
+- **Readable benchmark display labels**: Markdown, HTML, and Plotly per-video reports now show
+  compact language-and-duration labels such as `English · 2h 00m` while preserving the immutable
+  fixture key in locks, metrics, and quality comparisons.
+- **Reviewed benchmark-reference guardrail**: quality references now require non-empty claims and
+  evidence, valid source metadata, positive durations/tolerances, and in-range timestamps. Invalid
+  files are rejected by the CLI before a live provider call.
+- **Per-video benchmark caption language**: each locked benchmark entry now declares its requested
+  caption language. Both preprocessing measurement paths use that value, and the obsolete duplicate
+  report-side lock file was removed in favor of `benchmarks/videos.lock.json`. Filler metrics now
+  reuse the product's Korean and English filler definitions.
+- **Named maintainer benchmark inputs**: renamed locked YouTube fixture keys to the explicit
+  `youtube_en_<duration>_for_benchmark` form, making their dedicated benchmark role clear without
+  conflating them with product URLs or a particular synthesis path.
+- **Explicit schema migration history**: SQLite schema upgrades now execute named, idempotent
+  version steps through v7, including the existing run and measurement indexes, rather than
+  relying on implicit current-schema creation for evolution.
+- **Canonical segmentation depth values**: removed localized Korean depth aliases from chapter
+  coalescing so only documented canonical configuration values affect segmentation behavior.
+- **Run-local telemetry injection**: removes the global telemetry singleton. `ApplicationContainer`
+  injects telemetry into the pipeline, and `ApplicationService` opens a `ContextVar`-isolated
+  collector for each generate or resume run so concurrent traces do not share span buffers.
+- **P0 transcript snapshot integrity**: short-video Frontier benchmark preparation now resolves
+  public captions once before any condition runs and injects that immutable snapshot into every
+  single-pass and hierarchical repeat. A resolution failure therefore produces no live condition
+  and no quality report.
+- **Frontier evidence and partial-result validation**: a live Codex run rejected an invalid
+  transcript-evidence candidate, and a controlled live Codex pipeline run confirmed that a failed
+  topic produces an explicit partial result with its missing timestamp range while remaining
+  chapter and compose work completes.
+- **Transcript recovery scope**: rejects visible-panel browser capture and OCR as product fallback
+  work. Public URL acquisition remains the normal path, while explicit VTT/SRT/TXT input remains
+  the sole credential-free recovery mechanism.
+- **Bounded runtime rate-limit recovery**: `ExecutionPlan` now records the normal runtime retry
+  ceiling (2 attempts) and 429 policy (3 attempts, a 60-second per-job budget, and full-jitter
+  waits capped at 5 seconds). Persistent rate limits now end as `failed_runtime`; topic failures
+  retain partial-result behavior, while critical jobs remain terminal. An explicit `chew resume`
+  starts a new in-memory rate-limit budget.
+- **Strict credential-free transcript acquisition**: removed the `chew auth youtube` command, browser-profile store, `youtube_cookie_file` configuration, and yt-dlp cookie/browser options. Built-in provider construction now supports only anonymous public caption retrieval; invalid legacy configuration fails explicitly.
+- **Strict Codex output composition schemas**: output outline, compose, and verification requests now declare complete object properties, allowing cached Knowledge Packs to be reassembled through Codex structured output.
+- **P0 URL-path validation**: the locked five-minute fixture completed public transcript acquisition, Frontier synthesis, Knowledge Pack generation, Digest export, and cached Blog reassembly without browser credentials.
 - **Short-video Frontier benchmark**:
   - Adds `chew benchmark run --short-video` to compare one-pass and hierarchical synthesis using the same transcript and configured Frontier runtime.
   - Records provider usage, latency, evidence coverage, timestamp accuracy, and unsupported claims without mixing in direct video-URL input.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,31 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.benchmark_metrics import build_report_data, load_metrics, write_text_once
+
+_BENCHMARK_VIDEO_KEY = re.compile(
+    r"^youtube_(?P<language>en|ko)_(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+)s)?_for_benchmark$"
+)
+_DISPLAY_LANGUAGE = {"en": "English", "ko": "Korean"}
+
+
+def display_video_label(key: str) -> str:
+    """Return a compact report label while preserving unknown fixture keys."""
+    match = _BENCHMARK_VIDEO_KEY.fullmatch(key)
+    if match is None:
+        return key
+
+    hours = int(match.group("hours") or 0)
+    minutes = int(match.group("minutes") or 0)
+    seconds = int(match.group("seconds") or 0)
+    if hours:
+        duration = f"{hours}h {minutes:02d}m"
+    elif minutes:
+        duration = f"{minutes}m {seconds:02d}s"
+    elif seconds:
+        duration = f"{seconds}s"
+    else:
+        return key
+    return f"{_DISPLAY_LANGUAGE[match.group('language')]} · {duration}"
 
 
 def main() -> None:
@@ -127,7 +153,7 @@ def render_markdown(data: dict[str, Any]) -> str:
     for row in data["videos"]:
         lines.append(
             "| {key} | {baseline_tokens} | {current_tokens} | {token_delta} | {reduction:.1%} | {latency_delta:.3f}s | {status} |".format(
-                key=row["key"],
+                key=display_video_label(row["key"]),
                 baseline_tokens=row["baseline_tokens"],
                 current_tokens=row["current_tokens"],
                 token_delta=row["token_delta"],
@@ -156,10 +182,10 @@ def render_html(data: dict[str, Any]) -> str:
     except ImportError:
         return _fallback_html(data)
 
-    keys = [row["key"] for row in data["videos"]]
+    labels = [display_video_label(row["key"]) for row in data["videos"]]
     token_figure = go.Figure()
-    token_figure.add_bar(name="Baseline tokens", x=keys, y=[row["baseline_tokens"] for row in data["videos"]])
-    token_figure.add_bar(name="Current tokens", x=keys, y=[row["current_tokens"] for row in data["videos"]])
+    token_figure.add_bar(name="Baseline tokens", x=labels, y=[row["baseline_tokens"] for row in data["videos"]])
+    token_figure.add_bar(name="Current tokens", x=labels, y=[row["current_tokens"] for row in data["videos"]])
     token_figure.update_layout(
         title="Input tokens by video",
         barmode="group",
@@ -187,7 +213,7 @@ def render_html(data: dict[str, Any]) -> str:
     latency_figure = go.Figure()
     latency_figure.add_bar(
         name="Latency delta seconds",
-        x=keys,
+        x=labels,
         y=[row["latency_delta_seconds"] for row in data["videos"]],
         marker={"color": ["#b45309" if row["latency_delta_seconds"] > 0 else "#047857" for row in data["videos"]]},
     )
@@ -205,7 +231,11 @@ def render_html(data: dict[str, Any]) -> str:
 
 
 def _fallback_html(data: dict[str, Any]) -> str:
-    escaped = html.escape(json.dumps(data, ensure_ascii=False, indent=2))
+    presentation_data = {
+        **data,
+        "videos": [{**row, "key": display_video_label(row["key"])} for row in data["videos"]],
+    }
+    escaped = html.escape(json.dumps(presentation_data, ensure_ascii=False, indent=2))
     return _report_html(data, f"<pre>{escaped}</pre>", "", "<h3>Stage Token Funnel</h3>")
 
 
@@ -481,7 +511,7 @@ def _list_html(items: list[str]) -> str:
 def _video_table(rows: list[dict[str, Any]]) -> str:
     body = "\n".join(
         "<tr>"
-        f"<td>{_escape(row['key'])}</td>"
+        f"<td>{_escape(display_video_label(row['key']))}</td>"
         f"<td>{row['baseline_tokens']:,}</td>"
         f"<td>{row['current_tokens']:,}</td>"
         f"<td>{row['token_delta']:,}</td>"
