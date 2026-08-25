@@ -26,7 +26,7 @@
 
 1. 같은 Frontier runtime/model, prompt fingerprint, concurrency에서 raw와 processed 경로를 비교한다.
 2. token/cost, 전체 시간, evidence recall, timestamp accuracy, missing range, unsupported claim을 함께 기록한다.
-3. `benchmarks/reference-drafts/`의 후보를 사람이 승인한 뒤 executable JSON reference로 전사한다.
+3. `수정`으로 판정된 5개 후보의 대체 문구를 확정한 뒤, 필요하면 reference에 추가한다.
 4. `reports/performance-comparisons/` 아래 검토된 보고서에 기본값 채택 여부를 명시한다.
 
 ### 채택 기준

@@ -18,6 +18,7 @@ Do not publish mock values. Only promote reviewed real artifacts to
 | File | Purpose |
 |---|---|
 | `videos.lock.json` | Canonical locked benchmark-video catalog |
+| `references/` | User-reviewed executable JSON references for the matching source videos |
 | `benchmark.sh` | Friendly shell wrapper around the long `uv run --isolated --with ...` commands |
 | `run_preprocessing.py` | Metrics-only baseline/current run; no LLM calls |
 | `benchmark_report.py` | One-command current run + report rendering |
@@ -48,9 +49,10 @@ Do not silently substitute another video or transcript source.
 ## Quality Reference Review
 
 Live Frontier comparisons require a separate, human-reviewed JSON reference for
-the exact normalized YouTube URL. The project deliberately ships no completed
-reference answers and never generates them from an LLM. A reviewer must inspect
-the source transcript and record at least one independently supported claim:
+the exact normalized YouTube URL. `references/` contains only claims a reviewer
+has approved from the corresponding queue; it never contains model-generated
+answers. A reviewer must inspect the source transcript and record at least one
+independently supported claim:
 
 - `source_id`, `language`, and positive `duration_ms`
 - non-empty `claims` entries with `text`, transcript `evidence`, and

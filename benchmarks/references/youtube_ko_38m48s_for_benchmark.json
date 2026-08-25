@@ -1,0 +1,9 @@
+{
+  "source_id": "youtube:wVJrspYo-18",
+  "language": "ko",
+  "duration_ms": 2328000,
+  "claims": [
+    {"text": "인터뷰이는 AI 변화 속에서 가장 유리한 계층은 30대라고 생각한다고 말한다.", "evidence": "제일 유리한 계층은 30대라고 생각이 들어요.", "timestamp_ms": 63000},
+    {"text": "인터뷰이는 AI 활용 능력만으로는 충분하지 않고 도메인 지식도 필요하다고 말한다.", "evidence": "AI 리터만 갖고 있다 그래서 뭐가 되는 게 아니거든요. 그러니까 뭐가 필요하냐면은 도메인 지식이 필요해요.", "timestamp_ms": 73000}
+  ]
+}

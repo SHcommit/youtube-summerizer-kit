@@ -12,11 +12,10 @@
 
 ## Next Priorities
 
-1. Obtain independent approval for benchmark references, then run the final integrated Frontier
-   benchmark using GKT call/grounding metrics and the raw/processed quality gates.
-2. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
-   independently human-reviewed JSON references for the Korean fixtures, long-video preprocessing,
-   and 4m35s short-video conditions.
+1. Run the final integrated Frontier benchmark against the user-reviewed references, recording GKT
+   call/grounding diagnostics and raw/processed quality gates.
+2. Resolve the five `수정` queue entries before adding them to the corresponding references; the
+   current approved claims are already transcribed under `benchmarks/references/`.
 3. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
    the final compiler and policy benchmark gate is complete.
 
@@ -28,8 +27,8 @@
   `youtube_en_39m00s_for_benchmark`, `youtube_en_55m48s_for_benchmark`,
   `youtube_en_2h00m09s_for_benchmark`, and `youtube_en_2h49m45s_for_benchmark`. A locked fixture
   is a reproducibility target for maintainer benchmarks, not a user-input restriction. Its matching
-  quality reference must be independently human-reviewed; the project ships no reusable
-  live-reference answer.
+  quality reference must be independently human-reviewed. Approved, source-specific references are
+  stored under `benchmarks/references/`; draft Markdown remains non-executable.
 - Each lock entry has a required caption `language`; both preprocessing measurement paths request
   that entry-specific language. The Korean lecture has publicly available automatic `ko` captions,
   but this does not establish an availability guarantee.
@@ -82,6 +81,10 @@
   tests, Ruff, and mypy passed.
 - `7143ffc` adds GKT Frontier-call and grounding diagnostics to short-video benchmark reports.
   Full verification: `307 passed, 2 skipped`; Ruff and mypy passed. No live benchmark was run.
+- User-reviewed queue decisions are committed in `cdc2f75`; the approval column is now explicitly
+  labelled as a user review decision. Six structurally validated JSON references contain the 14
+  approved claims; five `수정` entries remain excluded. `tests/test_benchmark.py` passed (11 tests),
+  as did JSON schema validation and Ruff. No live Frontier benchmark has run yet.
 - The 2026-08-25 metrics-only run covers all seven locked fixtures with the same lock and concurrency
   (`baseline-20260825T052411Z`, `current-20260825T052533Z`). All succeeded; tokenizer input fell
   from 132,312 to 118,716 (10.28%). The Korean lecture fell 22,916 -> 22,747 (0.74%) and the Korean
