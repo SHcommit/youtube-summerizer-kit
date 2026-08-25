@@ -191,7 +191,10 @@ class ApplicationService:
             else Settings.model_validate_json(stored_recipe)
         )
         output_settings = load_settings(self.working_directory, "digest")
-        self.database.prepare_resume(selected_id)
+        if self.database.get_run_state(selected_id) == "external_outcome_unknown":
+            self.database.prepare_explicit_retry(selected_id)
+        else:
+            self.database.prepare_resume(selected_id)
         source_locator = self.database.get_run_source_locator(selected_id)
         if source_locator is None:
             video_id = source_id.removeprefix("youtube:")

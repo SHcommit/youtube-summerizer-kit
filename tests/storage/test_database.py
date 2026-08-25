@@ -150,6 +150,18 @@ def test_compiler_checkpoint_preserves_immutable_stage_artifact_and_unknown_outc
     ]
 
 
+def test_explicit_retry_reopens_unknown_outcome_with_a_new_attempt(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+    database.mark_external_outcome_unknown("run-1")
+
+    attempt = database.prepare_explicit_retry("run-1")
+
+    assert attempt == 2
+    assert database.get_run_state("run-1") == "pending"
+
+
 def test_database_records_each_generation_attempt_for_a_job(tmp_path: Path) -> None:
     database = Database(tmp_path / "state.db")
     database.initialize()

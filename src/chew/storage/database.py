@@ -718,6 +718,27 @@ class Database:
                 (_timestamp(datetime.now(UTC)), run_id),
             )
 
+    def prepare_explicit_retry(self, run_id: str) -> int:
+        """Reopen an uncertain external request only after an explicit user action."""
+        with self._connect() as connection:
+            row = connection.execute("SELECT status FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+            if row is None:
+                raise LookupError(f"run not found: {run_id}")
+            if str(row["status"]) != "external_outcome_unknown":
+                raise ValueError("only an unknown external outcome can be explicitly retried")
+            max_attempt = int(
+                connection.execute(
+                    "SELECT COALESCE(MAX(attempt), 0) FROM compiler_checkpoints WHERE run_id = ?",
+                    (run_id,),
+                ).fetchone()[0]
+            )
+            attempt = max(2, max_attempt + 1)
+            connection.execute(
+                "UPDATE runs SET status = 'pending', updated_at = ? WHERE run_id = ?",
+                (_timestamp(datetime.now(UTC)), run_id),
+            )
+        return attempt
+
     def get_run_state(self, run_id: str) -> str | None:
         with self._connect() as connection:
             row = connection.execute("SELECT status FROM runs WHERE run_id = ?", (run_id,)).fetchone()

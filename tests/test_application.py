@@ -255,6 +255,32 @@ async def test_resume_uses_stored_local_media_locator(tmp_path: Path) -> None:
     assert pipeline.sources == [str(media.resolve())]
 
 
+@pytest.mark.asyncio
+async def test_resume_explicitly_reopens_an_unknown_external_outcome(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    pack = KnowledgePack(
+        source=source, title="title", language="en", overview="overview",
+        transcript_fingerprint="a" * 64, topics=(), chapters=(), analysis_fingerprint="b" * 64,
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", source.source_id, "key")
+    database.mark_external_outcome_unknown("run-1")
+    pipeline = Pipeline(pack)
+    application = ApplicationService(
+        pipeline, Compiler(), database, working_directory=tmp_path  # type: ignore[arg-type]
+    )
+
+    await application.resume("run-1")
+
+    assert database.get_run_state("run-1") == "pending"
+    assert pipeline.sources == [source.canonical_url]
+
+
 class OfflineProvider:
     name = "fixture"
 
