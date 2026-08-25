@@ -12,9 +12,9 @@
 
 ## Next Priorities
 
-1. Have the user review the [approved GKT hybrid design](docs/superpowers/specs/2026-08-25-grounded-knowledge-tree-hybrid-design.md),
-   then write its implementation plan. Do not begin code implementation before that review gate.
-2. After planning, implement the GKT compiler before the optional LangGraph Agent Orchestration plane;
+1. Write the phased implementation plan for the
+   [approved Grounded Knowledge Tree hybrid design](docs/superpowers/specs/2026-08-25-grounded-knowledge-tree-hybrid-design.md).
+2. Implement the Grounded Knowledge Tree compiler before the optional LangGraph Agent Orchestration plane;
    preserve current Harness, SQLite artifact, benchmark, and OpenTelemetry boundaries through adapters.
 3. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
    independently human-reviewed JSON references for the Korean fixtures, long-video preprocessing,
@@ -45,8 +45,8 @@
 
 - Frontier remains the final reasoning and summary runtime.
 - The approved architecture is a deterministic Grounded Knowledge Tree compiler plus an optional
-  LangGraph Agent Orchestration plane. The compiler does not import LangGraph; agents consume GKT through
-  policy-scoped typed tools.
+  LangGraph Agent Orchestration plane. The compiler does not import LangGraph; agents consume Grounded
+  Knowledge Tree artifacts through policy-scoped typed tools.
 - Ollama may propose span-ID-based input-cleanup annotations in `auto/on` mode when a configured single
   model is already installed. It never summarizes or judges evidence, never downloads during analysis,
   and any invalid, timed-out, or >5% token-expanding result falls back to deterministic cleanup.
@@ -56,8 +56,8 @@
   acquisition is the default path, and VTT/SRT/TXT remains the only explicit recovery input.
 - Telemetry is injected by `ApplicationContainer` and uses `ContextVar`-isolated run collectors;
   a scoped DI library remains deferred in `PRODUCT_ROADMAP.md`.
-- A general Knowledge Graph database, Notion, RSS, MCP, REST API, and automation remain deferred. GKT is
-  the compiler's versioned artifact and does not introduce a graph database.
+- A general Knowledge Graph database, Notion, RSS, MCP, REST API, and automation remain deferred. Grounded
+  Knowledge Tree is the compiler's versioned artifact and does not introduce a graph database.
 
 ## Verification and Working Tree
 

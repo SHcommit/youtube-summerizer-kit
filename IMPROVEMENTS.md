@@ -40,14 +40,14 @@
 
 미달하면 전처리는 opt-in으로 유지하며 절감률을 마케팅 문구로 사용하지 않는다.
 
-## 2. Frontier 1회 기본 합성 경로
+## 2. Grounded Knowledge Tree 기반 단일 Frontier Compiler
 
 영상 길이에 따라 topic/chapter/compose Frontier fan-out을 선택하지 않는다. 준비된 transcript가 선택한
 runtime/model의 정적 입력 예산에 맞으면 전체 구조화 Knowledge Pack 초안을 Frontier 1회로 생성한다.
 맞지 않을 때만 두 단계 refine을 허용하며 영상당 semantic Frontier 호출 상한은 2회다.
 구현 계약은 [`docs/superpowers/specs/2026-08-25-grounded-knowledge-tree-hybrid-design.md`](docs/superpowers/specs/2026-08-25-grounded-knowledge-tree-hybrid-design.md)를 따른다. 기존 `KnowledgePack` 호환성을 유지하면서
-미검증 `KnowledgeTreeDraft`와 검증 완료 `GroundedKnowledgeTree`를 분리하고, 기본 output profile은 GKT에서
-추가 모델 호출 없이 렌더링한다.
+미검증 `KnowledgeTreeDraft`와 검증 완료 `GroundedKnowledgeTree`를 분리하고, 기본 output profile은
+Grounded Knowledge Tree에서 추가 모델 호출 없이 렌더링한다.
 
 **현재 결과:** `2026-08-24`에 사용자 승인 reference로 공개 영어 자동자막 영상
 [`aBUniZHgCnE`](https://www.youtube.com/watch?v=aBUniZHgCnE) (14분 34초)을 Codex로 3회씩
@@ -59,17 +59,17 @@ reference-evidence 정합성과 경로 간 prompt fingerprint가 아직 비교 �
 
 ### 구현 작업
 
-1. 기존 topic N + chapter M + compose DAG를 기본 경로에서 단일 `frontier_summary` job으로 교체한다.
-2. 정적 runtime/model 입력 예산과 로컬 token 추정으로 `one_shot_v1` 또는 최대 2회의
-   `two_pass_refine_v1`을 실행 전에 확정한다.
-3. Frontier가 overview, chapter/topic 구조, claim/evidence 후보를 한 응답으로 반환하도록 strict schema를 정의한다.
-4. raw transcript를 기준으로 evidence/timestamp를 로컬 검증하고 Knowledge Pack을 결정론적으로 조립한다.
-5. digest/blog/study/obsidian 기본 출력에서 추가 outline/compose/verify 모델 호출을 제거한다.
-6. Ollama `auto/on/off` 입력 정리 정책을 추가한다. 이미 설치된 단일 모델은 전체 transcript를 재작성하지 않고
-   span ID 기반 sidecar만 반환해야 하며, 실행 중 설치나 다운로드를 하지 않는다.
-7. assisted transcript가 deterministic baseline보다 token이 5% 넘게 증가하거나 annotation 검증·시간 제한에
-   실패하면 즉시 baseline으로 fallback한다. raw와 prepared transcript를 Frontier에 함께 보내지 않는다.
-8. semantic 요청 전달 후 결과가 불명확한 실패는 자동 중복 호출하지 않고 재개 가능한 실패로 기록한다.
+1. **Input Compiler:** raw transcript를 불변 보존하고 prepared transcript와 segment ID mapping을 만든다.
+   설치된 단일 Ollama 모델은 최대 1회의 입력 정리 annotation만 제안하며, 실패하거나 token을 5% 넘게
+   증가시키면 결정론적 baseline으로 fallback한다.
+2. **Grounded Knowledge Tree Compiler:** 기존 topic N + chapter M + compose Frontier DAG를 기본 경로에서
+   단일 structured extraction으로 교체한다. 입력 예산 초과 시에만 최대 2회의 refine을 허용하고, raw
+   evidence와 timestamp를 로컬 검증한 뒤 Grounded Knowledge Tree와 호환 Knowledge Pack을 조립한다.
+3. **Output Renderer:** digest/blog/study/obsidian 기본 출력의 outline/compose/verify 모델 호출을 제거하고
+   Grounded Knowledge Tree에서 결정론적으로 렌더링한다. 이후 Output Pack과 Render Skill은 이 경계 위에
+   추가하며 기본 compiler의 Frontier 호출 예산을 사용하지 않는다.
+4. **Workflow:** role-based runtime policy, 단계별 checkpoint, pause/resume, unknown external outcome,
+   OpenTelemetry span, 기존 benchmark 전략 호환을 같은 실행 계약으로 연결한다.
 
 ### 수용 기준
 
@@ -89,16 +89,16 @@ reference-evidence 정합성과 경로 간 prompt fingerprint가 아직 비교 �
 
 이 항목은 현재 구현하지 않는다.
 
-## 4. GKT Agent 오케스트레이션 기반
+## 4. Grounded Knowledge Tree Agent 오케스트레이션 기반
 
-GKT compiler를 먼저 완성한 뒤 LangGraph를 optional `agents` extra로 추가한다. core compiler는 LangGraph를
+Grounded Knowledge Tree compiler를 먼저 완성한 뒤 LangGraph를 optional `agents` extra로 추가한다. core compiler는 LangGraph를
 import하지 않으며, `SessionGraph`와 bounded agent subgraph가 typed Application Service tool을 통해 완성된
-GKT를 소비한다. Research, Style, Conversation, Publishing agent는 각각 tool allowlist, model/step/deadline
+Grounded Knowledge Tree를 소비한다. Research, Style, Conversation, Publishing agent는 각각 tool allowlist, model/step/deadline
 예산, 읽기·쓰기 artifact 범위, 승인 조건을 실행 전에 고정한다.
 
 대화 session과 `CompilationRun`·`AgentRun`은 분리한다. LangGraph checkpointer는 기존 canonical SQLite
 run/job/artifact schema와 분리하고 `session_id`, `run_id`, `tree_id`로 연결한다. pause/resume은 단계별
 checkpoint를 사용하며, 수신 여부가 불명확한 provider 요청이나 외부 write는 자동 반복하지 않는다.
 
-첫 Agent 구현 전에도 role-based policy, Harness adapter 경계, GKT typed tool, durable correlation ID를 먼저
-정의한다. recursive agent dispatch와 agent의 DB·파일·credential 직접 접근은 허용하지 않는다.
+첫 Agent 구현 전에도 role-based policy, Harness adapter 경계, Grounded Knowledge Tree typed tool, durable
+correlation ID를 먼저 정의한다. recursive agent dispatch와 agent의 DB·파일·credential 직접 접근은 허용하지 않는다.
