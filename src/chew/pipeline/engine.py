@@ -31,7 +31,7 @@ from chew.core.prompts import (
     REPAIR_PROMPT,
     TOPIC_PROMPT,
 )
-from chew.harness.base import Harness
+from chew.harness.base import ExternalOutcomeUnknown, Harness
 from chew.pipeline.evidence import materialize_topic_summary
 from chew.pipeline.extraction import AnalysisSpec, KnowledgeExtractor
 from chew.pipeline.input_compiler import InputBudget, InputCompiler
@@ -301,15 +301,21 @@ class AnalysisPipeline:
                 "frontier.generate",
                 {"strategy": "gkt", "prepared_fingerprint": prepared.fingerprint},
             ):
-                extracted = await KnowledgeExtractor(self.harness).extract(
-                    prepared,
-                    AnalysisSpec(
-                        language=config.language,
-                        depth=config.depth,
-                        instructions=config.instructions,
-                    ),
-                    trace_id=run_id,
-                )
+                try:
+                    extracted = await KnowledgeExtractor(self.harness).extract(
+                        prepared,
+                        AnalysisSpec(
+                            language=config.language,
+                            depth=config.depth,
+                            instructions=config.instructions,
+                        ),
+                        trace_id=run_id,
+                    )
+                except ExternalOutcomeUnknown as error:
+                    self.database.mark_external_outcome_unknown(run_id)
+                    raise PipelineExecutionError(
+                        "Frontier provider outcome is unknown; explicit retry is required."
+                    ) from error
             draft_ref = self.artifacts.put_json(extracted.draft)
             self.database.record_compiler_checkpoint(
                 run_id=run_id,

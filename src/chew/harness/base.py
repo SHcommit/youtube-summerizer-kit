@@ -22,6 +22,10 @@ class RateLimitSignal(RuntimeError):
     retry_after: float = 1.0
 
 
+class ExternalOutcomeUnknown(RuntimeError):
+    """The provider may have accepted a request, so automatic resend is unsafe."""
+
+
 class HarnessCapabilities(FrozenModel):
     structured_output: bool = False
     streaming: bool = False

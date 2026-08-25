@@ -12,9 +12,10 @@ from chew.domain import (
     Transcript,
     TranscriptSegment,
 )
+from chew.harness.base import ExternalOutcomeUnknown
 from chew.identity import normalize_source
 from chew.pipeline import AnalysisPipeline, build_analysis_job_graph
-from chew.pipeline.engine import AnalysisConfig
+from chew.pipeline.engine import AnalysisConfig, PipelineExecutionError
 from chew.segmentation import SegmentationPolicy, segment_transcript
 from chew.storage.artifacts import ArtifactStore
 from chew.storage.database import Database
@@ -206,6 +207,12 @@ class GroundedTreeHarness:
         )
 
 
+class UnknownOutcomeHarness(GroundedTreeHarness):
+    async def generate(self, request: GenerationRequest) -> GenerationResult:
+        self.requests.append(request)
+        raise ExternalOutcomeUnknown("provider acceptance could not be determined")
+
+
 @pytest.mark.asyncio
 async def test_gkt_pipeline_uses_one_extraction_without_hierarchical_jobs(tmp_path: Path) -> None:
     source = SourceIdentity(
@@ -252,6 +259,44 @@ async def test_gkt_pipeline_uses_one_extraction_without_hierarchical_jobs(tmp_pa
         "evidence.ground",
         "tree.assemble",
     ]
+
+
+@pytest.mark.asyncio
+async def test_gkt_pipeline_marks_uncertain_provider_request_without_retrying(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="en",
+        duration_ms=10_000,
+        provenance=Provenance.MANUAL_SUBTITLE,
+        segments=(TranscriptSegment(start_ms=0, end_ms=10_000, text="The transcript is grounded."),),
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    harness = UnknownOutcomeHarness()
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=ArtifactStore(tmp_path),
+        transcripts=TranscriptService([StaticTranscriptProvider(transcript)]),
+        harness=harness,
+    )
+
+    with pytest.raises(PipelineExecutionError, match="outcome is unknown"):
+        await pipeline.analyze(
+            source.canonical_url,
+            AnalysisConfig(
+                language="en", depth="detailed", instructions="", whisper_fallback=False,
+                runtime="fake", recipe_json="{}", compiler_strategy="gkt",
+            ),
+        )
+
+    run_id = database.list_run_statuses()[0][0]
+    assert database.get_run_state(run_id) == "external_outcome_unknown"
+    assert [request.task for request in harness.requests] == ["knowledge_extract"]
 
 
 @pytest.mark.asyncio
