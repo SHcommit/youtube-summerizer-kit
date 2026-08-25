@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on the Frontier runtime and records the local stage separately.
 - **Explicit unknown-outcome retry**: a run whose provider acceptance is uncertain cannot be
   silently resent; an explicit `resume` records a new retry attempt before reopening it.
+- **Comparable GKT benchmark condition**: short-video benchmark specifications now include a
+  `gkt-deterministic` condition alongside the historical single-pass and hierarchical paths,
+  using the same resolved transcript snapshot and configured Frontier runtime.
 - **Benchmark-reference review queues**: adds non-executable, AI-assisted Markdown candidate
   queues for the current short, long, and Korean fixtures. Human approval is required before any
   candidate can enter a live benchmark reference.
