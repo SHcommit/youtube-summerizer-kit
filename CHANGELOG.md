@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Role-bound local annotation**: an already-installed single Ollama model may receive one
   closed transcript-annotation sidecar request when explicitly enabled; policy keeps extraction
   on the Frontier runtime and records the local stage separately.
+- **Explicit unknown-outcome retry**: a run whose provider acceptance is uncertain cannot be
+  silently resent; an explicit `resume` records a new retry attempt before reopening it.
 - **Benchmark-reference review queues**: adds non-executable, AI-assisted Markdown candidate
   queues for the current short, long, and Korean fixtures. Human approval is required before any
   candidate can enter a live benchmark reference.

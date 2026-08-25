@@ -12,8 +12,8 @@
 
 ## Next Priorities
 
-1. Complete the GKT compiler's explicit retry API for `external_outcome_unknown` and benchmark
-   measurements before implementing agents.
+1. Complete GKT benchmark measurements and stage trace/report compatibility before implementing
+   agents.
 2. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
    compiler state and policy are complete.
 3. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
@@ -73,6 +73,9 @@
 - `e04810b` routes the sole `transcript_annotate` role to an already-available single Ollama model
   only when explicitly enabled; knowledge extraction remains Frontier-only. Full verification:
   `305 passed, 2 skipped`; Ruff and mypy passed.
+- `2637689` makes `resume` explicitly reopen `external_outcome_unknown` via a new retry attempt;
+  ordinary failed-job resume behavior remains unchanged. Focused database/application tests, Ruff,
+  and mypy passed.
 
 - `0baee5d` contains the credential-boundary, transcript pipeline, bounded-runtime-policy,
   telemetry, P0 benchmark-snapshot, and migration work. Full verification at that point was
