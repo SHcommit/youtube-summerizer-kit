@@ -1,5 +1,7 @@
 # Bounded Frontier Synthesis With Optional Local Input Cleanup
 
+> Superseded by [`2026-08-25-grounded-knowledge-tree-hybrid-design.md`](2026-08-25-grounded-knowledge-tree-hybrid-design.md), which retains this call budget and adds the approved GKT, rendering, persistence, and optional LangGraph agent boundaries.
+
 ## Goal
 
 Use one Frontier generation call whenever a prepared transcript fits the selected runtime's configured input budget, while retaining the existing local transcript, evidence-validation, persistence, export, and resume boundaries. An already-installed single Ollama model may improve input cleanup, but it never summarizes, judges evidence, or adds another Frontier call.

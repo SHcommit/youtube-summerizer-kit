@@ -45,7 +45,9 @@
 영상 길이에 따라 topic/chapter/compose Frontier fan-out을 선택하지 않는다. 준비된 transcript가 선택한
 runtime/model의 정적 입력 예산에 맞으면 전체 구조화 Knowledge Pack 초안을 Frontier 1회로 생성한다.
 맞지 않을 때만 두 단계 refine을 허용하며 영상당 semantic Frontier 호출 상한은 2회다.
-구현 계약은 [`docs/superpowers/specs/2026-08-25-bounded-frontier-synthesis-design.md`](docs/superpowers/specs/2026-08-25-bounded-frontier-synthesis-design.md)를 따른다.
+구현 계약은 [`docs/superpowers/specs/2026-08-25-grounded-knowledge-tree-hybrid-design.md`](docs/superpowers/specs/2026-08-25-grounded-knowledge-tree-hybrid-design.md)를 따른다. 기존 `KnowledgePack` 호환성을 유지하면서
+미검증 `KnowledgeTreeDraft`와 검증 완료 `GroundedKnowledgeTree`를 분리하고, 기본 output profile은 GKT에서
+추가 모델 호출 없이 렌더링한다.
 
 **현재 결과:** `2026-08-24`에 사용자 승인 reference로 공개 영어 자동자막 영상
 [`aBUniZHgCnE`](https://www.youtube.com/watch?v=aBUniZHgCnE) (14분 34초)을 Codex로 3회씩
@@ -87,16 +89,16 @@ reference-evidence 정합성과 경로 간 prompt fingerprint가 아직 비교 �
 
 이 항목은 현재 구현하지 않는다.
 
-## 4. 보류: Agent 세션과 외부 호출 대기 최적화
+## 4. GKT Agent 오케스트레이션 기반
 
-대화형 session tree는 기존 run/job 재개 상태와 분리해, 사용자 메시지·해석된 명령·부모 session node·연결된
-run ID·output artifact만 참조한다. 실행 중인 `ExecutionPlan`이나 run의 불변 정책을 session이 변경하지
-않으며, 중단 후에는 기존 run state machine으로 재개한다.
+GKT compiler를 먼저 완성한 뒤 LangGraph를 optional `agents` extra로 추가한다. core compiler는 LangGraph를
+import하지 않으며, `SessionGraph`와 bounded agent subgraph가 typed Application Service tool을 통해 완성된
+GKT를 소비한다. Research, Style, Conversation, Publishing agent는 각각 tool allowlist, model/step/deadline
+예산, 읽기·쓰기 artifact 범위, 승인 조건을 실행 전에 고정한다.
 
-MCP 또는 외부 agent/LLM 호출을 도입할 때는 `await` 기반의 비차단 대기, durable external-request 상태,
-deadline, cancellation, idempotency key, 그리고 재개 가능한 결과 수집을 별도 설계한다. 대기 중인 요청은
-이벤트 루프를 점유하지 않아야 하지만, 실제 provider 요청이 진행 중인 동안에는 rate limit과 중복 과금을
-막기 위해 해당 provider concurrency slot을 해제하지 않는다. 폴링은 busy-wait 대신 이벤트·callback 또는
-제한된 backoff를 사용한다.
+대화 session과 `CompilationRun`·`AgentRun`은 분리한다. LangGraph checkpointer는 기존 canonical SQLite
+run/job/artifact schema와 분리하고 `session_id`, `run_id`, `tree_id`로 연결한다. pause/resume은 단계별
+checkpoint를 사용하며, 수신 여부가 불명확한 provider 요청이나 외부 write는 자동 반복하지 않는다.
 
-이 항목은 현재 구현하지 않는다.
+첫 Agent 구현 전에도 role-based policy, Harness adapter 경계, GKT typed tool, durable correlation ID를 먼저
+정의한다. recursive agent dispatch와 agent의 DB·파일·credential 직접 접근은 허용하지 않는다.
