@@ -12,9 +12,10 @@
 
 ## Next Priorities
 
-1. Implement the agreed Frontier-call policy: one-shot by default based on the selected runtime/model's
-   static input budget; use exactly one two-pass refine fallback when required; never auto-fan-out
-   to three or more semantic calls. Inputs that do not fit two passes must stop before a provider call.
+1. Implement the [approved bounded-synthesis design](docs/superpowers/specs/2026-08-25-bounded-frontier-synthesis-design.md):
+   deterministic cleanup plus an optional single-model Ollama annotation sidecar, then one Frontier call
+   by default. Use exactly one two-pass refine fallback only when the static runtime/model input budget
+   requires it; never auto-fan-out to three or more calls.
 2. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
    independently human-reviewed JSON references for the Korean fixtures, long-video preprocessing,
    and 4m35s short-video conditions. Run the remaining Frontier benchmarks only as the integrated
@@ -45,8 +46,11 @@
 ## Current Decision
 
 - Frontier remains the final reasoning and summary runtime.
-- Ollama does not perform summary or judgment work. Reconsider it only for a specifically defined,
-  low-risk helper task with measured benefit.
+- Ollama may propose span-ID-based input-cleanup annotations in `auto/on` mode when a configured single
+  model is already installed. It never summarizes or judges evidence, never downloads during analysis,
+  and any invalid, timed-out, or >5% token-expanding result falls back to deterministic cleanup.
+- Frontier receives one prepared transcript, not raw and prepared copies. Default output profiles must
+  render from the resulting Knowledge Pack without additional outline/compose/verify model calls.
 - Visible-panel browser capture and OCR are not product work: URL-based public transcript
   acquisition is the default path, and VTT/SRT/TXT remains the only explicit recovery input.
 - Telemetry is injected by `ApplicationContainer` and uses `ContextVar`-isolated run collectors;

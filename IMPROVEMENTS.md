@@ -7,8 +7,8 @@
 ## 운영 원칙
 
 - 최종 요약과 사용자에게 보이는 판단은 사용자의 BYOK Frontier runtime이 담당한다.
-- Ollama는 Frontier의 요약·판단을 대체하지 않는다. 명확히 정의된 저위험 보조 작업이 생기고
-  실측 이득이 확인될 때만 별도 opt-in으로 검토한다.
+- Ollama는 설치된 단일 모델이 있을 때 입력 정리 annotation만 제안할 수 있다. 요약·판단·claim 생성,
+  Knowledge Pack 작성은 Frontier를 대체하지 않으며 실행 중 모델을 자동 설치하지 않는다.
 - 단발성 영상 요약에는 임베딩, RAG, vector DB를 기본 경로에 넣지 않는다.
 - 원문 transcript는 근거 검증의 기준이며, 전처리본은 별도 derived artifact로 취급한다.
 - end-to-end Frontier benchmark는 기능·정책·종료 조건 변경을 모두 완료한 뒤, 배포 직전의
@@ -40,10 +40,12 @@
 
 미달하면 전처리는 opt-in으로 유지하며 절감률을 마케팅 문구로 사용하지 않는다.
 
-## 2. 짧은 영상 Frontier 경로 선택
+## 2. Frontier 1회 기본 합성 경로
 
-15분 이하 영상은 계층 요약의 호출·schema·중간 output 오버헤드가 이득보다 클 수 있다.
-같은 Frontier runtime으로 단일 요약과 계층 요약을 비교해 더 단순한 기본 경로를 선택한다.
+영상 길이에 따라 topic/chapter/compose Frontier fan-out을 선택하지 않는다. 준비된 transcript가 선택한
+runtime/model의 정적 입력 예산에 맞으면 전체 구조화 Knowledge Pack 초안을 Frontier 1회로 생성한다.
+맞지 않을 때만 두 단계 refine을 허용하며 영상당 semantic Frontier 호출 상한은 2회다.
+구현 계약은 [`docs/superpowers/specs/2026-08-25-bounded-frontier-synthesis-design.md`](docs/superpowers/specs/2026-08-25-bounded-frontier-synthesis-design.md)를 따른다.
 
 **현재 결과:** `2026-08-24`에 사용자 승인 reference로 공개 영어 자동자막 영상
 [`aBUniZHgCnE`](https://www.youtube.com/watch?v=aBUniZHgCnE) (14분 34초)을 Codex로 3회씩
@@ -53,11 +55,27 @@ timestamp accuracy 중앙값은 각각 0.25였고, 두 경로의 evidence covera
 reference-evidence 정합성과 경로 간 prompt fingerprint가 아직 비교 기준을 만족하지 않으므로,
 이 결과로 기본 경로를 바꾸지 않는다.
 
-1. 같은 transcript, Frontier runtime/model, prompt version에서 두 경로의 provider usage와 전체 시간을 비교한다.
-2. overview 품질, evidence coverage, timestamp accuracy, key-claim recall을 함께 검토한다.
-3. 단일 경로가 비용·시간에서 유리하면서 품질이 저하되지 않을 때만 짧은 영상의 기본 경로로 채택한다.
-4. reference evidence가 실제 출력 인용과 비교 가능하도록 검토하고, 같은 비교 prompt 정책을
-   명시한 뒤 재실행한다.
+### 구현 작업
+
+1. 기존 topic N + chapter M + compose DAG를 기본 경로에서 단일 `frontier_summary` job으로 교체한다.
+2. 정적 runtime/model 입력 예산과 로컬 token 추정으로 `one_shot_v1` 또는 최대 2회의
+   `two_pass_refine_v1`을 실행 전에 확정한다.
+3. Frontier가 overview, chapter/topic 구조, claim/evidence 후보를 한 응답으로 반환하도록 strict schema를 정의한다.
+4. raw transcript를 기준으로 evidence/timestamp를 로컬 검증하고 Knowledge Pack을 결정론적으로 조립한다.
+5. digest/blog/study/obsidian 기본 출력에서 추가 outline/compose/verify 모델 호출을 제거한다.
+6. Ollama `auto/on/off` 입력 정리 정책을 추가한다. 이미 설치된 단일 모델은 전체 transcript를 재작성하지 않고
+   span ID 기반 sidecar만 반환해야 하며, 실행 중 설치나 다운로드를 하지 않는다.
+7. assisted transcript가 deterministic baseline보다 token이 5% 넘게 증가하거나 annotation 검증·시간 제한에
+   실패하면 즉시 baseline으로 fallback한다. raw와 prepared transcript를 Frontier에 함께 보내지 않는다.
+8. semantic 요청 전달 후 결과가 불명확한 실패는 자동 중복 호출하지 않고 재개 가능한 실패로 기록한다.
+
+### 수용 기준
+
+1. 일반 입력의 Frontier semantic 호출은 정확히 1회다.
+2. 입력 예산 초과 fallback도 최대 2회이며 자동 3회 이상 fan-out이 없다.
+3. Ollama의 존재·실패 여부가 Frontier 호출 수를 늘리지 않는다.
+4. 모든 기본 출력 profile은 저장된 Knowledge Pack만으로 생성된다.
+5. evidence recall, timestamp accuracy, 핵심 claim recall이 기존 검토 기준보다 저하되지 않는다.
 
 ## 3. 보류: 자연어 입력 해석
 
