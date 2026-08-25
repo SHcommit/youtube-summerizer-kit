@@ -12,8 +12,8 @@
 
 ## Next Priorities
 
-1. Complete GKT benchmark report measurements and independently reviewed references before the
-   final integrated Frontier benchmark; then implement optional agents.
+1. Obtain independent approval for benchmark references, then run the final integrated Frontier
+   benchmark using GKT call/grounding metrics; only then implement optional agents.
 2. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
    compiler state and policy are complete.
 3. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
@@ -81,6 +81,8 @@
   `307 passed, 2 skipped`; Ruff and mypy passed. No live benchmark was run.
 - `3bac3cb` emits GKT stage spans aligned with durable checkpoints. Focused pipeline/telemetry
   tests, Ruff, and mypy passed.
+- `7143ffc` adds GKT Frontier-call and grounding diagnostics to short-video benchmark reports.
+  Full verification: `307 passed, 2 skipped`; Ruff and mypy passed. No live benchmark was run.
 
 - `0baee5d` contains the credential-boundary, transcript pipeline, bounded-runtime-policy,
   telemetry, P0 benchmark-snapshot, and migration work. Full verification at that point was

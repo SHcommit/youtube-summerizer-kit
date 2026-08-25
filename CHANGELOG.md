@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   using the same resolved transcript snapshot and configured Frontier runtime.
 - **GKT trace vocabulary**: compiler execution now emits `input.compile`, `frontier.generate`,
   `evidence.ground`, and `tree.assemble` spans, aligned with immutable compiler checkpoints.
+- **GKT benchmark diagnostics**: deterministic GKT benchmark results now report Frontier call count,
+  grounding coverage, ambiguous anchors, and unsupported tree claims alongside quality metrics.
 - **Benchmark-reference review queues**: adds non-executable, AI-assisted Markdown candidate
   queues for the current short, long, and Korean fixtures. Human approval is required before any
   candidate can enter a live benchmark reference.
