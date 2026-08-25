@@ -42,7 +42,7 @@ The codebase follows Ports & Adapters (Hexagonal) architecture. Layers may only 
 | Question | File |
 |---|---|
 | How does URL normalization / source identity work? | `src/chew/core/identity.py` |
-| What fields does a Knowledge Pack have? | `src/chew/core/models.py` — `KnowledgePack` (`completion_status`, missing ranges, runtime/model provenance) |
+| What fields does a Knowledge Pack have? | `src/chew/core/models.py` — `KnowledgePack` (`completion_status`, missing ranges, runtime/model provenance, grounded-tree fingerprint) |
 | How are sensitive operational fields redacted? | `src/chew/core/redaction.py` |
 | How are jobs scheduled and retried? | `src/chew/pipeline/scheduler.py` |
 | How are run traces isolated? | `src/chew/telemetry.py`, `src/chew/app/bootstrap.py` — injected manager with `ContextVar` collectors |
@@ -138,7 +138,8 @@ class GenerationResult:
 
 `TopicSummaryDraft` and `EvidenceCandidate` are untrusted model output. `ValidatedEvidenceRef` is created only by `pipeline/evidence.py` after matching the immutable raw transcript. `ExecutionPlan` is generated before the run and is immutable for its lifetime. It records routing, token budgets, normal runtime retries (2 attempts), and 429 recovery (3 attempts, a 60-second per-job budget, and a 5-second full-jitter cap); explicit resume starts a fresh in-memory 429 budget.
 
-`OutputCompiler` sends complete strict object schemas for `output_outline`, `output_compose`, and
+`OutputCompiler` renders every default profile from the persisted compatible pack and makes no
+model request. The legacy strict object schemas for `output_outline`, `output_compose`, and
 `output_verify`, so Codex can reassemble an existing Knowledge Pack without re-running analysis.
 
 The maintainer preprocessing catalog (`benchmarks/videos.lock.json`) is parsed as `BenchmarkVideo`.

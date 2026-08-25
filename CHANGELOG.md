@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Grounded Knowledge Tree compiler foundation**: adds immutable untrusted tree drafts and
+  locally grounded tree artifacts, reversible prepared-transcript input, one-shot local annotation
+  sidecars, and a one-call Frontier extraction path (with a bounded two-call over-budget refine
+  adapter). The compatible Knowledge Pack now records the resulting tree fingerprint.
 - **Benchmark-reference review queues**: adds non-executable, AI-assisted Markdown candidate
   queues for the current short, long, and Korean fixtures. Human approval is required before any
   candidate can enter a live benchmark reference.
@@ -35,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Documents provider order, credential-free boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
 
 ### Changed
+- **Default compilation and rendering path**: application runs now select the GKT compiler;
+  default Digest, Blog, Study, JSON, and Obsidian profiles render deterministically from the
+  persisted Knowledge Pack without outline, compose, or verification model requests. The former
+  hierarchical pipeline remains available only as an explicit compatibility/benchmark strategy.
 - **Readable benchmark display labels**: Markdown, HTML, and Plotly per-video reports now show
   compact language-and-duration labels such as `English · 2h 00m` while preserving the immutable
   fixture key in locks, metrics, and quality comparisons.

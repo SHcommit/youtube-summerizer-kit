@@ -12,10 +12,10 @@
 
 ## Next Priorities
 
-1. Write the phased implementation plan for the
-   [approved Grounded Knowledge Tree hybrid design](docs/superpowers/specs/2026-08-25-grounded-knowledge-tree-hybrid-design.md).
-2. Implement the Grounded Knowledge Tree compiler before the optional LangGraph Agent Orchestration plane;
-   preserve current Harness, SQLite artifact, benchmark, and OpenTelemetry boundaries through adapters.
+1. Complete the GKT compiler's durable stage checkpoints, explicit unknown-external-outcome resume
+   state, role-bound Ollama integration, and benchmark measurements before implementing agents.
+2. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
+   compiler state and policy are complete.
 3. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
    independently human-reviewed JSON references for the Korean fixtures, long-video preprocessing,
    and 4m35s short-video conditions. Run the remaining Frontier benchmarks only as the integrated
@@ -60,6 +60,12 @@
   Knowledge Tree is the compiler's versioned artifact and does not introduce a graph database.
 
 ## Verification and Working Tree
+
+- `b1870bf` makes the application default to a GKT path: it compiles a reversible prepared
+  transcript, calls Frontier once for a strict `KnowledgeTreeDraft`, grounds raw segment IDs and
+  timestamps locally, projects the compatible Knowledge Pack, and renders all default outputs
+  without model calls. `1b48a13` adds tree-domain grounding/projection types. Full verification:
+  `301 passed, 2 skipped`; Ruff and mypy passed. No live Frontier benchmark was run.
 
 - `0baee5d` contains the credential-boundary, transcript pipeline, bounded-runtime-policy,
   telemetry, P0 benchmark-snapshot, and migration work. Full verification at that point was
