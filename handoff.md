@@ -12,12 +12,12 @@
 
 ## Next Priorities
 
-1. Run the final integrated Frontier benchmark against the user-reviewed references, recording GKT
-   call/grounding diagnostics and raw/processed quality gates.
-2. Resolve the five `수정` queue entries before adding them to the corresponding references; the
-   current approved claims are already transcribed under `benchmarks/references/`.
+1. Review the existing seven-fixture metrics-only preprocessing run and promote only its reviewed
+   conclusion to `reports/performance-comparisons/`; keep preprocessing opt-in.
+2. Do not run, retain, or interpret end-to-end Frontier benchmark comparisons. The existing `--live`
+   command remains only as a backward-compatible, explicitly invoked diagnostic.
 3. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
-   the final compiler and policy benchmark gate is complete.
+   the compiler and policy gates are complete.
 
 ## Active Constraints
 
@@ -35,13 +35,14 @@
 - `ExecutionPlan` records normal-runtime retry (2 attempts) and 429 policy (3 attempts, 60-second
   budget, 5-second full-jitter cap). The scheduler resets that in-memory 429 budget for an explicit
   `chew resume`. Generation subprocess timeout remains the separate `GenerationRequest` default.
-- Do not run or interpret end-to-end Frontier benchmarks during incremental implementation. They are
-  reserved for the final pre-deployment gate after functionality, policy boundaries, and loop
-  termination work are complete.
+- Do not run, retain, or interpret end-to-end Frontier benchmark comparisons. They are not a release
+  gate; the `--live` command is retained solely for backward compatibility and explicit diagnostics.
 
 ## Current Decision
 
 - Frontier remains the final reasoning and summary runtime.
+- Frontier runtime quality is not benchmarked. Provider-costly live comparisons do not inform
+  preprocessing adoption or release decisions.
 - The approved architecture is a deterministic Grounded Knowledge Tree compiler plus an optional
   LangGraph Agent Orchestration plane. The compiler does not import LangGraph; agents consume Grounded
   Knowledge Tree artifacts through policy-scoped typed tools.

@@ -11,8 +11,8 @@
   Knowledge Pack 작성은 Frontier를 대체하지 않으며 실행 중 모델을 자동 설치하지 않는다.
 - 단발성 영상 요약에는 임베딩, RAG, vector DB를 기본 경로에 넣지 않는다.
 - 원문 transcript는 근거 검증의 기준이며, 전처리본은 별도 derived artifact로 취급한다.
-- end-to-end Frontier benchmark는 기능·정책·종료 조건 변경을 모두 완료한 뒤, 배포 직전의
-  통합 검증으로만 실행한다. 중간 구현의 단발 측정은 채택 또는 회귀 판단에 사용하지 않는다.
+- end-to-end Frontier benchmark는 활성 검증 범위가 아니다. `--live` 명령은 호환성을 위해
+  유지하지만, provider 호출 비용이 드는 비교 실행·결과 보존·채택 판단은 진행하지 않는다.
 
 ## 1. 자막 전처리 채택 벤치마크
 
@@ -20,18 +20,19 @@
 조건에서 측정했다. 보수적 필러 제거는 132,312에서 118,716 tokenizer token으로 **10.28%**
 감소했고 모든 영상이 성공했다. 한국어 강의는 22,916에서 22,747 token(**0.74%**), 한국어 대화형은
 18,014에서 17,866 token(**0.82%**)이었다. 이는 tokenizer 측정이며 provider 비용·품질 주장이
-아니다. Frontier 품질 평가는 아직 없으므로 `preprocess_transcript` 기본값은 계속 `false`다.
+아니다. Frontier 비교는 범위 밖이므로 `preprocess_transcript` 기본값은 계속 `false`다.
 
 ### 남은 작업
 
-1. 같은 Frontier runtime/model, prompt fingerprint, concurrency에서 raw와 processed 경로를 비교한다.
-2. token/cost, 전체 시간, evidence recall, timestamp accuracy, missing range, unsupported claim을 함께 기록한다.
-3. `수정`으로 판정된 5개 후보의 대체 문구를 확정한 뒤, 필요하면 reference에 추가한다.
-4. `reports/performance-comparisons/` 아래 검토된 보고서에 기본값 채택 여부를 명시한다.
+1. metrics-only 7개 fixture 결과를 검토해 `reports/performance-comparisons/`의 결론으로 승격하거나
+   보류한다.
+2. 기본값은 opt-in을 유지한다. Frontier 비교를 다시 요구하지 않는 한 provider 사용량이나 quality
+   claim을 채택 근거로 추가하지 않는다.
 
 ### 채택 기준
 
-기본 활성화는 다음을 모두 만족할 때만 검토한다.
+기본 활성화는 별도 제품 결정을 통해 provider 품질 검증을 다시 범위에 포함할 때만 검토한다.
+현재 metrics-only 결과는 아래 기준 중 token 측정만 제공하므로 기본값을 변경하지 않는다.
 
 1. 실제 provider input usage 또는 비용이 기준선보다 10% 이상 감소한다.
 2. evidence recall, timestamp accuracy, 핵심 주장 recall이 저하되지 않는다.
