@@ -13,13 +13,12 @@
 ## Next Priorities
 
 1. Obtain independent approval for benchmark references, then run the final integrated Frontier
-   benchmark using GKT call/grounding metrics; only then implement optional agents.
-2. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
-   compiler state and policy are complete.
-3. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
+   benchmark using GKT call/grounding metrics and the raw/processed quality gates.
+2. Review the existing `benchmarks/reference-drafts/` queues and transcribe approved candidates into
    independently human-reviewed JSON references for the Korean fixtures, long-video preprocessing,
-   and 4m35s short-video conditions. Run the remaining Frontier benchmarks only as the integrated
-   pre-deployment gate.
+   and 4m35s short-video conditions.
+3. Add the optional bounded LangGraph Agent Orchestration plane only behind the `agents` extra after
+   the final compiler and policy benchmark gate is complete.
 
 ## Active Constraints
 
@@ -83,6 +82,11 @@
   tests, Ruff, and mypy passed.
 - `7143ffc` adds GKT Frontier-call and grounding diagnostics to short-video benchmark reports.
   Full verification: `307 passed, 2 skipped`; Ruff and mypy passed. No live benchmark was run.
+- The 2026-08-25 metrics-only run covers all seven locked fixtures with the same lock and concurrency
+  (`baseline-20260825T052411Z`, `current-20260825T052533Z`). All succeeded; tokenizer input fell
+  from 132,312 to 118,716 (10.28%). The Korean lecture fell 22,916 -> 22,747 (0.74%) and the Korean
+  conversation 18,014 -> 17,866 (0.82%). No Frontier call, quality evaluation, adoption decision,
+  or report promotion occurred. These two untracked run directories require review before staging.
 
 - `0baee5d` contains the credential-boundary, transcript pipeline, bounded-runtime-policy,
   telemetry, P0 benchmark-snapshot, and migration work. Full verification at that point was
