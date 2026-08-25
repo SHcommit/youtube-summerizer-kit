@@ -128,6 +128,28 @@ def test_database_checkpoint_runs_without_error(tmp_path: Path) -> None:
     db.checkpoint()  # must not raise
 
 
+def test_compiler_checkpoint_preserves_immutable_stage_artifact_and_unknown_outcome(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+
+    database.record_compiler_checkpoint(
+        run_id="run-1",
+        stage="input.compile",
+        attempt=1,
+        artifact_hash="prepared-artifact",
+        measurement={"paragraph_count": 2},
+        policy_fingerprint="policy-1",
+        correlation_id="trace-1",
+    )
+    database.mark_external_outcome_unknown("run-1")
+
+    assert database.get_run_state("run-1") == "external_outcome_unknown"
+    assert database.list_compiler_checkpoints("run-1") == [
+        ("input.compile", 1, "prepared-artifact", {"paragraph_count": 2}, "policy-1", "trace-1")
+    ]
+
+
 def test_database_records_each_generation_attempt_for_a_job(tmp_path: Path) -> None:
     database = Database(tmp_path / "state.db")
     database.initialize()

@@ -284,7 +284,19 @@ class AnalysisPipeline:
                     reserved_output_tokens=config.reserved_output_tokens,
                 ),
             )
-            self.artifacts.put_json(prepared)
+            prepared_ref = self.artifacts.put_json(prepared)
+            checkpoint_policy = (
+                config.execution_plan.plan_fingerprint if config.execution_plan is not None else ""
+            )
+            self.database.record_compiler_checkpoint(
+                run_id=run_id,
+                stage="input.compile",
+                attempt=1,
+                artifact_hash=prepared_ref.digest,
+                measurement={"paragraph_count": len(prepared.paragraphs), "estimated_tokens": prepared.estimated_input_tokens},
+                policy_fingerprint=checkpoint_policy,
+                correlation_id=run_id,
+            )
             with self.telemetry.span(
                 "frontier.generate",
                 {"strategy": "gkt", "prepared_fingerprint": prepared.fingerprint},
@@ -298,6 +310,16 @@ class AnalysisPipeline:
                     ),
                     trace_id=run_id,
                 )
+            draft_ref = self.artifacts.put_json(extracted.draft)
+            self.database.record_compiler_checkpoint(
+                run_id=run_id,
+                stage="frontier.generate",
+                attempt=1,
+                artifact_hash=draft_ref.digest,
+                measurement={"call_strategy": extracted.call_strategy, "usage": extracted.usage},
+                policy_fingerprint=checkpoint_policy,
+                correlation_id=run_id,
+            )
             with self.telemetry.span("evidence.ground", {"strategy": "gkt"}):
                 tree = TreeAssembler().assemble(
                     extracted.draft,
@@ -305,7 +327,16 @@ class AnalysisPipeline:
                     raw_transcript_fingerprint=raw_transcript_hash,
                     prepared_transcript_fingerprint=prepared.fingerprint,
                 )
-            self.artifacts.put_json(tree)
+            tree_ref = self.artifacts.put_json(tree)
+            self.database.record_compiler_checkpoint(
+                run_id=run_id,
+                stage="evidence.ground",
+                attempt=1,
+                artifact_hash=tree_ref.digest,
+                measurement=tree.diagnostics.model_dump(mode="json"),
+                policy_fingerprint=checkpoint_policy,
+                correlation_id=run_id,
+            )
             pack = KnowledgePackProjector().project(
                 tree=tree,
                 transcript=transcript,
@@ -317,6 +348,15 @@ class AnalysisPipeline:
                 model=extracted.model,
             )
             pack_ref = self.artifacts.put_json(pack)
+            self.database.record_compiler_checkpoint(
+                run_id=run_id,
+                stage="tree.assemble",
+                attempt=1,
+                artifact_hash=pack_ref.digest,
+                measurement={"topic_count": len(pack.topics), "tree_fingerprint": tree.fingerprint},
+                policy_fingerprint=checkpoint_policy,
+                correlation_id=run_id,
+            )
             self.database.set_run_pack(run_id, pack_ref.digest)
             return AnalysisResult(
                 run_id,

@@ -42,7 +42,7 @@ def _timestamp(value: datetime) -> str:
 
 
 class Database:
-    SCHEMA_VERSION = 7
+    SCHEMA_VERSION = 8
     _local: threading.local  # class-level annotation; one per Database instance via __init__
 
     def __init__(self, path: Path) -> None:
@@ -147,6 +147,17 @@ class Database:
                     details_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS compiler_checkpoints (
+                    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+                    stage TEXT NOT NULL,
+                    attempt INTEGER NOT NULL,
+                    artifact_hash TEXT NOT NULL,
+                    measurement_json TEXT NOT NULL DEFAULT '{}',
+                    policy_fingerprint TEXT NOT NULL,
+                    correlation_id TEXT NOT NULL,
+                    completed_at TEXT NOT NULL,
+                    PRIMARY KEY(run_id, stage, attempt)
+                );
                 """
             )
             for version in range(current_version + 1, self.SCHEMA_VERSION + 1):
@@ -173,6 +184,15 @@ class Database:
         elif version == 7:
             connection.execute("CREATE INDEX IF NOT EXISTS runs_reuse_idx ON runs(source_id, request_key, updated_at DESC)")
             connection.execute("CREATE INDEX IF NOT EXISTS job_measurements_job_idx ON job_measurements(job_id, measurement_id)")
+        elif version == 8:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS compiler_checkpoints ("
+                "run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE, "
+                "stage TEXT NOT NULL, attempt INTEGER NOT NULL, artifact_hash TEXT NOT NULL, "
+                "measurement_json TEXT NOT NULL DEFAULT '{}', policy_fingerprint TEXT NOT NULL, "
+                "correlation_id TEXT NOT NULL, completed_at TEXT NOT NULL, "
+                "PRIMARY KEY(run_id, stage, attempt))"
+            )
 
     def journal_mode(self) -> str:
         with self._connect() as connection:
@@ -642,6 +662,66 @@ class Database:
                 "UPDATE runs SET status = 'completed', knowledge_pack_hash = ?, updated_at = ? WHERE run_id = ?",
                 (digest, _timestamp(datetime.now(UTC)), run_id),
             )
+
+    def record_compiler_checkpoint(
+        self,
+        *,
+        run_id: str,
+        stage: str,
+        attempt: int,
+        artifact_hash: str,
+        measurement: dict[str, object],
+        policy_fingerprint: str,
+        correlation_id: str,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO compiler_checkpoints(run_id, stage, attempt, artifact_hash, measurement_json, "
+                "policy_fingerprint, correlation_id, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    run_id,
+                    stage,
+                    attempt,
+                    artifact_hash,
+                    json.dumps(redact_sensitive(measurement), sort_keys=True),
+                    policy_fingerprint,
+                    correlation_id,
+                    _timestamp(datetime.now(UTC)),
+                ),
+            )
+
+    def list_compiler_checkpoints(
+        self, run_id: str
+    ) -> list[tuple[str, int, str, dict[str, object], str, str]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT stage, attempt, artifact_hash, measurement_json, policy_fingerprint, correlation_id "
+                "FROM compiler_checkpoints WHERE run_id = ? ORDER BY completed_at, stage, attempt",
+                (run_id,),
+            ).fetchall()
+        return [
+            (
+                str(row["stage"]),
+                int(row["attempt"]),
+                str(row["artifact_hash"]),
+                {str(key): value for key, value in json.loads(str(row["measurement_json"])).items()},
+                str(row["policy_fingerprint"]),
+                str(row["correlation_id"]),
+            )
+            for row in rows
+        ]
+
+    def mark_external_outcome_unknown(self, run_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE runs SET status = 'external_outcome_unknown', updated_at = ? WHERE run_id = ?",
+                (_timestamp(datetime.now(UTC)), run_id),
+            )
+
+    def get_run_state(self, run_id: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute("SELECT status FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+        return None if row is None else str(row["status"])
 
     def get_run_pack(self, run_id: str) -> str | None:
         with self._connect() as connection:

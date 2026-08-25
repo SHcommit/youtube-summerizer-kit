@@ -246,6 +246,12 @@ async def test_gkt_pipeline_uses_one_extraction_without_hierarchical_jobs(tmp_pa
     assert [request.task for request in harness.requests] == ["knowledge_extract"]
     assert result.pack.grounded_tree_fingerprint
     assert database.list_run_statuses(result.run_id)[0][4] == 0
+    assert [checkpoint[0] for checkpoint in database.list_compiler_checkpoints(result.run_id)] == [
+        "input.compile",
+        "frontier.generate",
+        "evidence.ground",
+        "tree.assemble",
+    ]
 
 
 @pytest.mark.asyncio
