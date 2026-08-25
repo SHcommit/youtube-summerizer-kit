@@ -59,6 +59,10 @@ src/chew/
 └── cli/               # Layer 11: Current Typer CLI compatibility entry point
     └── main.py        (Bilingual Korean/English Typer commands)
 
+modules/               # Future extractable modules; documentation boundaries only
+├── intent-analysis/   # Natural-language request analysis; no package/runtime yet
+└── research-engine/   # Pack-based follow-up research; no package/runtime yet
+
 reports/               # Central Benchmarking & Performance Observability Reports
 ├── BENCHMARK.md       (Release performance history & OpenTelemetry Jaeger setup)
 ├── performance_analysis.md (Baseline vs optimized commit diff comparisons)

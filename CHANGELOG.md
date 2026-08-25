@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Grounded Knowledge Compiler module boundaries**: documents `chew` as the Grounded Knowledge
+  Compiler and adds documentation-only `intent-analysis` and `research-engine` boundaries. Neither
+  is an installable package or runtime feature; LangGraph, RAG, MCP, HTTP, web UI, and model
+  dependencies remain deferred pending one selected user flow and a typed read-only
+  `KnowledgeGateway`.
 - **Bounded agent and interface foundations**: adds immutable agent budgets, named tool grants,
   guarded tool invocation, and protocol-neutral interface response contracts. CLI machine-result
   presentation now reuses a framework-independent presenter, while HTTP, MCP, LangGraph, and web

@@ -36,9 +36,9 @@ youtube-summarizer-kit/
 │
 └── modules/
     ├── intent-analysis/               # Documentation-only boundary now
-    │   └── README.md
+    │   └── README.md                   # Contract and non-goals
     └── research-engine/               # Documentation-only boundary now
-        └── README.md
+        └── README.md                   # Contract and dependency direction
 ```
 
 No `pyproject.toml`, Python package, model dependency, LangGraph dependency,
@@ -97,11 +97,11 @@ browser, cookie, credential, or runtime-adapter access.  Any future gateway into
 
 1. Architecture-facing documentation calls `chew` the Grounded Knowledge
    Compiler while preserving its package and CLI name.
-2. `modules/intent-analysis/README.md` records its contract, non-goals, future
-   optional adapters, and extraction rule.
-3. `modules/research-engine/README.md` records its contract, dependency direction,
-   and non-goals.
-4. A new session can tell that the two directories are placeholders, not runnable
+2. [`modules/intent-analysis/README.md`](../../../modules/intent-analysis/README.md) records its
+   contract, non-goals, future optional adapters, and extraction rule.
+3. [`modules/research-engine/README.md`](../../../modules/research-engine/README.md) records its
+   contract, dependency direction, and non-goals.
+4. A new session can tell that the two directories are documentation-only, not runnable
    packages, and can identify the next prerequisite before implementation.
 5. No runtime behavior, dependency, provider call, or Frontier benchmark changes.
 

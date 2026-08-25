@@ -10,6 +10,8 @@
 
 A local-first, resumable CLI (`chew`) that turns YouTube videos and local audio or video files into reusable knowledge. It validates transcripts, analyzes chapters and topics in parallel, and compiles the result into multiple formats instead of producing a one-off summary.
 
+Architecturally, `chew` is a **Grounded Knowledge Compiler**: it turns a source into an evidence-grounded Knowledge Tree and a reusable Knowledge Pack.
+
 - Run with `chew <URL>`.
 - Handles long videos with chapter-aware, topic-level parallel processing.
 - Resumes from completed work after a network or AI CLI interruption.
@@ -137,6 +139,8 @@ The application keeps identity, policy, grounding, Knowledge Pack assembly, and 
 Frontier runtimes perform final reasoning. Ollama is optional and, when enabled, is limited to bounded transcript annotation; it does not replace final reasoning or judgment. SQLite and content-addressed artifacts preserve local state. OpenTelemetry/Jaeger is optional observability, not a runtime dependency.
 
 The Knowledge Pack renderer creates the actual reusable content—Digest, Blog, Study, Obsidian, and JSON. That is separate from an interface presenter, which describes a completed operation as terminal text or machine JSON. The current inbound interface is the CLI. HTTP, MCP, and a separately deployable web client are deliberately shown as future contract consumers; no public API or web UI is included yet.
+
+Two future modules have documentation-only boundaries: [`intent-analysis`](modules/intent-analysis/README.md) for reusable natural-language request analysis and [`research-engine`](modules/research-engine/README.md) for Pack-based follow-up research. They are not installed, invoked, or required by `chew`.
 
 ## Inside the Pipeline
 

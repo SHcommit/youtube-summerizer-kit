@@ -14,25 +14,26 @@
 - end-to-end Frontier benchmark는 활성 검증 범위가 아니다. `--live` 명령은 호환성을 위해
   유지하지만, provider 호출 비용이 드는 비교 실행·결과 보존·채택 판단은 진행하지 않는다.
 
-## 1. 보류: 자연어 입력 해석
+## 미래 모듈 경계
 
-`chew야 <URL> 이거 정리해줘` 같은 자연어를 현재 CLI 명령과 옵션으로만 구조화하는
-`IntentParser`를 검토한다. 기본 경로는 결정적 URL·옵션 추출을 사용하며, 이후 opt-in local LLM은
-허용된 `CommandIntent` JSON만 반환할 수 있다. 입력 해석기는 YouTube 접근, 브라우저·쿠키·Keychain
-접근, 파일 삭제, 또는 Frontier 요약·판단을 수행하지 않는다. 데이터 변경 명령은 자연어 해석 후에도
-명시적 확인이 필요하다.
+[`Grounded Knowledge Compiler and Future Modules Design`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md)에서 `chew`를 **Grounded Knowledge Compiler**로 정의한다. [`modules/intent-analysis/README.md`](modules/intent-analysis/README.md)와 [`modules/research-engine/README.md`](modules/research-engine/README.md)는 미래에 독립 추출할 모듈의 문서 경계이며, 현재는 실행 가능한 패키지가 아니다.
 
-이 항목은 현재 구현하지 않는다.
+## 1. 보류: `intent-analysis` 자연어 요청 분석
 
-## 2. 보류: Grounded Knowledge Tree Agent runtime
+`intent-analysis`는 `IntentParser`를 통해 자연어 Message를 허용된 Intent, Clarification, Unsupported 중 하나로만 해석한다. 기본 경로는 결정적 URL·옵션 추출과 고신뢰 패턴이며, 이후 opt-in local adapter는 schema-validated intent 후보만 반환할 수 있다. 입력 해석기는 YouTube 접근, 브라우저·쿠키·Keychain 접근, 파일 삭제, 도구 실행, 또는 Frontier 요약·판단을 수행하지 않는다. 데이터 변경 명령은 자연어 해석 후에도 명시적 확인이 필요하다.
+
+이 항목은 현재 구현하지 않는다. 먼저 첫 user flow와 capability catalog를 확정해야 한다.
+
+## 2. 보류: `research-engine`와 Grounded Knowledge Tree Agent runtime
 
 기본 control-plane 계약은 구현되었다. `agents`의 immutable budget·tool grant·request/result과 승인 전
 tool 실행을 차단하는 policy, 그리고 `interfaces`의 protocol-neutral presenter는 `CHANGELOG.md`에 기록한다.
 이는 LangGraph, MCP, HTTP API, 또는 웹 UI를 추가한 것이 아니다.
 
-실제 user flow가 정해질 때까지 typed Application Service tool, LangGraph optional `agents` extra, MCP,
-HTTP API, 웹 UI를 추가하지 않는다. 재개할 때에는 먼저 완성된 Grounded Knowledge Tree만 읽고 렌더링하는
-typed tool의 필요성을 검토한다. 선택된 Research, Style, Conversation, Publishing 역할에는 allowlist,
+실제 user flow와 versioned read-only `KnowledgeGateway`가 정해질 때까지 typed Application Service tool,
+LangGraph optional `agents` extra, MCP, HTTP API, 웹 UI, 모델 의존성을 추가하지 않는다. 재개할 때에는 먼저
+완성된 Grounded Knowledge Tree와 Knowledge Pack만 읽는 typed gateway의 필요성을 검토한다. 선택된 Research,
+Style, Conversation, Publishing 역할에는 allowlist,
 model/step/deadline 예산, 읽기·쓰기 artifact 범위, 승인 조건을 실행 전에 고정한다.
 
 대화 session과 `CompilationRun`·`AgentRun`은 분리한다. graph checkpointer는 canonical SQLite

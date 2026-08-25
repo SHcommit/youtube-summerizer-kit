@@ -8,7 +8,7 @@
 
 ## 1. What This Project Does
 
-`chew` is a local-first, resumable CLI that turns YouTube videos and local audio/video files into structured knowledge outputs (Digest, Blog, Study Notes, Obsidian Vault). It analyzes a video **once** into a content-addressed **Knowledge Pack** and reassembles it into any output format without re-running LLM calls.
+`chew` is a local-first, resumable **Grounded Knowledge Compiler** that turns YouTube videos and local audio/video files into structured knowledge outputs (Digest, Blog, Study Notes, Obsidian Vault). It analyzes a video **once** into an evidence-grounded, content-addressed **Knowledge Pack** and reassembles it into any output format without re-running LLM calls.
 
 Key properties:
 - **Analyze once, reassemble anywhere** — Knowledge Packs are content-addressed (SHA-256) and cached.
@@ -240,6 +240,9 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | `scripts/report_job_measurements.py` | Read-only SQLite run profiler for provider usage, request shape, repairs, and retries |
 | `docs/decisions/local-llm-runtime.md` | Product decision: local LLM/Ollama is optional, with adoption criteria |
 | `docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md` | Approved boundary between app use cases, agent control contracts, content rendering, and inbound interfaces |
+| `docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md` | Approved naming of `chew` as the Grounded Knowledge Compiler and future module dependency direction |
+| `modules/intent-analysis/README.md` | Documentation-only boundary for reusable natural-language request analysis; not an installable package |
+| `modules/research-engine/README.md` | Documentation-only boundary for Pack-based follow-up research; not an installable package |
 | `CHANGELOG.md` | Feature history by version |
 | `README.md` / `README.ko.md` | User-facing documentation (en/ko) |
 | `reports/BENCHMARK.md` | Performance baseline and release benchmark scores |
@@ -258,6 +261,7 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | New CLI command or option | `cli/main.py` + command table in this doc (§5) + `README.md` + `README.ko.md` + `CHANGELOG.md` |
 | New harness | `harness/<name>.py` + `registry.py` + `bootstrap.py` + harness table in this doc (§4) + `README.md` runtime table + `README.ko.md` + `CHANGELOG.md` + `assets/architecture/*.mmd` |
 | New layer or module | Update layer map in this doc (§2) + `AGENTS.md` architecture layout + `CHANGELOG.md` |
+| Activate a documentation-only future module | Select one user flow; define its typed dependency contract; update its module README, `IMPROVEMENTS.md`, `handoff.md`, `CHANGELOG.md`, and relevant user documentation before adding packages or dependencies |
 | New inbound interface | Keep it behind `interfaces/`; update the relevant presenter/contract, architecture diagrams, README, and `CHANGELOG.md` |
 | New extras group | `pyproject.toml` + optional extras table in this doc (§8) + `README.md` |
 | Schema / protocol change | Update interfaces section in this doc (§6) |

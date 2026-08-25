@@ -9,7 +9,7 @@
 - Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
-- Architecture decision: [`docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md`](docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md)
+- Architecture decisions: [`interface and agent boundaries`](docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md), [`Grounded Knowledge Compiler modules`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md)
 
 ## Current Architecture Decision
 
@@ -18,6 +18,10 @@
 - `app` is the product-use-case boundary. It is not an `examples` package.
 - `pipeline.outputs` creates reusable product artifacts. `interfaces` presents operation results to
   CLI now and to future HTTP/MCP consumers later; it does not implement product rendering.
+- `chew` is the Grounded Knowledge Compiler: it owns source acquisition, evidence validation, GKT
+  synthesis, Knowledge Pack persistence, and deterministic output compilation.
+- `modules/intent-analysis/` and `modules/research-engine/` are documentation-only, separately
+  extractable boundaries. They are not Python packages or runtime dependencies.
 - The initial `agents` package supplies dependency-free budget, grant, tool, and policy contracts
   only. There is no LangGraph runtime, MCP server, public HTTP API, authentication scheme, or web
   UI yet. A future web client consumes only a versioned HTTP contract and can live as a separately
@@ -25,12 +29,10 @@
 
 ## Next Decision
 
-The product naming and module boundaries are specified in
-[`docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md): `chew` is the **Grounded Knowledge Compiler**;
-`intent-analysis` and `research-engine` are future independently extractable modules. Review that
-specification before adding the requested documentation-only module directories. Do not add
-ApplicationService agent tools, LangGraph, MCP, HTTP endpoints, web UI code, model dependencies,
-or a public package yet.
+The documentation-only module boundaries are present. Before activating either one, choose one
+end-to-end user flow and define a versioned, typed, read-only `KnowledgeGateway` from
+`research-engine` to `chew`. Do not add ApplicationService agent tools, LangGraph, MCP, HTTP
+endpoints, web UI code, model dependencies, or a public package automatically.
 
 Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only conclusion is in
 `reports/performance-comparisons/transcript-preprocessing/latest.md`.
@@ -49,6 +51,9 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
+- `020d965` records the approved Grounded Knowledge Compiler/module design; the documentation-only
+  module-boundary update is verified with `319 passed, 2 skipped`, Ruff clean, and mypy clean. No
+  live provider or Frontier benchmark ran.
 - `d591ceb` adds bounded agent contracts; full verification was `315 passed, 2 skipped`, Ruff and
   mypy clean.
 - `cb0c8b0` adds protocol-neutral interface result presentation and preserves CLI machine fields;

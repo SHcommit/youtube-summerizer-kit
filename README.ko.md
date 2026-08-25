@@ -11,6 +11,8 @@
 YouTube 영상과 로컬 오디오·영상 파일을 재사용 가능한 지식으로 변환하는 로컬 중심 CLI(`chew`)입니다.
 일회성 요약을 출력하는 대신 자막을 검증하고, 장·소주제를 병렬 분석하여 다양한 포맷 문서로 조립합니다.
 
+아키텍처 역할에서 `chew`는 원문을 근거 기반 Knowledge Tree와 재사용 가능한 Knowledge Pack으로 컴파일하는 **Grounded Knowledge Compiler(근거 기반 지식 컴파일러)**입니다.
+
 - `chew <URL>` 명령으로 실행합니다.
 - 챕터를 인식하고 소주제 단위로 병렬 처리하여 긴 영상도 안정적으로 분석합니다.
 - 중간에 네트워크나 AI CLI가 끊겨도 완료된 작업부터 이어합니다.
@@ -138,6 +140,8 @@ YouTube URL, 로컬 미디어, 또는 이미 가진 자막으로 시작합니다
 최종 추론은 Frontier runtime이 담당합니다. Ollama는 선택 사항이며, 활성화해도 제한된 자막 annotation에만 사용되고 최종 요약이나 판단을 대체하지 않습니다. SQLite와 content-addressed artifact는 로컬 상태를 보존합니다. OpenTelemetry/Jaeger는 선택적 관측 도구이지 실행에 필요한 의존성이 아닙니다.
 
 Knowledge Pack renderer는 Digest, Blog, Study, Obsidian, JSON처럼 실제로 재사용할 콘텐츠를 만듭니다. 반면 interface presenter는 완료된 작업을 터미널 문구나 machine JSON으로 전달할 뿐입니다. 현재 inbound interface는 CLI이고, HTTP·MCP·별도 배포 가능한 웹 클라이언트는 미래 계약 소비자로만 표시합니다. 아직 공개 API나 웹 UI는 포함하지 않습니다.
+
+공통 자연어 요청 분석을 위한 [`intent-analysis`](modules/intent-analysis/README.md)와 Pack 기반 후속 조사를 위한 [`research-engine`](modules/research-engine/README.md)는 문서 경계만 존재하는 미래 모듈입니다. 아직 설치·호출·의존할 필요가 없습니다.
 
 ## 내부 파이프라인
 
