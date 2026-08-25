@@ -18,7 +18,6 @@ Do not publish mock values. Only promote reviewed real artifacts to
 | File | Purpose |
 |---|---|
 | `videos.lock.json` | Canonical locked benchmark-video catalog |
-| `references/` | User-reviewed executable JSON references for the matching source videos |
 | `benchmark.sh` | Friendly shell wrapper around the long `uv run --isolated --with ...` commands |
 | `run_preprocessing.py` | Metrics-only baseline/current run; no LLM calls |
 | `benchmark_report.py` | One-command current run + report rendering |
@@ -45,29 +44,6 @@ deliberately not used.
 
 Unavailable transcripts must remain visible as failed entries in `metrics.json`.
 Do not silently substitute another video or transcript source.
-
-## Quality Reference Review
-
-Live Frontier comparisons require a separate, human-reviewed JSON reference for
-the exact normalized YouTube URL. `references/` contains only claims a reviewer
-has approved from the corresponding queue; it never contains model-generated
-answers. A reviewer must inspect the source transcript and record at least one
-independently supported claim:
-
-- `source_id`, `language`, and positive `duration_ms`
-- non-empty `claims` entries with `text`, transcript `evidence`, and
-  `timestamp_ms`
-- a positive `tolerance_ms` when the default 30 seconds is unsuitable
-
-The parser rejects empty claims, blank text or evidence, invalid numeric values,
-and timestamps outside the reference duration before a `--live` run can create
-a provider call. This validates the review artifact's structure, not the truth
-of its content; the reviewer remains responsible for that judgment.
-
-AI-assisted candidates for the current locked videos live in
-`reference-drafts/`. They are Markdown review queues, deliberately separate
-from executable JSON references, and remain unusable for a live benchmark until
-a human reviewer approves and transcribes them.
 
 ## Recommended Workflow
 

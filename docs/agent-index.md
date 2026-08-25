@@ -146,10 +146,6 @@ The maintainer preprocessing catalog (`benchmarks/videos.lock.json`) is parsed a
 Every entry requires a stable key, YouTube ID, title, caption `language`, and verified duration;
 measurement runners request the entry-specific language rather than applying a catalog-wide default.
 
-`BenchmarkReference` is a human-reviewed quality artifact, not generated output. It requires
-non-empty source metadata and claims with transcript evidence and in-range timestamps; CLI parsing
-rejects structurally invalid references before any `--live` provider call.
-
 ### `ApplicationService.generate()` (`app/service.py`)
 
 Entry point for the application layer. Catches `HarnessAuthenticationError` and re-raises as `AuthenticationRequired`.
@@ -208,8 +204,6 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | `reports/performance_analysis.md` | Baseline vs optimized commit comparisons |
 | `reports/performance-comparisons/transcript-preprocessing/` | Maintainer preprocessing comparison reports and immutable run artifacts |
 | `benchmarks/` | Maintainer-only benchmark scripts, `benchmark.sh report allInOne`, and locked transcript-preprocessing video fixtures; locks are reproducibility inputs, not product URL restrictions |
-| `benchmarks/reference-drafts/` | Human review queues; never pass these Markdown files to `--reference` |
-| `benchmarks/references/` | User-reviewed executable JSON references transcribed only from approved queue entries |
 | `assets/architecture/en/` | English Mermaid diagrams + PNGs |
 | `assets/architecture/ko/` | Korean Mermaid diagrams + PNGs |
 

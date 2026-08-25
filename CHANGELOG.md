@@ -56,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Documents provider order, credential-free boundaries, and recovery behavior in `docs/wiki/transcript-acquisition.md`.
 
 ### Changed
+- **Frontier benchmark fixture cleanup**: removed the human-review queues and executable reference
+  files that existed solely for Live Frontier comparisons, which are no longer an active workflow.
 - **Codex GKT strict-schema compatibility**: fixed-length relation tuples now emit a string-object
   `items` schema while preserving their length validation, allowing Codex structured extraction to
   accept the Grounded Knowledge Tree response contract.

@@ -26,9 +26,7 @@
   `youtube_ko_38m48s_for_benchmark`, plus English fixtures: `youtube_en_4m35s_for_benchmark`,
   `youtube_en_39m00s_for_benchmark`, `youtube_en_55m48s_for_benchmark`,
   `youtube_en_2h00m09s_for_benchmark`, and `youtube_en_2h49m45s_for_benchmark`. A locked fixture
-  is a reproducibility target for maintainer benchmarks, not a user-input restriction. Its matching
-  quality reference must be independently human-reviewed. Approved, source-specific references are
-  stored under `benchmarks/references/`; draft Markdown remains non-executable.
+  is a reproducibility target for maintainer preprocessing measurement, not a user-input restriction.
 - Each lock entry has a required caption `language`; both preprocessing measurement paths request
   that entry-specific language. The Korean lecture has publicly available automatic `ko` captions,
   but this does not establish an availability guarantee.

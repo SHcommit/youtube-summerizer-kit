@@ -478,33 +478,6 @@ chew benchmark-dashboard
 chew benchmark-ui
 ```
 
-```bash
-chew benchmark list
-chew benchmark run 'https://youtu.be/VIDEO_ID' --live \
-  --reference benchmark-reference.json --repeats 3 --runtime codex
-
-# Short-video path decision: same transcript and same Frontier runtime
-chew benchmark run 'https://www.youtube.com/watch?v=c4GaJKprGEs' --live --short-video \
-  --reference short-video-reference.json --repeats 1 --runtime codex
-```
-
-The benchmark compares direct Gemini URL analysis using a minimal prompt and shared schema against the hierarchical pipeline using Gemini and the configured runtime. It evaluates claim and evidence recall, timestamp accuracy, long-duration coverage, and unsupported claims against a reference file. Each result states whether its input was `video_url` or `transcript`, so Gemini's multimodal input advantage is not mistaken for pipeline quality.
-
-`--short-video` resolves one public transcript snapshot before either condition starts, then compares a single-pass transcript request with hierarchical synthesis using that same snapshot and configured Frontier runtime across every repeat. It is the decision path for short videos and must use a reviewed reference file; caption resolution failure starts no live condition and writes no report. Before each external repeat, the CLI prints `Running <condition> repeat <n>/<total>` so long runs have visible progress.
-
-A reference file is human-reviewed ground truth for the exact URL: its `source_id` must match the
-normalized URL, and its claims, quotations, and timestamps must be reviewed independently of any
-model output. Reviewed source-specific references live in `benchmarks/references/`; maintainers create
-and review them for the selected URL. `benchmarks/videos.lock.json` similarly locks maintainer preprocessing
-inputs for reproducibility; it does not limit normal `chew` URL input.
-
-The reference must contain at least one non-empty claim with transcript evidence and an in-range
-timestamp. Invalid metadata, empty claims, blank evidence, and out-of-range timestamps are rejected
-before any live provider call. This is structural validation only; a human reviewer remains
-responsible for the claims' factual accuracy.
-
-Live benchmarks require both `--live` and an explicit reference file because they use real login sessions and quota. Reports are written atomically to `benchmark-results/run-*/report.json` and `report.md`. The project does not yet publish a multilingual, multi-duration benchmark corpus or claim that it always outperforms Gemini.
-
 Maintainer-only transcript preprocessing comparisons use the locked fixture and scripts in `benchmarks/`.
 Run the baseline before the feature or from the previous release, then run the
 final report after the candidate feature is implemented:

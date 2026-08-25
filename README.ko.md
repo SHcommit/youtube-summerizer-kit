@@ -486,26 +486,6 @@ chew benchmark-dashboard
 chew benchmark-ui
 ```
 
-```bash
-chew 벤치마크 목록
-chew 벤치마크 실행 'https://youtu.be/VIDEO_ID' --live \
-  --reference benchmark-reference.json --repeats 3 --runtime codex
-
-# 짧은 영상 경로 선택: 동일 자막, 동일 Frontier runtime
-chew 벤치마크 실행 'https://www.youtube.com/watch?v=c4GaJKprGEs' --live --short-video \
-  --reference short-video-reference.json --repeats 1 --runtime codex
-```
-
-비교 조건은 Gemini 직접 URL 분석(단순 프롬프트·동일 스키마)과 계층형 파이프라인(Gemini·설정 실행기)입니다. 기준 답안의 주장·근거·타임스탬프와 비교해 recall, 근거 coverage, timestamp accuracy, 장시간 구간 coverage, unsupported claim을 계산합니다. 입력 방식이 `video_url`인지 `transcript`인지 분리 표기하여 Gemini의 멀티모달 이점을 파이프라인 품질로 오인하지 않습니다.
-
-`--short-video`는 두 조건을 시작하기 전에 공개 transcript snapshot을 한 번만 확보하고, 모든 반복에서 같은 snapshot과 configured Frontier runtime으로 단일 요약·계층 합성을 비교합니다. 짧은 영상의 기본 경로 판단용이며, 사람이 검토한 reference 파일이 필요합니다. 자막 확보에 실패하면 live condition이나 report를 만들지 않습니다. 각 외부 반복을 시작하기 전에 CLI가 `Running <condition> repeat <n>/<total>`을 출력하므로 긴 실행도 진행 상황을 확인할 수 있습니다.
-
-reference 파일은 정확히 그 URL을 위한 사람이 검토한 기준 답안입니다. `source_id`는 정규화된 URL과 일치해야 하고, 주장·인용문·타임스탬프는 모델 출력과 독립적으로 검토해야 합니다. 검토 완료한 source-specific reference는 `benchmarks/references/`에 두며, 유지보수자가 선택한 URL마다 별도로 작성·검토합니다. `benchmarks/videos.lock.json`도 유지보수자 전처리 측정의 재현성을 위한 입력 고정 파일일 뿐, 일반 `chew` URL 입력을 제한하지 않습니다.
-
-reference에는 비어 있지 않은 주장·transcript 근거·영상 범위 안의 타임스탬프가 최소 하나 필요합니다. 잘못된 메타데이터, 빈 주장이나 근거, 범위를 벗어난 타임스탬프는 live provider 호출 전에 거절합니다. 이는 구조 검증일 뿐이며, 주장 사실성은 계속 사람이 검토합니다.
-
-라이브 벤치마크는 실제 로그인과 사용량이 발생하므로 `--live`와 기준 답안 파일을 모두 명시해야 실행됩니다. 결과는 `benchmark-results/run-*/report.json`과 `report.md`에 원자적으로 저장됩니다. 아직 실제 다국어·다양한 길이의 공개 코퍼스 결과를 제공하거나 Gemini보다 항상 우수하다고 주장하지 않습니다.
-
 관리자 전용 자막 전처리 비교는 `benchmarks/`의 고정 fixture와 스크립트를 사용합니다.
 기능 개발 전 또는 이전 릴리스에서 baseline을 저장하고, 후보 기능 구현 후 최종 리포트를 실행합니다:
 
