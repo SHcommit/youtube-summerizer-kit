@@ -116,9 +116,12 @@ class ApplicationService:
         local_requested = analysis_settings.local_accelerator or any(
             runtime_id in LOCAL_RUNTIME_IDS for runtime_id in analysis_settings.task_runtimes.values()
         )
+        requested_task_runtimes = dict(analysis_settings.task_runtimes)
+        if local_requested:
+            requested_task_runtimes.setdefault("transcript_annotate", "ollama")
         plan = build_execution_plan(
             frontier_runtime_id=analysis_settings.runtime,
-            requested_task_runtimes=analysis_settings.task_runtimes,
+            requested_task_runtimes=requested_task_runtimes,
             local_accelerator_requested=local_requested,
             local_accelerator_available=await self._local_accelerator_available(local_requested),
             max_input_tokens=analysis_settings.max_input_tokens,

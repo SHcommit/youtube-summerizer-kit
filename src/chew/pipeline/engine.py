@@ -32,6 +32,7 @@ from chew.core.prompts import (
     TOPIC_PROMPT,
 )
 from chew.harness.base import ExternalOutcomeUnknown, Harness
+from chew.pipeline.annotation import TranscriptAnnotator
 from chew.pipeline.evidence import materialize_topic_summary
 from chew.pipeline.extraction import AnalysisSpec, KnowledgeExtractor
 from chew.pipeline.input_compiler import InputBudget, InputCompiler
@@ -297,6 +298,23 @@ class AnalysisPipeline:
                 policy_fingerprint=checkpoint_policy,
                 correlation_id=run_id,
             )
+            if (
+                config.execution_plan is not None
+                and config.execution_plan.runtime_for("transcript_annotate") == "ollama"
+            ):
+                with self.telemetry.span("local.optimize", {"strategy": "gkt"}):
+                    annotation = await TranscriptAnnotator(self.harness).annotate(prepared, trace_id=run_id)
+                annotation_ref = self.artifacts.put_json(annotation)
+                self.database.record_compiler_checkpoint(
+                    run_id=run_id,
+                    stage="local.optimize",
+                    attempt=1,
+                    artifact_hash=annotation_ref.digest,
+                    measurement={"accepted": annotation.accepted, "reason": annotation.reason or ""},
+                    policy_fingerprint=checkpoint_policy,
+                    correlation_id=run_id,
+                )
+                prepared = annotation.prepared
             with self.telemetry.span(
                 "frontier.generate",
                 {"strategy": "gkt", "prepared_fingerprint": prepared.fingerprint},

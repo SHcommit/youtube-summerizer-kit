@@ -7,6 +7,7 @@ from chew.core.models import ExecutionPlan, TaskRoute
 
 POLICY_VERSION = "frontier-first-v1"
 LOCAL_RUNTIME_IDS = frozenset({"ollama", "layered_ollama"})
+LOCAL_ANNOTATION_TASK = "transcript_annotate"
 
 
 def build_execution_plan(
@@ -25,8 +26,13 @@ def build_execution_plan(
 
     routes = dict(requested_task_runtimes)
     reason = "frontier_only"
-    requested_local_summary = any(runtime_id in LOCAL_RUNTIME_IDS for runtime_id in routes.values())
-    if requested_local_summary:
+    requested_local_routes = {
+        task: runtime_id for task, runtime_id in routes.items() if runtime_id in LOCAL_RUNTIME_IDS
+    }
+    allowed_annotation = requested_local_routes == {LOCAL_ANNOTATION_TASK: "ollama"}
+    if allowed_annotation and local_accelerator_available is True:
+        reason = "frontier_with_local_annotation"
+    elif requested_local_routes:
         routes = {
             task: frontier_runtime_id
             if runtime_id in LOCAL_RUNTIME_IDS
