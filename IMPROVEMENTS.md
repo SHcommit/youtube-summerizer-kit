@@ -78,17 +78,19 @@ PR governance를 유지하고, GitHub repository URL의 `youtube-summerizer-kit`
 
 ## 3. P1: GitHub Labels와 자동 분류 체계 유지
 
-GitHub prefix labels와 file-based `area:*` labeler는 도입되었다. 남은 작업은 새 PR에서 Auto Labeler가
-실패하지 않는지 확인하고, branch prefix 기반 `kind:*` 자동 부여가 실제로 필요한지 판단하는 것이다.
+GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metadata labeler는 도입되었다.
+남은 작업은 새 PR에서 Auto Labeler가 실패하지 않는지 확인하고, priority/impact/status 자동화가 실제로
+필요한지 판단하는 것이다.
 
 ### 작업
 
-- branch prefix 기반 `kind:*` 라벨 자동 부여는 별도 action으로 추가할지 검토한다.
+- priority와 final impact는 파일 경로만으로 판단하지 않는다. 실제 triage 비용이 남는 경우에만 추가 자동화를
+  검토한다.
 
 ### Acceptance gates
 
 - Auto Labeler가 `pull_request_target`에서 성공한다.
-- branch prefix 기반 자동 부여는 실제 triage 비용이 남는 경우에만 추가한다.
+- 자동화되지 않은 priority/final impact는 maintainer triage로 남긴다.
 
 ## 4. P1: Branch와 PR 운영 규칙 강화 유지
 

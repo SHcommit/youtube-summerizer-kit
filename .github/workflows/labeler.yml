@@ -5,6 +5,7 @@ on:
 
 jobs:
   label:
+    name: Label changed files
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -14,3 +15,29 @@ jobs:
       - uses: actions/labeler@v5
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
+
+  metadata-label:
+    name: Label PR metadata
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply title and branch labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          labels="$(python scripts/pr_metadata_labels.py --title "$PR_TITLE" --head-ref "$PR_HEAD_REF")"
+          while IFS= read -r label; do
+            if [ -n "$label" ]; then
+              gh pr edit "$PR_NUMBER" --add-label "$label"
+            fi
+          done <<EOF
+          $labels
+          EOF

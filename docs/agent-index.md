@@ -241,6 +241,7 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | `scripts/report_job_measurements.py` | Read-only SQLite run profiler for provider usage, request shape, repairs, and retries |
 | `scripts/check_release_consistency.py` | Release guard that verifies `pyproject.toml`, release branch/tag, and `CHANGELOG.md` version headings agree before publishing |
 | `scripts/check_architecture.py` | CI guard for high-risk architecture boundaries: core isolation, interface adapter access, and dependency-free agent contracts/policy/ports |
+| `scripts/pr_metadata_labels.py` | PR metadata label helper that maps title/branch prefixes to lightweight `kind:*`, `area:*`, `knowledge:*`, and `status:needs-triage` labels |
 | `docs/decisions/local-llm-runtime.md` | Product decision: local LLM/Ollama is optional, with adoption criteria |
 | `docs/decisions/README.md` | ADR index and criteria for adding architecture or operating decisions |
 | `docs/decisions/0002-repository-governance.md` | Repository governance decision: release/version consistency, CHANGELOG scope, labels, PR/issue flow, and right-sized automation |
@@ -273,3 +274,4 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | SQLite state change | Update state machine section in this doc (§7) |
 | Release preparation | Align `pyproject.toml`, `release/vX.Y.Z`, `CHANGELOG.md`, tag, and GitHub Release; run `uv run python scripts/check_release_consistency.py --tag vX.Y.Z` before tagging |
 | Architecture boundary rule | Update `scripts/check_architecture.py` and `tests/test_architecture_boundaries.py`, then document the rule in this index and `AGENTS.md` if it changes agent behavior |
+| PR metadata label rule | Update `scripts/pr_metadata_labels.py`, `tests/test_pr_metadata_labels.py`, and `.github/workflows/labeler.yml` |

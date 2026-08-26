@@ -18,7 +18,8 @@
   tags and release branches.
 - P0 remaining after merge: connect the new CI, PR Governance, and Release Consistency workflows to
   the active repository ruleset as required status checks once their check run names exist.
-- P1 remaining: decide whether Project auto-add is worth the token/permission maintenance cost.
+- P1 remaining: verify Auto Labeler succeeds on the first PR with the new file-based and metadata
+  label jobs; decide whether Project auto-add is worth the token/permission maintenance cost.
 
 ## Current Architecture Decision
 
@@ -66,8 +67,8 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 - Repository governance implementation is in progress: version alignment, release consistency
   validator, release/PR governance workflows, labels, Issue Forms, CODEOWNERS, ADR index, release
-  playbook, and architecture boundary guard have been added locally. Full verification should be
-  re-run before handoff.
+  playbook, architecture boundary guard, and PR metadata labeler have been added locally. Full
+  verification should be re-run before handoff.
 - `020d965` records the approved Grounded Knowledge Compiler/module design; the documentation-only
   module-boundary update is verified with `319 passed, 2 skipped`, Ruff clean, and mypy clean. No
   live provider or Frontier benchmark ran.

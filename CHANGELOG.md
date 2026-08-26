@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inbound interface boundaries, and dependency-free agent contracts/policy/ports.
 - **Repository ownership hints**: adds a minimal `CODEOWNERS` file so future branch rules can
   route reviews without introducing a heavy ownership model.
+- **PR metadata labeling**: extends the Auto Labeler workflow so PR title and branch prefixes add
+  lightweight `kind:*`, `area:*`, `knowledge:*`, and `status:needs-triage` labels in addition to
+  file-based area labels.
 
 ## [0.2.0] - 2026-08-26
 
