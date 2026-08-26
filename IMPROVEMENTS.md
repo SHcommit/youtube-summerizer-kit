@@ -115,10 +115,16 @@ GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metada
 
 - [x] file-based `area:*` labeler가 `pull_request_target`에서 성공한다 (PR #12: `label` check pass,
   `documentation`/`dependencies`/`github_actions` 라벨 적용 확인).
-- [ ] PR title/branch 기반 metadata labeler(`metadata-label` job)는 아직 `develop`에 없어서 `pull_request_target`이
-  base 브랜치의 워크플로우 정의를 읽는 한 PR #12 자체에서는 실행되지 않았다. 로직은
-  `tests/test_pr_metadata_labels.py`로 단위 검증됨(pytest 통과). **PR #12가 `develop`에 merge된 뒤 그다음
-  PR에서 `kind:*`/`status:needs-triage` 라벨이 실제로 붙는지 확인 필요.**
+- [ ] PR title/branch 기반 metadata labeler(`metadata-label` job)는 PR #12가 `develop`에 merge된 뒤
+  PR #13(`docs/post-merge-handoff-update`)으로 라이브 검증을 시도했으나 결론에 도달하지 못했다:
+  - PR #13이 처음 열렸을 때(`285ed99`) 실행된 `Auto Labeler` run은 `label` job만 실행하고
+    `metadata-label` job은 아예 job 목록에 없었다 — `develop`에는 이미 두 job이 다 있는데도 그렇다.
+  - 이후 두 번의 후속 push(빈 커밋, force-push)는 `gh api repos/.../pulls/13`의 `head.sha`/`updated_at`이
+    5분 넘게 갱신되지 않아 `synchronize` 이벤트 자체가 발생하지 않았다 — git ref 자체(`git ls-remote`,
+    push 트리거 CI run)는 정상적으로 갱신됐는데 PR 객체만 멈춰 있었다.
+  - 로직 자체는 `tests/test_pr_metadata_labels.py`로 단위 검증됨(pytest 통과)이고, 코드 결함이 아니라
+    이번 세션에서 관찰된 GitHub 쪽 동기화 이상으로 보인다. **다음 실제 PR에서 `kind:*`/
+    `status:needs-triage` 라벨이 붙는지 재확인 필요 — 이번 관찰은 결론이 아니라 미해결 상태로 남긴다.**
 - 자동화되지 않은 priority/final impact는 maintainer triage로 남긴다.
 
 ## 4. P1: Project 운영 자동화
