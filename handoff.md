@@ -5,7 +5,7 @@
 
 ## Branch and State
 
-- Branch: `feat/repository-governance`
+- Branch: `feat/repository-governance` (merged into `develop` via PR #12, merge commit `9c435d1`)
 - Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
@@ -13,9 +13,9 @@
 
 ## Immediate Repository Governance Priority
 
-- Open: PR #12 (`feat/repository-governance` → `develop`) is `MERGEABLE`/`CLEAN` with all required
-  checks passing; awaiting a decision on merging it.
-- **Re-verify at the next release** (`develop` → `release/vX.Y.Z` → `master`), all three in one pass:
+- Done: PR #12 merged into `develop` (`9c435d1`). Next step is cutting a release
+  (`develop` → `release/vX.Y.Z` → `master` → tag) per `docs/wiki/release-playbook.md`.
+- **Re-verify during that release**, all three in one pass:
   - `IMPROVEMENTS.md` §1: `release/*` required-checks scenario, and that the release PR actually
     targets `release/vX.Y.Z` → `master`.
   - `IMPROVEMENTS.md` §3: the new `metadata-label` job (title/branch → `kind:*`/`status:needs-triage`)
@@ -50,9 +50,12 @@
 
 ## Next Decision
 
-Before adding more product surface, decide whether to merge PR #12, then finish the small remaining
-repository governance queue in [`IMPROVEMENTS.md`](IMPROVEMENTS.md): metadata-labeler live
-verification and the Project auto-add (`PROJECTS_TOKEN`) decision.
+Cut the next release from `develop` (see `docs/wiki/release-playbook.md`), which naturally exercises
+`IMPROVEMENTS.md` §1/§3/§5. After that, resume the small remaining repository governance queue in
+`IMPROVEMENTS.md`: the `PROJECTS_TOKEN` / Project `Status` field decision (§4), and whether to
+retroactively split the `[0.2.0]` CHANGELOG section. A reproducible architecture-diagram renderer
+(wrapping the already-installed `mmdc`/`d2` CLIs so `assets/architecture/**` PNGs regenerate from
+their `.mmd`/`.d2` sources instead of being hand-made) was also requested and is still unbuilt.
 
 The documentation-only module boundaries are present. After governance work, activating either
 future module still requires one selected end-to-end user flow and a versioned, typed, read-only
@@ -76,10 +79,11 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
-- Repository governance is implemented and pushed to `feat/repository-governance` (PR #12, targeting
-  `develop`): version alignment, release consistency validator, release/PR governance workflows,
-  labels, Issue Forms, CODEOWNERS, ADR index, release playbook, architecture boundary guard, PR
-  metadata labeler, optional Project triage, and required status checks.
+- Repository governance merged into `develop` (`9c435d1`): version alignment, release consistency
+  validator, release/PR governance workflows, labels, Issue Forms, CODEOWNERS, ADR index, release
+  playbook, architecture boundary guard, PR metadata labeler, optional Project triage, and required
+  status checks (`require-ci-status` on develop/master, `require-release-consistency` on master).
 - Latest full verification (this session): `331 passed, 2 skipped`, Ruff clean, mypy clean. No live
   provider or Frontier benchmark ran.
-- Working tree is clean; latest commit is `d9c0343` (pushed).
+- `feat/repository-governance` local/remote branch still exists (not deleted after merge); safe to
+  delete once confirmed unneeded.
