@@ -15,12 +15,20 @@
 
 - Open: PR #12 (`feat/repository-governance` → `develop`) is `MERGEABLE`/`CLEAN` with all required
   checks passing; awaiting a decision on merging it.
-- After PR #12 merges, verify on the *next* PR into `develop` that the new `metadata-label` job
-  (title/branch → `kind:*`/`status:needs-triage` labels) actually fires — `pull_request_target`
-  reads the workflow definition from the base branch, so it could not run on PR #12 itself
-  (`IMPROVEMENTS.md` §3).
-- P1 remaining: decide whether to configure `PROJECTS_TOKEN` for automatic Project writes, or keep
-  Project triage manual (`IMPROVEMENTS.md` §4).
+- **Re-verify at the next release** (`develop` → `release/vX.Y.Z` → `master`), all three in one pass:
+  - `IMPROVEMENTS.md` §1: `release/*` required-checks scenario, and that the release PR actually
+    targets `release/vX.Y.Z` → `master`.
+  - `IMPROVEMENTS.md` §3: the new `metadata-label` job (title/branch → `kind:*`/`status:needs-triage`)
+    fires on a real PR — it couldn't run on PR #12 itself because `pull_request_target` reads the
+    workflow definition from the base branch, which didn't have the job yet. This can also be
+    checked earlier, on the first ordinary PR into `develop` after #12 merges, not only at release.
+  - `IMPROVEMENTS.md` §5: `[Unreleased]` actually empties into a versioned heading, and the GitHub
+    Release body includes user impact + benchmark/report links, not just a PR list.
+- Open decisions (not release-gated, can be made any time): configure `PROJECTS_TOKEN` for automatic
+  Project writes vs. keep manual triage; expand the Project's `Status` field from GitHub's default
+  `Todo/In Progress/Done` to the documented `Inbox/Ready/Doing/Review/Benchmark/Release/Done`
+  (`IMPROVEMENTS.md` §4); whether to retroactively split the 211-line `[0.2.0]` CHANGELOG section
+  into ADR/report entries, given it's already a tagged, published release.
 - Most of the P0/P1/P2 governance queue (required status checks, architecture guard, docs role
   separation, stale-naming check) is now done — see `IMPROVEMENTS.md` for the trimmed remainder.
 
