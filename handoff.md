@@ -5,9 +5,11 @@
 
 ## Branch and State
 
-- Release branch: `release/v0.3.0` (from `develop`)
-- Release target: `master` with tag `v0.3.0`; CD publishes the verified wheel and GitHub Release,
-  then publishes to PyPI when the repository `PYPI_API_TOKEN` secret is configured.
+- Released: `v0.3.0` is tagged on `master` (merge commit `95e3019`) and the GitHub Release is live
+  with built wheel/sdist: https://github.com/SHcommit/youtube-summerizer-kit/releases/tag/v0.3.0
+- PyPI publish was intentionally skipped — no `PYPI_API_TOKEN` secret is configured yet. `pip
+  install youtube-summarizer-kit` does not work until that secret is added and a release re-runs
+  (or a new tag is pushed). GitHub Release download is the current distribution channel.
 - Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
@@ -15,31 +17,31 @@
 
 ## Immediate Repository Governance Priority
 
-- In progress: PR #16 (`release/v0.3.0` → `master`) is open. Merging `origin/master` into the
-  release branch surfaced real drift: `master` had `actions/setup-python@v7` and
-  `softprops/action-gh-release@v3` bumps in `cd.yml`/`ci.yml`, and `src/chew/__init__.py.__version__`
-  fixed to `0.2.0`, none of which were ever forward-ported to `develop` after the v0.2.0 release
-  (the release playbook's "After Release" step 3 was skipped). Resolved by keeping master's action
-  version bumps and bumping `__init__.py` to `0.3.0`. `check_release_consistency.py` does not check
-  `__init__.py` at all — worth adding so this can't silently drift again.
-- **Re-verify during this release**, all three in one pass:
-  - `IMPROVEMENTS.md` §1: `release/*` required-checks scenario, and that the release PR actually
-    targets `release/vX.Y.Z` → `master`.
-  - `IMPROVEMENTS.md` §3: the new `metadata-label` job. Tried three times already (PR #12, #13, #14)
-    and it never appeared in the job list, even via the raw REST API, despite `develop`'s Contents
-    API confirming the job exists in the file — looks like GitHub is caching the pre-merge job list
-    for this `pull_request_target` workflow. Stopped investigating further per user decision
-    (2026-08-26); re-check on the next release PR, and if still missing, land a trivial commit to
-    `.github/workflows/labeler.yml` to try to force a cache refresh.
-  - `IMPROVEMENTS.md` §5: `[Unreleased]` actually empties into a versioned heading, and the GitHub
-    Release body includes user impact + benchmark/report links, not just a PR list.
-- Open decisions (not release-gated, can be made any time): configure `PROJECTS_TOKEN` for automatic
-  Project writes vs. keep manual triage; expand the Project's `Status` field from GitHub's default
-  `Todo/In Progress/Done` to the documented `Inbox/Ready/Doing/Review/Benchmark/Release/Done`
-  (`IMPROVEMENTS.md` §4); whether to retroactively split the 211-line `[0.2.0]` CHANGELOG section
-  into ADR/report entries, given it's already a tagged, published release.
-- Most of the P0/P1/P2 governance queue (required status checks, architecture guard, docs role
-  separation, stale-naming check) is now done — see `IMPROVEMENTS.md` for the trimmed remainder.
+- Done: `IMPROVEMENTS.md` §1 fully verified live during the v0.3.0 release — the release PR
+  (`release/v0.3.0` → `master`) triggered `Check release version consistency` for real (head ref
+  started with `release/`) and it passed; required status checks worked on both `develop` and
+  `master`.
+- Found and fixed during this release: `master` carried drift never forward-ported to `develop`
+  after v0.2.0 (`actions/setup-python@v7`, `softprops/action-gh-release@v3` in `cd.yml`/`ci.yml`,
+  and `src/chew/__init__.py.__version__` stuck at a stale value). Merged `master` back into
+  `develop` (branch `chore/sync-master-into-develop`) to close the loop this time. **Going forward,
+  always merge `master` back into `develop` right after a release** — this was skipped for v0.2.0
+  and caused a real merge conflict when preparing v0.3.0.
+- Hardened `scripts/check_release_consistency.py` to also validate `src/chew/__init__.py.__version__`
+  against `pyproject.toml`, with new tests, so this exact drift can't recur silently.
+- Still open, not release-gated:
+  - `IMPROVEMENTS.md` §3: the `metadata-label` job never appeared in Auto Labeler's job list across
+    three attempts (PR #12/#13/#14), even via raw REST API, despite `develop`'s file confirming the
+    job exists — looks like GitHub caching the pre-merge job list for this `pull_request_target`
+    workflow. Not re-checked during this release cycle either. Next step if picked back up: land a
+    trivial commit to `.github/workflows/labeler.yml` to try to force a cache refresh.
+  - `IMPROVEMENTS.md` §4: decide whether to configure `PYPI_API_TOKEN` (for PyPI) and `PROJECTS_TOKEN`
+    (for Project auto-add), and whether to expand the Project `Status` field from GitHub's default
+    `Todo/In Progress/Done` to `Inbox/Ready/Doing/Review/Benchmark/Release/Done`.
+  - Whether to retroactively split the large `[0.2.0]` CHANGELOG section into ADR/report entries.
+  - A reproducible architecture-diagram renderer (wrapping the already-installed `mmdc`/`d2` CLIs so
+    `assets/architecture/**` PNGs regenerate from their `.mmd`/`.d2` sources) was requested and is
+    still unbuilt.
 
 ## Current Architecture Decision
 
@@ -59,17 +61,14 @@
 
 ## Next Decision
 
-Cut the next release from `develop` (see `docs/wiki/release-playbook.md`), which naturally exercises
-`IMPROVEMENTS.md` §1/§3/§5. After that, resume the small remaining repository governance queue in
-`IMPROVEMENTS.md`: the `PROJECTS_TOKEN` / Project `Status` field decision (§4), and whether to
-retroactively split the `[0.2.0]` CHANGELOG section. A reproducible architecture-diagram renderer
-(wrapping the already-installed `mmdc`/`d2` CLIs so `assets/architecture/**` PNGs regenerate from
-their `.mmd`/`.d2` sources instead of being hand-made) was also requested and is still unbuilt.
+No active release in flight. Before adding more product surface, resume the small remaining
+repository governance queue above (§3 labeler live-check, §4 token/Status decisions, CHANGELOG
+split, diagram renderer) — none of it blocks other work.
 
-The documentation-only module boundaries are present. After governance work, activating either
-future module still requires one selected end-to-end user flow and a versioned, typed, read-only
-`KnowledgeGateway` from `research-engine` to `chew`. Do not add ApplicationService agent tools,
-LangGraph, MCP, HTTP endpoints, web UI code, model dependencies, or a public package automatically.
+The documentation-only module boundaries are present. Activating either future module still
+requires one selected end-to-end user flow and a versioned, typed, read-only `KnowledgeGateway`
+from `research-engine` to `chew`. Do not add ApplicationService agent tools, LangGraph, MCP, HTTP
+endpoints, web UI code, model dependencies, or a public package automatically.
 
 Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only conclusion is in
 `reports/performance-comparisons/transcript-preprocessing/latest.md`.
@@ -88,11 +87,9 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
-- Repository governance merged into `develop` (`9c435d1`): version alignment, release consistency
-  validator, release/PR governance workflows, labels, Issue Forms, CODEOWNERS, ADR index, release
-  playbook, architecture boundary guard, PR metadata labeler, optional Project triage, and required
-  status checks (`require-ci-status` on develop/master, `require-release-consistency` on master).
-- Latest full verification (this session): `331 passed, 2 skipped`, Ruff clean, mypy clean. No live
-  provider or Frontier benchmark ran.
-- `feat/repository-governance` local/remote branch still exists (not deleted after merge); safe to
-  delete once confirmed unneeded.
+- v0.3.0 released: `src/chew` package code is unchanged from v0.2.0 in this cycle — the release
+  captured repository governance/CI tooling only (release consistency checks, PR/issue templates,
+  architecture boundary guard, PR metadata labeling, optional Project triage, required status
+  checks) plus the master→develop drift fix above.
+- Latest full verification: `333 passed, 2 skipped` (2 new tests for the `__init__.py` version
+  check), Ruff clean, mypy clean. No live provider or Frontier benchmark ran.
