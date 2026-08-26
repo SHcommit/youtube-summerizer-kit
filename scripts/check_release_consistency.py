@@ -10,6 +10,7 @@ from pathlib import Path
 VERSION_HEADING_RE = re.compile(r"^## \[(?P<version>\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$", re.MULTILINE)
 RELEASE_BRANCH_RE = re.compile(r"^(?:refs/heads/)?release/v(?P<version>\d+\.\d+\.\d+)$")
 TAG_RE = re.compile(r"^(?:refs/tags/)?v(?P<version>\d+\.\d+\.\d+)$")
+INIT_VERSION_RE = re.compile(r'^__version__\s*=\s*"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE)
 
 
 def read_project_version(project_root: Path) -> str:
@@ -25,6 +26,14 @@ def read_project_version(project_root: Path) -> str:
 def changelog_versions(project_root: Path) -> set[str]:
     changelog = (project_root / "CHANGELOG.md").read_text(encoding="utf-8")
     return {match.group("version") for match in VERSION_HEADING_RE.finditer(changelog)}
+
+
+def read_init_version(project_root: Path) -> str | None:
+    init_path = project_root / "src" / "chew" / "__init__.py"
+    if not init_path.is_file():
+        return None
+    match = INIT_VERSION_RE.search(init_path.read_text(encoding="utf-8"))
+    return match.group("version") if match else None
 
 
 def _version_from_tag(tag: str) -> str | None:
@@ -56,6 +65,15 @@ def check_release_consistency(project_root: Path, tag: str | None, branch: str |
 
     if version not in versions:
         errors.append(f"CHANGELOG.md is missing heading for version {version}")
+
+    init_version = read_init_version(project_root)
+    if init_version is None:
+        errors.append("src/chew/__init__.py is missing a __version__ = \"X.Y.Z\" line")
+    elif init_version != version:
+        errors.append(
+            f"src/chew/__init__.py __version__ {init_version} does not match "
+            f"pyproject.toml version {version}"
+        )
 
     return errors
 

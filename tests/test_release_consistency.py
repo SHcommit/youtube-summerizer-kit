@@ -16,7 +16,13 @@ def load_release_checker():
     return module
 
 
-def write_release_fixture(root: Path, *, version: str = "0.2.0", changelog_version: str = "0.2.0") -> None:
+def write_release_fixture(
+    root: Path,
+    *,
+    version: str = "0.2.0",
+    changelog_version: str = "0.2.0",
+    init_version: str | None = "0.2.0",
+) -> None:
     (root / "pyproject.toml").write_text(
         f'[project]\nname = "youtube-summarizer-kit"\nversion = "{version}"\n',
         encoding="utf-8",
@@ -25,6 +31,13 @@ def write_release_fixture(root: Path, *, version: str = "0.2.0", changelog_versi
         f"# Changelog\n\n## [Unreleased]\n\n## [{changelog_version}] - 2026-08-25\n",
         encoding="utf-8",
     )
+    init_dir = root / "src" / "chew"
+    init_dir.mkdir(parents=True, exist_ok=True)
+    if init_version is not None:
+        (init_dir / "__init__.py").write_text(
+            f'"""Local-first YouTube knowledge compiler."""\n\n__version__ = "{init_version}"\n',
+            encoding="utf-8",
+        )
 
 
 def test_release_consistency_accepts_matching_tag_branch_and_changelog(tmp_path: Path) -> None:
@@ -61,3 +74,23 @@ def test_release_consistency_reports_missing_changelog_heading(tmp_path: Path) -
     errors = checker.check_release_consistency(tmp_path, tag="v0.2.0", branch=None)
 
     assert errors == ["CHANGELOG.md is missing heading for version 0.2.0"]
+
+
+def test_release_consistency_reports_init_version_mismatch(tmp_path: Path) -> None:
+    checker = load_release_checker()
+    write_release_fixture(tmp_path, version="0.3.0", changelog_version="0.3.0", init_version="0.2.0")
+
+    errors = checker.check_release_consistency(tmp_path, tag="v0.3.0", branch=None)
+
+    assert errors == [
+        "src/chew/__init__.py __version__ 0.2.0 does not match pyproject.toml version 0.3.0"
+    ]
+
+
+def test_release_consistency_reports_missing_init_version(tmp_path: Path) -> None:
+    checker = load_release_checker()
+    write_release_fixture(tmp_path, version="0.2.0", init_version=None)
+
+    errors = checker.check_release_consistency(tmp_path, tag="v0.2.0", branch=None)
+
+    assert errors == ['src/chew/__init__.py is missing a __version__ = "X.Y.Z" line']
