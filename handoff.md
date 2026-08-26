@@ -5,7 +5,9 @@
 
 ## Branch and State
 
-- Branch: `feat/repository-governance` (merged into `develop` via PR #12, merge commit `9c435d1`)
+- Release branch: `release/v0.3.0` (from `develop`)
+- Release target: `master` with tag `v0.3.0`; CD publishes the verified wheel and GitHub Release,
+  then publishes to PyPI when the repository `PYPI_API_TOKEN` secret is configured.
 - Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
@@ -13,9 +15,14 @@
 
 ## Immediate Repository Governance Priority
 
-- Done: PR #12 merged into `develop` (`9c435d1`). Next step is cutting a release
-  (`develop` → `release/vX.Y.Z` → `master` → tag) per `docs/wiki/release-playbook.md`.
-- **Re-verify during that release**, all three in one pass:
+- In progress: PR #16 (`release/v0.3.0` → `master`) is open. Merging `origin/master` into the
+  release branch surfaced real drift: `master` had `actions/setup-python@v7` and
+  `softprops/action-gh-release@v3` bumps in `cd.yml`/`ci.yml`, and `src/chew/__init__.py.__version__`
+  fixed to `0.2.0`, none of which were ever forward-ported to `develop` after the v0.2.0 release
+  (the release playbook's "After Release" step 3 was skipped). Resolved by keeping master's action
+  version bumps and bumping `__init__.py` to `0.3.0`. `check_release_consistency.py` does not check
+  `__init__.py` at all — worth adding so this can't silently drift again.
+- **Re-verify during this release**, all three in one pass:
   - `IMPROVEMENTS.md` §1: `release/*` required-checks scenario, and that the release PR actually
     targets `release/vX.Y.Z` → `master`.
   - `IMPROVEMENTS.md` §3: the new `metadata-label` job. Tried three times already (PR #12, #13, #14)
