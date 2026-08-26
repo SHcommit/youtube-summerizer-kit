@@ -18,10 +18,12 @@
 - **Re-verify during that release**, all three in one pass:
   - `IMPROVEMENTS.md` §1: `release/*` required-checks scenario, and that the release PR actually
     targets `release/vX.Y.Z` → `master`.
-  - `IMPROVEMENTS.md` §3: the new `metadata-label` job (title/branch → `kind:*`/`status:needs-triage`)
-    fires on a real PR — it couldn't run on PR #12 itself because `pull_request_target` reads the
-    workflow definition from the base branch, which didn't have the job yet. This can also be
-    checked earlier, on the first ordinary PR into `develop` after #12 merges, not only at release.
+  - `IMPROVEMENTS.md` §3: the new `metadata-label` job. Tried three times already (PR #12, #13, #14)
+    and it never appeared in the job list, even via the raw REST API, despite `develop`'s Contents
+    API confirming the job exists in the file — looks like GitHub is caching the pre-merge job list
+    for this `pull_request_target` workflow. Stopped investigating further per user decision
+    (2026-08-26); re-check on the next release PR, and if still missing, land a trivial commit to
+    `.github/workflows/labeler.yml` to try to force a cache refresh.
   - `IMPROVEMENTS.md` §5: `[Unreleased]` actually empties into a versioned heading, and the GitHub
     Release body includes user impact + benchmark/report links, not just a PR list.
 - Open decisions (not release-gated, can be made any time): configure `PROJECTS_TOKEN` for automatic
