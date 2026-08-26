@@ -13,17 +13,16 @@
 
 ## Immediate Repository Governance Priority
 
-- P0: align release version state before the next tag. The latest GitHub release/tag is `v0.2.0`,
-  and `pyproject.toml` is aligned at version `0.2.0`; release consistency checks now guard future
-  tags and release branches.
-- P0 done: CI and PR Governance are required checks on `develop`/`master`; Release Consistency is a
-  required check on `master`. `release/*` is deliberately not covered yet (its workflows do not
-  trigger on PRs targeting release branches) — see `IMPROVEMENTS.md` §1 for the follow-up.
-- Open: PR #12 (`feat/repository-governance` → `develop`) is mergeable with all required checks
-  passing; awaiting a decision on merging it.
-- P1 remaining: verify Auto Labeler succeeds on the first PR with the new file-based and metadata
-  label jobs; configure `PROJECTS_TOKEN` only if automatic user Project writes are worth the token
-  maintenance cost.
+- Open: PR #12 (`feat/repository-governance` → `develop`) is `MERGEABLE`/`CLEAN` with all required
+  checks passing; awaiting a decision on merging it.
+- After PR #12 merges, verify on the *next* PR into `develop` that the new `metadata-label` job
+  (title/branch → `kind:*`/`status:needs-triage` labels) actually fires — `pull_request_target`
+  reads the workflow definition from the base branch, so it could not run on PR #12 itself
+  (`IMPROVEMENTS.md` §3).
+- P1 remaining: decide whether to configure `PROJECTS_TOKEN` for automatic Project writes, or keep
+  Project triage manual (`IMPROVEMENTS.md` §4).
+- Most of the P0/P1/P2 governance queue (required status checks, architecture guard, docs role
+  separation, stale-naming check) is now done — see `IMPROVEMENTS.md` for the trimmed remainder.
 
 ## Current Architecture Decision
 
@@ -43,9 +42,9 @@
 
 ## Next Decision
 
-Before adding more product surface, finish the remaining repository governance queue in
-[`IMPROVEMENTS.md`](IMPROVEMENTS.md): required status checks after workflow merge, and Project
-auto-add decision.
+Before adding more product surface, decide whether to merge PR #12, then finish the small remaining
+repository governance queue in [`IMPROVEMENTS.md`](IMPROVEMENTS.md): metadata-labeler live
+verification and the Project auto-add (`PROJECTS_TOKEN`) decision.
 
 The documentation-only module boundaries are present. After governance work, activating either
 future module still requires one selected end-to-end user flow and a versioned, typed, read-only
@@ -69,17 +68,10 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
-- Repository governance implementation is in progress: version alignment, release consistency
-  validator, release/PR governance workflows, labels, Issue Forms, CODEOWNERS, ADR index, release
-  playbook, architecture boundary guard, and PR metadata labeler have been added locally. Full
-  verification should be re-run before handoff.
-- `020d965` records the approved Grounded Knowledge Compiler/module design; the documentation-only
-  module-boundary update is verified with `319 passed, 2 skipped`, Ruff clean, and mypy clean. No
-  live provider or Frontier benchmark ran.
-- `d591ceb` adds bounded agent contracts; full verification was `315 passed, 2 skipped`, Ruff and
-  mypy clean.
-- `cb0c8b0` adds protocol-neutral interface result presentation and preserves CLI machine fields;
-  full verification was `319 passed, 2 skipped`, Ruff and mypy clean.
-- `e8b53b1` documents and diagrams the same boundary, distinguishing implemented CLI presentation
-  from deferred HTTP, MCP, and web consumers. Full verification is `319 passed, 2 skipped`; Ruff
-  and mypy are clean. No live Frontier benchmark was run.
+- Repository governance is implemented and pushed to `feat/repository-governance` (PR #12, targeting
+  `develop`): version alignment, release consistency validator, release/PR governance workflows,
+  labels, Issue Forms, CODEOWNERS, ADR index, release playbook, architecture boundary guard, PR
+  metadata labeler, optional Project triage, and required status checks.
+- Latest full verification (this session): `331 passed, 2 skipped`, Ruff clean, mypy clean. No live
+  provider or Frontier benchmark ran.
+- Working tree is clean; latest commit is `d9c0343` (pushed).

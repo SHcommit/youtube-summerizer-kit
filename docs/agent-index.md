@@ -228,6 +228,16 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 
 ## 9. Docs & Reports Index
 
+**Role separation** (avoid duplicating one in another): `CHANGELOG.md` records completed,
+user-facing behavior by version. `docs/decisions/` (ADR) records *why* an architecture or operating
+choice was made, for decisions that outlive a single release. `reports/BENCHMARK.md` and
+`reports/performance-comparisons/` hold performance evidence, not narrative history. `docs/wiki/`
+holds durable operational decisions and reproducible external-service failures. The GitHub Project
+(`youtube-summarizer-kit Engineering`) shows only current execution state (open issues/PRs and their
+status column) — it is not a roadmap and must not duplicate `PRODUCT_ROADMAP.md` or `IMPROVEMENTS.md`
+content. `handoff.md` is the short pointer a new agent reads first; it links to the above rather than
+repeating them.
+
 | File | What it contains |
 |---|---|
 | `AGENTS.md` (= `CLAUDE.md` = `GEMINI.md`) | Core rules for AI agents; architecture layout; development guidelines |

@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `master`, and Release Consistency as a required check on `master`, via two new repository
   rulesets (`require-ci-status`, `require-release-consistency`). `release/*` is intentionally
   excluded until its workflows also trigger on PRs targeting release branches.
+- **Docs role separation**: `docs/agent-index.md` §9 now explains what belongs in `CHANGELOG.md`,
+  ADR (`docs/decisions/`), benchmark reports, `docs/wiki/`, and the GitHub Project board, so status
+  isn't duplicated across them.
 
 ## [0.2.0] - 2026-08-26
 
