@@ -2,7 +2,18 @@ name: CI & AI Harness Monitor
 
 on:
   push:
-    branches: [ master, main, develop, "feature/*" ]
+    branches:
+      - master
+      - main
+      - develop
+      - "feature/*"
+      - "feat/*"
+      - "fix/*"
+      - "docs/*"
+      - "refactor/*"
+      - "bench/*"
+      - "ci/*"
+      - "release/*"
   pull_request:
     branches: [ master, main, develop ]
 
@@ -21,6 +32,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       # mypy checks every module under src/chew, including the optional HTTP server.
       - run: pip install build '.[youtube,dev,telemetry,server]'
+      - run: python scripts/check_architecture.py
       - run: ruff check .
       - run: mypy src/chew
 

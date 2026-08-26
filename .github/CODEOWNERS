@@ -1,0 +1,10 @@
+* @SHcommit
+
+/.github/ @SHcommit
+/AGENTS.md @SHcommit
+/docs/ @SHcommit
+/reports/BENCHMARK.md @SHcommit
+/src/chew/core/ @SHcommit
+/src/chew/pipeline/ @SHcommit
+/src/chew/harness/ @SHcommit
+/src/chew/transcripts/ @SHcommit

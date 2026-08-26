@@ -228,6 +228,16 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 
 ## 9. Docs & Reports Index
 
+**Role separation** (avoid duplicating one in another): `CHANGELOG.md` records completed,
+user-facing behavior by version. `docs/decisions/` (ADR) records *why* an architecture or operating
+choice was made, for decisions that outlive a single release. `reports/BENCHMARK.md` and
+`reports/performance-comparisons/` hold performance evidence, not narrative history. `docs/wiki/`
+holds durable operational decisions and reproducible external-service failures. The GitHub Project
+(`youtube-summarizer-kit Engineering`) shows only current execution state (open issues/PRs and their
+status column) — it is not a roadmap and must not duplicate `PRODUCT_ROADMAP.md` or `IMPROVEMENTS.md`
+content. `handoff.md` is the short pointer a new agent reads first; it links to the above rather than
+repeating them.
+
 | File | What it contains |
 |---|---|
 | `AGENTS.md` (= `CLAUDE.md` = `GEMINI.md`) | Core rules for AI agents; architecture layout; development guidelines |
@@ -236,9 +246,15 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | `PRODUCT_ROADMAP.md` | Deferred product opportunities and their reconsideration conditions |
 | `handoff.md` | Short, continuously refreshed execution index for new agent/session context |
 | `docs/wiki/transcript-acquisition.md` | Durable transcript failures, provider decisions, and recovery rules |
+| `docs/wiki/release-playbook.md` | Maintainer release sequence for version, branch, tag, changelog, benchmark, and CD alignment |
 | `scripts/spike_token_baseline.py` / `src/chew/benchmark/metrics.py` | Maintainer-only raw-caption token baseline and pure measurement helpers; uses the locked videos and requires `yt-dlp` + `tiktoken` |
 | `scripts/report_job_measurements.py` | Read-only SQLite run profiler for provider usage, request shape, repairs, and retries |
+| `scripts/check_release_consistency.py` | Release guard that verifies `pyproject.toml`, release branch/tag, and `CHANGELOG.md` version headings agree before publishing |
+| `scripts/check_architecture.py` | CI guard for high-risk architecture boundaries: core isolation, interface adapter access, and dependency-free agent contracts/policy/ports |
+| `scripts/pr_metadata_labels.py` | PR metadata label helper that maps title/branch prefixes to lightweight `kind:*`, `area:*`, `knowledge:*`, and `status:needs-triage` labels |
 | `docs/decisions/local-llm-runtime.md` | Product decision: local LLM/Ollama is optional, with adoption criteria |
+| `docs/decisions/README.md` | ADR index and criteria for adding architecture or operating decisions |
+| `docs/decisions/0002-repository-governance.md` | Repository governance decision: release/version consistency, CHANGELOG scope, labels, PR/issue flow, and right-sized automation |
 | `docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md` | Approved boundary between app use cases, agent control contracts, content rendering, and inbound interfaces |
 | `docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md` | Approved naming of `chew` as the Grounded Knowledge Compiler and future module dependency direction |
 | `modules/intent-analysis/README.md` | Documentation-only boundary for reusable natural-language request analysis; not an installable package |
@@ -266,3 +282,7 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | New extras group | `pyproject.toml` + optional extras table in this doc (§8) + `README.md` |
 | Schema / protocol change | Update interfaces section in this doc (§6) |
 | SQLite state change | Update state machine section in this doc (§7) |
+| Release preparation | Align `pyproject.toml`, `release/vX.Y.Z`, `CHANGELOG.md`, tag, and GitHub Release; run `uv run python scripts/check_release_consistency.py --tag vX.Y.Z` before tagging |
+| Architecture boundary rule | Update `scripts/check_architecture.py` and `tests/test_architecture_boundaries.py`, then document the rule in this index and `AGENTS.md` if it changes agent behavior |
+| PR metadata label rule | Update `scripts/pr_metadata_labels.py`, `tests/test_pr_metadata_labels.py`, and `.github/workflows/labeler.yml` |
+| Project automation | Keep `.github/workflows/project-triage.yml` optional unless `PROJECTS_TOKEN` is configured for user Project writes |

@@ -25,6 +25,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install build '.[youtube,dev,telemetry,server]'
 
+      - name: Validate release version state
+        run: python scripts/check_release_consistency.py --tag "${GITHUB_REF#refs/tags/}"
+
       - name: Run verification suite
         run: |
           ruff check .

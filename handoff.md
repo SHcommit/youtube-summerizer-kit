@@ -5,13 +5,41 @@
 
 ## Branch and State
 
-- Release branch: `release/v0.2.0` (from `develop`)
-- Release target: `master` with tag `v0.2.0`; CD publishes the verified wheel and GitHub Release,
+- Release branch: `release/v0.3.0` (from `develop`)
+- Release target: `master` with tag `v0.3.0`; CD publishes the verified wheel and GitHub Release,
   then publishes to PyPI when the repository `PYPI_API_TOKEN` secret is configured.
 - Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
 - Architecture decisions: [`interface and agent boundaries`](docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md), [`Grounded Knowledge Compiler modules`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md)
+
+## Immediate Repository Governance Priority
+
+- In progress: PR #16 (`release/v0.3.0` → `master`) is open. Merging `origin/master` into the
+  release branch surfaced real drift: `master` had `actions/setup-python@v7` and
+  `softprops/action-gh-release@v3` bumps in `cd.yml`/`ci.yml`, and `src/chew/__init__.py.__version__`
+  fixed to `0.2.0`, none of which were ever forward-ported to `develop` after the v0.2.0 release
+  (the release playbook's "After Release" step 3 was skipped). Resolved by keeping master's action
+  version bumps and bumping `__init__.py` to `0.3.0`. `check_release_consistency.py` does not check
+  `__init__.py` at all — worth adding so this can't silently drift again.
+- **Re-verify during this release**, all three in one pass:
+  - `IMPROVEMENTS.md` §1: `release/*` required-checks scenario, and that the release PR actually
+    targets `release/vX.Y.Z` → `master`.
+  - `IMPROVEMENTS.md` §3: the new `metadata-label` job. Tried three times already (PR #12, #13, #14)
+    and it never appeared in the job list, even via the raw REST API, despite `develop`'s Contents
+    API confirming the job exists in the file — looks like GitHub is caching the pre-merge job list
+    for this `pull_request_target` workflow. Stopped investigating further per user decision
+    (2026-08-26); re-check on the next release PR, and if still missing, land a trivial commit to
+    `.github/workflows/labeler.yml` to try to force a cache refresh.
+  - `IMPROVEMENTS.md` §5: `[Unreleased]` actually empties into a versioned heading, and the GitHub
+    Release body includes user impact + benchmark/report links, not just a PR list.
+- Open decisions (not release-gated, can be made any time): configure `PROJECTS_TOKEN` for automatic
+  Project writes vs. keep manual triage; expand the Project's `Status` field from GitHub's default
+  `Todo/In Progress/Done` to the documented `Inbox/Ready/Doing/Review/Benchmark/Release/Done`
+  (`IMPROVEMENTS.md` §4); whether to retroactively split the 211-line `[0.2.0]` CHANGELOG section
+  into ADR/report entries, given it's already a tagged, published release.
+- Most of the P0/P1/P2 governance queue (required status checks, architecture guard, docs role
+  separation, stale-naming check) is now done — see `IMPROVEMENTS.md` for the trimmed remainder.
 
 ## Current Architecture Decision
 
@@ -31,10 +59,17 @@
 
 ## Next Decision
 
-The documentation-only module boundaries are present. Before activating either one, choose one
-end-to-end user flow and define a versioned, typed, read-only `KnowledgeGateway` from
-`research-engine` to `chew`. Do not add ApplicationService agent tools, LangGraph, MCP, HTTP
-endpoints, web UI code, model dependencies, or a public package automatically.
+Cut the next release from `develop` (see `docs/wiki/release-playbook.md`), which naturally exercises
+`IMPROVEMENTS.md` §1/§3/§5. After that, resume the small remaining repository governance queue in
+`IMPROVEMENTS.md`: the `PROJECTS_TOKEN` / Project `Status` field decision (§4), and whether to
+retroactively split the `[0.2.0]` CHANGELOG section. A reproducible architecture-diagram renderer
+(wrapping the already-installed `mmdc`/`d2` CLIs so `assets/architecture/**` PNGs regenerate from
+their `.mmd`/`.d2` sources instead of being hand-made) was also requested and is still unbuilt.
+
+The documentation-only module boundaries are present. After governance work, activating either
+future module still requires one selected end-to-end user flow and a versioned, typed, read-only
+`KnowledgeGateway` from `research-engine` to `chew`. Do not add ApplicationService agent tools,
+LangGraph, MCP, HTTP endpoints, web UI code, model dependencies, or a public package automatically.
 
 Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only conclusion is in
 `reports/performance-comparisons/transcript-preprocessing/latest.md`.
@@ -53,13 +88,11 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
-- `020d965` records the approved Grounded Knowledge Compiler/module design; the documentation-only
-  module-boundary update is verified with `319 passed, 2 skipped`, Ruff clean, and mypy clean. No
-  live provider or Frontier benchmark ran.
-- `d591ceb` adds bounded agent contracts; full verification was `315 passed, 2 skipped`, Ruff and
-  mypy clean.
-- `cb0c8b0` adds protocol-neutral interface result presentation and preserves CLI machine fields;
-  full verification was `319 passed, 2 skipped`, Ruff and mypy clean.
-- `e8b53b1` documents and diagrams the same boundary, distinguishing implemented CLI presentation
-  from deferred HTTP, MCP, and web consumers. Full verification is `319 passed, 2 skipped`; Ruff
-  and mypy are clean. No live Frontier benchmark was run.
+- Repository governance merged into `develop` (`9c435d1`): version alignment, release consistency
+  validator, release/PR governance workflows, labels, Issue Forms, CODEOWNERS, ADR index, release
+  playbook, architecture boundary guard, PR metadata labeler, optional Project triage, and required
+  status checks (`require-ci-status` on develop/master, `require-release-consistency` on master).
+- Latest full verification (this session): `331 passed, 2 skipped`, Ruff clean, mypy clean. No live
+  provider or Frontier benchmark ran.
+- `feat/repository-governance` local/remote branch still exists (not deleted after merge); safe to
+  delete once confirmed unneeded.

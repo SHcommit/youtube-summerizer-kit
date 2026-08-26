@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "youtube-summarizer-kit"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local-first, resumable knowledge compiler for YouTube and local media"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -49,11 +49,16 @@ server = [
 dev = [
   "build",
   "coverage[toml]",
+  "fastapi>=0.111",
   "mypy",
+  "opentelemetry-api",
+  "opentelemetry-exporter-otlp-proto-http",
+  "opentelemetry-sdk",
   "pytest",
   "pytest-asyncio",
   "ruff",
   "types-PyYAML",
+  "uvicorn[standard]>=0.29",
 ]
 
 [project.scripts]

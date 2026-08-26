@@ -1,6 +1,6 @@
 # actions/labeler@v5 requires each label to contain match objects.
 # Use only labels that already exist in this repository.
-documentation:
+area:docs:
   - changed-files:
       - any-glob-to-any-file:
           - '**/*.md'
@@ -8,7 +8,7 @@ documentation:
           - 'assets/**'
           - 'modules/**'
 
-github_actions:
+area:ci:
   - changed-files:
       - any-glob-to-any-file: '.github/**'
 
@@ -17,3 +17,75 @@ dependencies:
       - any-glob-to-any-file:
           - 'pyproject.toml'
           - 'uv.lock'
+
+area:core:
+  - changed-files:
+      - any-glob-to-any-file: 'src/chew/core/**'
+
+area:pipeline:
+  - changed-files:
+      - any-glob-to-any-file: 'src/chew/pipeline/**'
+
+area:storage:
+  - changed-files:
+      - any-glob-to-any-file: 'src/chew/storage/**'
+
+area:harness:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/chew/harness/**'
+          - 'tests/harness/**'
+
+area:transcripts:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/chew/transcripts/**'
+          - 'tests/transcripts/**'
+
+area:cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/chew/cli/**'
+          - 'src/chew/cli.py'
+          - 'tests/test_cli.py'
+          - 'tests/test_commands.py'
+
+area:agents:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/chew/agents/**'
+          - 'tests/test_agents.py'
+
+area:benchmark:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/chew/benchmark/**'
+          - 'src/chew/benchmark.py'
+          - 'benchmarks/**'
+          - 'reports/BENCHMARK.md'
+          - 'reports/performance-comparisons/**'
+
+area:release:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/cd.yml'
+          - '.github/workflows/release-consistency.yml'
+          - 'CHANGELOG.md'
+          - 'scripts/check_release_consistency.py'
+
+impact:architecture:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'AGENTS.md'
+          - 'docs/agent-index.md'
+          - 'docs/decisions/**'
+          - 'assets/architecture/**'
+
+impact:performance:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/chew/pipeline/scheduler.py'
+          - 'src/chew/pipeline/segmentation.py'
+          - 'src/chew/pipeline/preprocessing.py'
+          - 'src/chew/benchmark/**'
+          - 'benchmarks/**'
