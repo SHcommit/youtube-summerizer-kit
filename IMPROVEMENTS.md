@@ -123,8 +123,15 @@ GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metada
     5분 넘게 갱신되지 않아 `synchronize` 이벤트 자체가 발생하지 않았다 — git ref 자체(`git ls-remote`,
     push 트리거 CI run)는 정상적으로 갱신됐는데 PR 객체만 멈춰 있었다.
   - 로직 자체는 `tests/test_pr_metadata_labels.py`로 단위 검증됨(pytest 통과)이고, 코드 결함이 아니라
-    이번 세션에서 관찰된 GitHub 쪽 동기화 이상으로 보인다. **다음 실제 PR에서 `kind:*`/
-    `status:needs-triage` 라벨이 붙는지 재확인 필요 — 이번 관찰은 결론이 아니라 미해결 상태로 남긴다.**
+    이번 세션에서 관찰된 GitHub 쪽 동기화 이상으로 보인다.
+  - PR #14(새 브랜치, PR #13과 무관)에서 다시 시도했으나 raw REST API(`actions/runs/{id}/jobs`)로
+    확인해도 `metadata-label` job은 여전히 job 목록에 없었다. `develop`의 Contents API로는 파일에 두
+    job이 다 있는 게 확인되는데도 그렇다 — PR #12/#13/#14 세 번 모두 동일하게 재현되어, `synchronize`
+    지연이 아니라 `pull_request_target` 트리거의 job 목록을 GitHub이 merge 이전 버전으로 캐싱하고
+    있는 것으로 보인다.
+  - **지금은 추가로 조사하지 않기로 결정함(2026-08-26). 다음 실제 release PR에서 자연스럽게 재확인한다
+    — 안 붙어 있으면 그때 `.github/workflows/labeler.yml`에 트리비얼 커밋을 만들어 캐시 갱신을
+    시도한다.**
 - 자동화되지 않은 priority/final impact는 maintainer triage로 남긴다.
 
 ## 4. P1: Project 운영 자동화
