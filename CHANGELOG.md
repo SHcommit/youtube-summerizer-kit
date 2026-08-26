@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **PR metadata labeler permissions**: `metadata-label` in `.github/workflows/labeler.yml` declared
+  `pull-requests: read`, which cannot add labels; GitHub returned `Resource not accessible by
+  integration (addLabelsToLabelable)`. Changed to `pull-requests: write`.
+
 ## [0.3.0] - 2026-08-26
 
 ### Added

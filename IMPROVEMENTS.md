@@ -100,11 +100,10 @@ PR governance를 유지하고, GitHub repository URL의 `youtube-summerizer-kit`
   감시하는 `pr-governance.yml` 검사 스크립트, `reports/performance_analysis.md`의 과거 리네임 커밋
   기록만 남아 있고 활성 contributor instruction에는 없음).
 
-## 3. P1: GitHub Labels와 자동 분류 체계 유지
+## 3. P1: GitHub Labels와 자동 분류 체계 유지 — 완료
 
-GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metadata labeler는 도입되었다.
-남은 작업은 새 PR에서 Auto Labeler가 실패하지 않는지 확인하고, priority/impact/status 자동화가 실제로
-필요한지 판단하는 것이다.
+GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metadata labeler는 도입되고
+라이브로 검증되었다.
 
 ### 작업
 
@@ -115,23 +114,12 @@ GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metada
 
 - [x] file-based `area:*` labeler가 `pull_request_target`에서 성공한다 (PR #12: `label` check pass,
   `documentation`/`dependencies`/`github_actions` 라벨 적용 확인).
-- [ ] PR title/branch 기반 metadata labeler(`metadata-label` job)는 PR #12가 `develop`에 merge된 뒤
-  PR #13(`docs/post-merge-handoff-update`)으로 라이브 검증을 시도했으나 결론에 도달하지 못했다:
-  - PR #13이 처음 열렸을 때(`285ed99`) 실행된 `Auto Labeler` run은 `label` job만 실행하고
-    `metadata-label` job은 아예 job 목록에 없었다 — `develop`에는 이미 두 job이 다 있는데도 그렇다.
-  - 이후 두 번의 후속 push(빈 커밋, force-push)는 `gh api repos/.../pulls/13`의 `head.sha`/`updated_at`이
-    5분 넘게 갱신되지 않아 `synchronize` 이벤트 자체가 발생하지 않았다 — git ref 자체(`git ls-remote`,
-    push 트리거 CI run)는 정상적으로 갱신됐는데 PR 객체만 멈춰 있었다.
-  - 로직 자체는 `tests/test_pr_metadata_labels.py`로 단위 검증됨(pytest 통과)이고, 코드 결함이 아니라
-    이번 세션에서 관찰된 GitHub 쪽 동기화 이상으로 보인다.
-  - PR #14(새 브랜치, PR #13과 무관)에서 다시 시도했으나 raw REST API(`actions/runs/{id}/jobs`)로
-    확인해도 `metadata-label` job은 여전히 job 목록에 없었다. `develop`의 Contents API로는 파일에 두
-    job이 다 있는 게 확인되는데도 그렇다 — PR #12/#13/#14 세 번 모두 동일하게 재현되어, `synchronize`
-    지연이 아니라 `pull_request_target` 트리거의 job 목록을 GitHub이 merge 이전 버전으로 캐싱하고
-    있는 것으로 보인다.
-  - **지금은 추가로 조사하지 않기로 결정함(2026-08-26). 다음 실제 release PR에서 자연스럽게 재확인한다
-    — 안 붙어 있으면 그때 `.github/workflows/labeler.yml`에 트리비얼 커밋을 만들어 캐시 갱신을
-    시도한다.**
+- [x] PR title/branch 기반 metadata labeler(`metadata-label` job): PR #12/#13/#14에서는 job 자체가
+  실행 목록에 안 떠서 GitHub 쪽 캐싱 문제로 추정했으나, PR #18에서 마침내 실행되면서 진짜 원인이
+  드러났다 — **캐싱이 아니라 권한 버그**였다. job이 `pull-requests: read`만 선언해뒀는데
+  `gh pr edit --add-label`은 `pull-requests: write`가 필요해서 `GraphQL: Resource not accessible
+  by integration (addLabelsToLabelable)`로 실패했다. `.github/workflows/labeler.yml`에서
+  `issues: write`/`pull-requests: read`를 `pull-requests: write` 하나로 교체해 수정함(PR #18).
 - 자동화되지 않은 priority/final impact는 maintainer triage로 남긴다.
 
 ## 4. P1: Project 운영 자동화

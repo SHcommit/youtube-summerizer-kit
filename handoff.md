@@ -29,12 +29,11 @@
   and caused a real merge conflict when preparing v0.3.0.
 - Hardened `scripts/check_release_consistency.py` to also validate `src/chew/__init__.py.__version__`
   against `pyproject.toml`, with new tests, so this exact drift can't recur silently.
+- Resolved: `IMPROVEMENTS.md` §3's `metadata-label` mystery was not GitHub caching — PR #18 finally
+  ran the job and it failed with `Resource not accessible by integration (addLabelsToLabelable)`.
+  Root cause: the job only declared `pull-requests: read`; label mutations need
+  `pull-requests: write`. Fixed in `.github/workflows/labeler.yml`.
 - Still open, not release-gated:
-  - `IMPROVEMENTS.md` §3: the `metadata-label` job never appeared in Auto Labeler's job list across
-    three attempts (PR #12/#13/#14), even via raw REST API, despite `develop`'s file confirming the
-    job exists — looks like GitHub caching the pre-merge job list for this `pull_request_target`
-    workflow. Not re-checked during this release cycle either. Next step if picked back up: land a
-    trivial commit to `.github/workflows/labeler.yml` to try to force a cache refresh.
   - `IMPROVEMENTS.md` §4: decide whether to configure `PYPI_API_TOKEN` (for PyPI) and `PROJECTS_TOKEN`
     (for Project auto-add), and whether to expand the Project `Status` field from GitHub's default
     `Todo/In Progress/Done` to `Inbox/Ready/Doing/Review/Benchmark/Release/Done`.
