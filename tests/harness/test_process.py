@@ -31,13 +31,13 @@ async def test_process_times_out_and_is_terminated() -> None:
 async def test_process_does_not_inherit_unapproved_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("YTSUM_TEST_SECRET", "must-not-leak")
-    code = "import os; print(os.getenv('YTSUM_TEST_SECRET', 'missing'))"
+    monkeypatch.setenv("CHEW_TEST_SECRET", "must-not-leak")
+    code = "import os; print(os.getenv('CHEW_TEST_SECRET', 'missing'))"
 
     result = await ProcessExecutor().run((sys.executable, "-c", code), "", 2)
 
     assert result.stdout.strip() == "missing"
-    assert "YTSUM_TEST_SECRET" in os.environ
+    assert "CHEW_TEST_SECRET" in os.environ
 
 
 @pytest.mark.asyncio

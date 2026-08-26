@@ -5,11 +5,32 @@
 
 ## Branch and State
 
-- Branch: `feature/benchmark-quality-readiness`
+- Branch: `feat/repository-governance`
 - Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
 - Architecture decisions: [`interface and agent boundaries`](docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md), [`Grounded Knowledge Compiler modules`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md)
+
+## Immediate Repository Governance Priority
+
+- Open: PR #12 (`feat/repository-governance` → `develop`) is `MERGEABLE`/`CLEAN` with all required
+  checks passing; awaiting a decision on merging it.
+- **Re-verify at the next release** (`develop` → `release/vX.Y.Z` → `master`), all three in one pass:
+  - `IMPROVEMENTS.md` §1: `release/*` required-checks scenario, and that the release PR actually
+    targets `release/vX.Y.Z` → `master`.
+  - `IMPROVEMENTS.md` §3: the new `metadata-label` job (title/branch → `kind:*`/`status:needs-triage`)
+    fires on a real PR — it couldn't run on PR #12 itself because `pull_request_target` reads the
+    workflow definition from the base branch, which didn't have the job yet. This can also be
+    checked earlier, on the first ordinary PR into `develop` after #12 merges, not only at release.
+  - `IMPROVEMENTS.md` §5: `[Unreleased]` actually empties into a versioned heading, and the GitHub
+    Release body includes user impact + benchmark/report links, not just a PR list.
+- Open decisions (not release-gated, can be made any time): configure `PROJECTS_TOKEN` for automatic
+  Project writes vs. keep manual triage; expand the Project's `Status` field from GitHub's default
+  `Todo/In Progress/Done` to the documented `Inbox/Ready/Doing/Review/Benchmark/Release/Done`
+  (`IMPROVEMENTS.md` §4); whether to retroactively split the 211-line `[0.2.0]` CHANGELOG section
+  into ADR/report entries, given it's already a tagged, published release.
+- Most of the P0/P1/P2 governance queue (required status checks, architecture guard, docs role
+  separation, stale-naming check) is now done — see `IMPROVEMENTS.md` for the trimmed remainder.
 
 ## Current Architecture Decision
 
@@ -29,10 +50,14 @@
 
 ## Next Decision
 
-The documentation-only module boundaries are present. Before activating either one, choose one
-end-to-end user flow and define a versioned, typed, read-only `KnowledgeGateway` from
-`research-engine` to `chew`. Do not add ApplicationService agent tools, LangGraph, MCP, HTTP
-endpoints, web UI code, model dependencies, or a public package automatically.
+Before adding more product surface, decide whether to merge PR #12, then finish the small remaining
+repository governance queue in [`IMPROVEMENTS.md`](IMPROVEMENTS.md): metadata-labeler live
+verification and the Project auto-add (`PROJECTS_TOKEN`) decision.
+
+The documentation-only module boundaries are present. After governance work, activating either
+future module still requires one selected end-to-end user flow and a versioned, typed, read-only
+`KnowledgeGateway` from `research-engine` to `chew`. Do not add ApplicationService agent tools,
+LangGraph, MCP, HTTP endpoints, web UI code, model dependencies, or a public package automatically.
 
 Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only conclusion is in
 `reports/performance-comparisons/transcript-preprocessing/latest.md`.
@@ -51,13 +76,10 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
-- `020d965` records the approved Grounded Knowledge Compiler/module design; the documentation-only
-  module-boundary update is verified with `319 passed, 2 skipped`, Ruff clean, and mypy clean. No
-  live provider or Frontier benchmark ran.
-- `d591ceb` adds bounded agent contracts; full verification was `315 passed, 2 skipped`, Ruff and
-  mypy clean.
-- `cb0c8b0` adds protocol-neutral interface result presentation and preserves CLI machine fields;
-  full verification was `319 passed, 2 skipped`, Ruff and mypy clean.
-- `e8b53b1` documents and diagrams the same boundary, distinguishing implemented CLI presentation
-  from deferred HTTP, MCP, and web consumers. Full verification is `319 passed, 2 skipped`; Ruff
-  and mypy are clean. No live Frontier benchmark was run.
+- Repository governance is implemented and pushed to `feat/repository-governance` (PR #12, targeting
+  `develop`): version alignment, release consistency validator, release/PR governance workflows,
+  labels, Issue Forms, CODEOWNERS, ADR index, release playbook, architecture boundary guard, PR
+  metadata labeler, optional Project triage, and required status checks.
+- Latest full verification (this session): `331 passed, 2 skipped`, Ruff clean, mypy clean. No live
+  provider or Frontier benchmark ran.
+- Working tree is clean; latest commit is `d9c0343` (pushed).

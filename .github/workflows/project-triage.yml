@@ -1,0 +1,31 @@
+name: Project Triage
+
+on:
+  issues:
+    types: [opened, reopened, transferred]
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+
+jobs:
+  add-to-project:
+    name: Add issue or PR to Engineering project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add to project when PROJECTS_TOKEN is configured
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "PROJECTS_TOKEN is not configured; leaving Project triage manual."
+            exit 0
+          fi
+
+          item_url="${ISSUE_URL:-$PR_URL}"
+          if [ -z "$item_url" ]; then
+            echo "No issue or PR URL found for this event."
+            exit 0
+          fi
+
+          gh project item-add 2 --owner SHcommit --url "$item_url"

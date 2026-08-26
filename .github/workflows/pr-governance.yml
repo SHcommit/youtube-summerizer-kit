@@ -1,0 +1,26 @@
+name: PR Governance
+
+on:
+  pull_request:
+    branches: [develop, master, main]
+
+jobs:
+  pr-governance:
+    name: Check PR metadata and stale instructions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check PR title prefix
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          case "$PR_TITLE" in
+            feat:*|fix:*|docs:*|refactor:*|test:*|bench:*|ci:*|build:*|chore:*|release:*) exit 0 ;;
+            *) echo "PR title must start with feat:, fix:, docs:, refactor:, test:, bench:, ci:, build:, chore:, or release:"; exit 1 ;;
+          esac
+
+      - name: Reject stale active instructions
+        run: |
+          ! grep -R --exclude=pr-governance.yml -n -E "mypy src/ytsum|YTSUM_LIVE_" \
+            .github README.md README.ko.md CONTRIBUTING.md AGENTS.md docs/agent-index.md tests src

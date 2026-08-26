@@ -1,0 +1,56 @@
+name: Feature request
+description: Propose user-facing functionality or a product capability.
+title: "[Feature] "
+labels: ["kind:feature", "status:needs-triage"]
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What user problem or workflow does this improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful behavior, not an implementation wish list.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Primary area
+      options:
+        - area:cli
+        - area:pipeline
+        - area:harness
+        - area:transcripts
+        - area:web
+        - area:agents
+        - area:benchmark
+        - area:docs
+        - unsure
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Expected impact
+      options:
+        - impact:user-facing
+        - impact:architecture
+        - impact:performance
+        - impact:security
+        - impact:breaking
+        - unsure
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What must be true before this can be considered complete?
+      placeholder: |
+        - ...
+        - ...

@@ -1,0 +1,26 @@
+name: Architecture decision
+description: Propose or record a repository, architecture, runtime, or operating decision.
+title: "[ADR] "
+labels: ["kind:docs", "knowledge:adr", "impact:architecture", "status:needs-triage"]
+body:
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision needed
+      description: What must be decided?
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options considered
+      description: List realistic options and tradeoffs.
+    validations:
+      required: true
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences
+      description: What becomes easier, harder, cheaper, riskier, or deferred?
+    validations:
+      required: true

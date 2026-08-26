@@ -1,0 +1,19 @@
+name: CI failure alert
+description: Automatic issue filed when CI scheduled health checks fail.
+title: "[CI Alert] "
+labels: ["kind:bug", "area:ci", "status:needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Automated CI detected a failure. Check the linked workflow logs before changing code.
+  - type: input
+    id: workflow-run
+    attributes:
+      label: Workflow run
+      placeholder: "https://github.com/.../actions/runs/..."
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Paste only non-sensitive failure details.

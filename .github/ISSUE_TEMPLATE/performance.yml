@@ -1,0 +1,24 @@
+name: Performance or benchmark
+description: Track latency, cost, token, benchmark, or regression work.
+title: "[Performance] "
+labels: ["area:benchmark", "impact:performance", "status:needs-triage"]
+body:
+  - type: textarea
+    id: concern
+    attributes:
+      label: Concern
+      description: What performance behavior changed or needs measurement?
+    validations:
+      required: true
+  - type: textarea
+    id: baseline
+    attributes:
+      label: Baseline
+      description: Existing measurement, command, report path, or expected reference value.
+  - type: textarea
+    id: measurement
+    attributes:
+      label: Required measurement
+      description: Command, fixture, or report needed. Note if live provider calls are intentionally excluded.
+    validations:
+      required: true

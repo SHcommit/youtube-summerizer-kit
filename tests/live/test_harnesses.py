@@ -10,9 +10,9 @@ from chew.harness.registry import default_registry
 
 @pytest.mark.asyncio
 async def test_opt_in_live_harnesses() -> None:
-    requested = os.environ.get("YTSUM_LIVE_HARNESS")
+    requested = os.environ.get("CHEW_LIVE_HARNESS")
     if not requested:
-        pytest.skip("set YTSUM_LIVE_HARNESS to codex, gemini, claude, or ollama")
+        pytest.skip("set CHEW_LIVE_HARNESS to codex, gemini, claude, or ollama")
     harness = await default_registry().select(requested)
     result = await harness.generate(
         GenerationRequest(
