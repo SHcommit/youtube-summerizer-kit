@@ -95,7 +95,10 @@ PR governance를 유지하고, GitHub repository URL의 `youtube-summerizer-kit`
   `grep -R --exclude=pr-governance.yml -n -E "mypy src/ytsum|YTSUM_LIVE_"` 재확인, 매치 없음).
 - [x] `pr-governance.yml`의 stale instruction check가 PR #12에서 통과했다 (`Check PR metadata and stale
   instructions`). `develop` 기본 브랜치에서의 안정적 통과는 merge 이후 다음 PR에서 재확인한다.
-- historical changelog와 ADR 문제 설명을 제외하고 `src/ytsum`이 active contributor instruction에 남지 않는다.
+- [x] historical changelog와 ADR 문제 설명을 제외하고 `src/ytsum`이 active contributor instruction에 남지
+  않는다 (`grep -rn "src/ytsum"` 재확인: `CHANGELOG.md`/ADR의 historical 기록, 이 gate 자체의 인용, 이 문자열을
+  감시하는 `pr-governance.yml` 검사 스크립트, `reports/performance_analysis.md`의 과거 리네임 커밋
+  기록만 남아 있고 활성 contributor instruction에는 없음).
 
 ## 3. P1: GitHub Labels와 자동 분류 체계 유지
 
