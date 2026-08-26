@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file-based area labels.
 - **Optional Project triage**: adds a Project auto-add workflow that uses `PROJECTS_TOKEN` when
   configured and otherwise leaves Project triage manual without failing CI.
+- **Required status checks**: connects CI and PR Governance as required checks on `develop` and
+  `master`, and Release Consistency as a required check on `master`, via two new repository
+  rulesets (`require-ci-status`, `require-release-consistency`). `release/*` is intentionally
+  excluded until its workflows also trigger on PRs targeting release branches.
 
 ## [0.2.0] - 2026-08-26
 

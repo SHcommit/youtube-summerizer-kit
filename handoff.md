@@ -16,8 +16,11 @@
 - P0: align release version state before the next tag. The latest GitHub release/tag is `v0.2.0`,
   and `pyproject.toml` is aligned at version `0.2.0`; release consistency checks now guard future
   tags and release branches.
-- P0 remaining after merge: connect the new CI, PR Governance, and Release Consistency workflows to
-  the active repository ruleset as required status checks once their check run names exist.
+- P0 done: CI and PR Governance are required checks on `develop`/`master`; Release Consistency is a
+  required check on `master`. `release/*` is deliberately not covered yet (its workflows do not
+  trigger on PRs targeting release branches) — see `IMPROVEMENTS.md` §1 for the follow-up.
+- Open: PR #12 (`feat/repository-governance` → `develop`) is mergeable with all required checks
+  passing; awaiting a decision on merging it.
 - P1 remaining: verify Auto Labeler succeeds on the first PR with the new file-based and metadata
   label jobs; configure `PROJECTS_TOKEN` only if automatic user Project writes are worth the token
   maintenance cost.

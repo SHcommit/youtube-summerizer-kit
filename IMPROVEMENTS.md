@@ -42,22 +42,39 @@ Engineering OS로 발전시키기 위한 원본 평가와 운영 원칙을 보�
 — traceability 부족, version drift, stale naming, 과도한 CHANGELOG 책임, GitHub 운영 객체 미연결 — 을
 계속 기준점으로 삼는 것이다.
 
-## 1. P0: 릴리스 required checks 연결
+## 1. P0: 릴리스 required checks 연결 — 완료 (release/\* 제외)
 
-### 목표
+`feat/repository-governance` → `develop` PR(#12)에서 각 workflow의 실제 check run 이름을 확인한 뒤
+required status checks를 연결했다.
 
-- `release-consistency.yml`, `pr-governance.yml`, 기존 CI가 기본 브랜치에 merge된 뒤 GitHub ruleset의
-  required checks에 연결한다.
-- required checks를 연결하기 전에 각 workflow의 실제 check run 이름을 확인해 잘못된 context로 merge를
-  막지 않도록 한다.
+- `require-ci-status` ruleset (`develop`, `master`): `test (3.12)`, `test (3.13)`,
+  `Check PR metadata and stale instructions`.
+- `require-release-consistency` ruleset (`master`만): `Check release version consistency`.
+- 기존 `protect-branches` ruleset(`~DEFAULT_BRANCH`, `develop`, `master`, `release/*`)의
+  deletion/non-fast-forward/PR requirement는 변경하지 않았다.
+
+### `release/*`를 제외한 이유
+
+`ci.yml`과 `pr-governance.yml`의 `pull_request.branches`는 `[develop, master, main]`만 포함하고
+`release/*`를 포함하지 않는다. `protect-branches`가 이미 `release/*`를 대상으로 하기 때문에, 만약
+required status checks를 `release/*`까지 포함한 단일 ruleset에 걸었다면 release 브랜치를 base로 하는
+PR은 존재하지 않는 check를 영원히 기다리며 merge가 막혔을 것이다. 그래서 required checks는 실제로 해당
+workflow가 트리거되는 `develop`/`master`에만 연결했다.
+
+### 남은 작업
+
+- `release/*`를 base로 하는 PR(예: release 브랜치로의 hotfix)이 실제로 필요해지면, 먼저
+  `ci.yml`/`pr-governance.yml`의 `pull_request.branches`에 `release/*`를 추가해 check run이 실제로
+  생성되게 한 뒤, `require-ci-status` ruleset의 대상에 `refs/heads/release/*`를 추가한다. 지금은 해당
+  시나리오가 없으므로 선제적으로 만들지 않는다.
 
 ### Acceptance gates
 
-- repository ruleset `protect-branches`가 `master`, `develop`, `release/*`에 deletion, non-fast-forward,
-  PR requirement, required status checks를 함께 적용한다.
-- required checks에는 CI, PR Governance, Release Consistency가 포함된다.
-- 설정 후 `gh api repos/SHcommit/youtube-summerizer-kit/rules/branches/master`와 `develop`에서
-  required status check rule이 보인다.
+- [x] `gh api repos/SHcommit/youtube-summerizer-kit/rules/branches/master`에 `required_status_checks`가
+  2건(CI/PR Governance, Release Consistency) 보인다.
+- [x] `gh api repos/SHcommit/youtube-summerizer-kit/rules/branches/develop`에 `required_status_checks`가
+  1건(CI/PR Governance) 보인다.
+- [ ] `release/*` PR 시나리오가 생기면 위 "남은 작업"을 수행한다.
 
 ## 2. P1: 저장소 명칭과 문서 drift 감시
 
