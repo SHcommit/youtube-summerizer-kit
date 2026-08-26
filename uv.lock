@@ -2911,7 +2911,7 @@ wheels = [
 
 [[package]]
 name = "youtube-summarizer-kit"
-version = "0.1.2"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
@@ -2927,11 +2927,16 @@ dependencies = [
 dev = [
     { name = "build" },
     { name = "coverage" },
+    { name = "fastapi" },
     { name = "mypy" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
     { name = "types-pyyaml" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 huggingface = [
     { name = "huggingface-hub" },
@@ -2964,13 +2969,17 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'" },
     { name = "coverage", extras = ["toml"], marker = "extra == 'dev'" },
     { name = "deepmultilingualpunctuation", marker = "extra == 'preprocess'", specifier = ">=1.0" },
+    { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.111" },
     { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.111" },
     { name = "faster-whisper", marker = "extra == 'whisper'" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "huggingface-hub", marker = "extra == 'huggingface'", specifier = ">=0.23" },
     { name = "mypy", marker = "extra == 'dev'" },
+    { name = "opentelemetry-api", marker = "extra == 'dev'" },
     { name = "opentelemetry-api", marker = "extra == 'telemetry'" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'dev'" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'telemetry'" },
+    { name = "opentelemetry-sdk", marker = "extra == 'dev'" },
     { name = "opentelemetry-sdk", marker = "extra == 'telemetry'" },
     { name = "platformdirs" },
     { name = "pydantic", specifier = ">=2" },
@@ -2983,6 +2992,7 @@ requires-dist = [
     { name = "sentence-transformers", marker = "extra == 'preprocess'", specifier = ">=3.0" },
     { name = "typer" },
     { name = "types-pyyaml", marker = "extra == 'dev'" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'dev'", specifier = ">=0.29" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.29" },
     { name = "viztracer", marker = "extra == 'telemetry'" },
     { name = "youtube-transcript-api", marker = "extra == 'youtube'" },

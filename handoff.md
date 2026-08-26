@@ -5,11 +5,20 @@
 
 ## Branch and State
 
-- Branch: `feature/benchmark-quality-readiness`
+- Branch: `feat/repository-governance`
 - Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
 - Architecture decisions: [`interface and agent boundaries`](docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md), [`Grounded Knowledge Compiler modules`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md)
+
+## Immediate Repository Governance Priority
+
+- P0: align release version state before the next tag. The latest GitHub release/tag is `v0.2.0`,
+  and `pyproject.toml` is aligned at version `0.2.0`; release consistency checks now guard future
+  tags and release branches.
+- P0 remaining after merge: connect the new CI, PR Governance, and Release Consistency workflows to
+  the active repository ruleset as required status checks once their check run names exist.
+- P1 remaining: decide whether Project auto-add is worth the token/permission maintenance cost.
 
 ## Current Architecture Decision
 
@@ -29,10 +38,14 @@
 
 ## Next Decision
 
-The documentation-only module boundaries are present. Before activating either one, choose one
-end-to-end user flow and define a versioned, typed, read-only `KnowledgeGateway` from
-`research-engine` to `chew`. Do not add ApplicationService agent tools, LangGraph, MCP, HTTP
-endpoints, web UI code, model dependencies, or a public package automatically.
+Before adding more product surface, finish the remaining repository governance queue in
+[`IMPROVEMENTS.md`](IMPROVEMENTS.md): required status checks after workflow merge, and Project
+auto-add decision.
+
+The documentation-only module boundaries are present. After governance work, activating either
+future module still requires one selected end-to-end user flow and a versioned, typed, read-only
+`KnowledgeGateway` from `research-engine` to `chew`. Do not add ApplicationService agent tools,
+LangGraph, MCP, HTTP endpoints, web UI code, model dependencies, or a public package automatically.
 
 Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only conclusion is in
 `reports/performance-comparisons/transcript-preprocessing/latest.md`.
@@ -51,6 +64,10 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
+- Repository governance implementation is in progress: version alignment, release consistency
+  validator, release/PR governance workflows, labels, Issue Forms, CODEOWNERS, ADR index, release
+  playbook, and architecture boundary guard have been added locally. Full verification should be
+  re-run before handoff.
 - `020d965` records the approved Grounded Knowledge Compiler/module design; the documentation-only
   module-boundary update is verified with `319 passed, 2 skipped`, Ruff clean, and mypy clean. No
   live provider or Frontier benchmark ran.

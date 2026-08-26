@@ -514,8 +514,8 @@ python -m build
 ```
 
 기본 테스트와 벤치마크 목록은 외부 호출을 하지 않습니다. 라이브 검증은 다음 환경 변수를 명시했을 때만 실행됩니다.
-- `YTSUM_LIVE_YOUTUBE_URL`: 실제 자막 provider 통합 테스트
-- `YTSUM_LIVE_HARNESS`: `codex`, `gemini`, `claude`, `ollama` 중 하나의 실행기 테스트
+- `CHEW_LIVE_YOUTUBE_URL`: 실제 자막 provider 통합 테스트
+- `CHEW_LIVE_HARNESS`: `codex`, `gemini`, `claude`, `ollama` 중 하나의 실행기 테스트
 
 자세한 개발 및 테스트 지침은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.
 

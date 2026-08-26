@@ -90,6 +90,8 @@ benchmarks/            # Maintainer-only post-feature validation scripts
    - `interfaces` translates an inbound protocol to an application use case and presents its result.
      It MUST NOT invoke storage, transcript, or runtime adapters directly. `pipeline/outputs.py`
      remains a product-content renderer, not a web/CLI view layer.
+   - Architecture boundary changes MUST keep `scripts/check_architecture.py` and
+     `tests/test_architecture_boundaries.py` in sync.
 
 2. **Backward Compatibility**:
    - Re-export modules at the package root (`src/chew/domain.py`, `src/chew/pipeline.py`, `src/chew/config.py`, `src/chew/cli.py`) MUST be maintained so tests and external entrypoints remain compatible.
@@ -106,6 +108,7 @@ benchmarks/            # Maintainer-only post-feature validation scripts
    - External contributors fork the repository and submit Pull Requests targeting the **`develop`** branch.
    - Completed features MUST be merged into the **`develop`** integration testing branch first. `master` is reserved strictly for tagged production releases.
    - Verified releases are merged from `develop` into `master` / `main` and tagged using Semantic Versioning (`v*.*.*`).
+   - Before creating a release tag, `pyproject.toml`, `release/vX.Y.Z`, `CHANGELOG.md`, and the tag version MUST agree. Run `uv run python scripts/check_release_consistency.py --tag vX.Y.Z` or the matching release-branch check.
    - Pushing release tags (`git push origin master --tags`) triggers automated PyPI publishing and GitHub Release creation via `.github/workflows/cd.yml`.
 
 6. **Verification Before Finishing**:

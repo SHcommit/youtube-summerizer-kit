@@ -1,0 +1,24 @@
+name: Documentation
+description: Report missing, stale, confusing, or hard-to-find documentation.
+title: "[Docs] "
+labels: ["kind:docs", "area:docs", "status:needs-triage"]
+body:
+  - type: textarea
+    id: reader
+    attributes:
+      label: Reader and goal
+      description: Who is trying to do what?
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: Documentation gap
+      description: What is missing, stale, duplicated, or hard to find?
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Current location
+      placeholder: "README.md, docs/agent-index.md, AGENTS.md, ..."

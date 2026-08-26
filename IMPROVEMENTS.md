@@ -18,13 +18,168 @@
 
 [`Grounded Knowledge Compiler and Future Modules Design`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md)에서 `chew`를 **Grounded Knowledge Compiler**로 정의한다. [`modules/intent-analysis/README.md`](modules/intent-analysis/README.md)와 [`modules/research-engine/README.md`](modules/research-engine/README.md)는 미래에 독립 추출할 모듈의 문서 경계이며, 현재는 실행 가능한 패키지가 아니다.
 
-## 1. 보류: `intent-analysis` 자연어 요청 분석
+## 저장소 거버넌스 기준
+
+[`Repository Governance Decision`](docs/decisions/0002-repository-governance.md)은 GitHub Repository를
+Engineering OS로 발전시키기 위한 원본 평가와 운영 원칙을 보존한다. 이 문서의 P0/P1/P2 항목은 그 결정의
+실행 큐다. 세부 배경이나 "왜 이 자동화는 지금 도입하고 다른 자동화는 보류하는가"는 decision 문서를 기준으로
+판단한다.
+
+### 실행 규칙
+
+각 항목을 구현하기 전에 먼저 decision 문서의 관련 구간을 읽고, 이번 작업이 어떤 부족함을 메우는지
+작업 기록이나 PR 설명에 짧게 남긴다.
+
+- 버전·태그·릴리스 작업 전: `Release Version Policy`, `Tooling Decision`을 확인한다.
+- `CHANGELOG.md`나 GitHub Release 작업 전: `CHANGELOG Policy`를 확인한다.
+- 라벨·브랜치·PR·Issue·Project 작업 전: 각각 `Label Policy`, `Branch Policy`, `PR Policy`,
+  `Issue and Project Policy`를 확인한다.
+- prompt, model, harness, benchmark, runtime 관련 작업 전: `AI Project Policy`를 확인한다.
+- 자동화 추가 전: `Context`, `Tooling Decision`, `Consequences`를 확인해 현재 규모에서 ROI가 맞는지
+  다시 판단한다.
+
+이 규칙의 목적은 개선 작업이 체크리스트 소거로 흐르지 않게 하고, 원본 감사에서 확인한 실제 결함
+— traceability 부족, version drift, stale naming, 과도한 CHANGELOG 책임, GitHub 운영 객체 미연결 — 을
+계속 기준점으로 삼는 것이다.
+
+## 1. P0: 릴리스 required checks 연결
+
+### 목표
+
+- `release-consistency.yml`, `pr-governance.yml`, 기존 CI가 기본 브랜치에 merge된 뒤 GitHub ruleset의
+  required checks에 연결한다.
+- required checks를 연결하기 전에 각 workflow의 실제 check run 이름을 확인해 잘못된 context로 merge를
+  막지 않도록 한다.
+
+### Acceptance gates
+
+- repository ruleset `protect-branches`가 `master`, `develop`, `release/*`에 deletion, non-fast-forward,
+  PR requirement, required status checks를 함께 적용한다.
+- required checks에는 CI, PR Governance, Release Consistency가 포함된다.
+- 설정 후 `gh api repos/SHcommit/youtube-summerizer-kit/rules/branches/master`와 `develop`에서
+  required status check rule이 보인다.
+
+## 2. P1: 저장소 명칭과 문서 drift 감시
+
+활성 문서와 테스트 env var는 `chew` 기준으로 정리되었다. 남은 작업은 오래된 명칭이 다시 들어오지 않게
+PR governance를 유지하고, GitHub repository URL의 `youtube-summerizer-kit` 철자와 package/distribution 이름
+`youtube-summarizer-kit`의 차이를 사용자 문서에서 혼동하지 않도록 관리하는 것이다.
+
+### 작업
+
+- `pr-governance.yml`의 stale instruction check가 기본 브랜치에서 안정적으로 통과하는지 확인한다.
+- repository URL 철자는 실제 GitHub slug로만 쓰고, package/distribution 이름은 `youtube-summarizer-kit`로
+  표기하는 원칙을 유지한다.
+
+### Acceptance gates
+
+- active instruction 검색에서 `mypy src/ytsum` 또는 `YTSUM_LIVE_`가 다시 나타나지 않는다.
+- historical changelog와 ADR 문제 설명을 제외하고 `src/ytsum`이 active contributor instruction에 남지 않는다.
+
+## 3. P1: GitHub Labels와 자동 분류 체계 유지
+
+GitHub prefix labels와 file-based `area:*` labeler는 도입되었다. 남은 작업은 새 PR에서 Auto Labeler가
+실패하지 않는지 확인하고, branch prefix 기반 `kind:*` 자동 부여가 실제로 필요한지 판단하는 것이다.
+
+### 작업
+
+- branch prefix 기반 `kind:*` 라벨 자동 부여는 별도 action으로 추가할지 검토한다.
+
+### Acceptance gates
+
+- Auto Labeler가 `pull_request_target`에서 성공한다.
+- branch prefix 기반 자동 부여는 실제 triage 비용이 남는 경우에만 추가한다.
+
+## 4. P1: Branch와 PR 운영 규칙 강화 유지
+
+`master`와 `develop` 강제 push 방지는 repository ruleset으로 적용되었다. PR template, PR governance
+workflow, topic branch CI trigger는 도입되었다. 남은 작업은 새 workflow들이 기본 브랜치에 올라간 뒤
+ruleset required status checks에 연결하는 것이다.
+
+### 작업
+
+- `develop`과 `master`에 required status checks를 연결한다.
+
+### Acceptance gates
+
+- `develop`과 `master`로 직접 merge되기 전 CI가 required check로 동작한다.
+- release PR은 `release/vX.Y.Z`에서 `master`를 target으로 한다.
+
+## 5. P1: Project 운영 자동화
+
+YAML Issue Forms는 도입되었고, 기존 open issue #1-#3는 라벨과 `youtube-summarizer-kit Engineering`
+Project에 편입되었다. 남은 작업은 새 issue/PR 자동 편입이다.
+
+### 작업
+
+- 기본 status는 `Inbox`, `Ready`, `Doing`, `Review`, `Benchmark`, `Release`, `Done`으로 둔다.
+- 새 issue/PR을 Project에 자동 추가할지 결정한다. 사용자 Project 자동 편입은 `GITHUB_TOKEN`만으로
+  부족할 수 있으므로 필요한 token 권한을 먼저 확인한다.
+
+### Acceptance gates
+
+- 새 issue/PR이 Project에 자동 편입되거나, token 유지비용 때문에 수동 triage로 보류한다고 명시된다.
+- Project가 roadmap 문서의 중복물이 아니라 현재 실행 상태만 보여준다.
+
+## 6. P1: CHANGELOG 역할 축소와 Release Note 연결
+
+`CHANGELOG.md`는 유지하되 내부 작업 일지를 모두 담는 문서가 되면 안 된다. GitHub Release generated notes,
+PR release note, ADR, benchmark report와 책임을 나누어야 한다.
+
+### 작업
+
+- `CHANGELOG.md`는 사용자·운영자가 알아야 할 완료 변경만 기록한다.
+- PR template의 `Release Note` 필드를 GitHub Release 초안의 근거로 사용한다.
+- 내부 결정은 `docs/decisions/`, 성능 근거는 `reports/BENCHMARK.md`, 현재 진행 상태는 Project와
+  `handoff.md`로 분리한다.
+- release PR에서 `[Unreleased]` 내용을 `## [X.Y.Z] - YYYY-MM-DD`로 이동하는 절차를 문서화한다.
+
+### Acceptance gates
+
+- `CHANGELOG.md`의 `[Unreleased]`가 release마다 비워지거나 다음 개발 항목만 남는다.
+- GitHub Release 본문이 단순 PR 목록만이 아니라 핵심 사용자 영향과 benchmark/report 링크를 포함한다.
+- `docs/agent-index.md`가 changelog, ADR, benchmark, wiki, project의 역할 차이를 설명한다.
+
+## 7. P2: Architecture, Benchmark, AI 변경 감지 자동화
+
+모든 PR에 live provider benchmark를 돌리는 것은 비용 대비 과하다. 대신 변경 영역을 감지해 필요한
+검증을 요구하는 조건부 자동화가 맞다.
+
+### 작업
+
+- `src/chew/core/**`, `src/chew/pipeline/**`, `src/chew/app/**`, `src/chew/interfaces/**` import 방향을
+  검사하는 architecture validation을 추가한다.
+- `area:pipeline`, `area:harness`, `area:benchmark`, `impact:performance` 라벨이 붙은 PR에는 benchmark 필요 여부를
+  PR checklist에서 명시하게 한다.
+- prompt, schema, model, harness 변경은 `AI / Runtime Impact` checklist에서 evaluation 필요 여부를 남긴다.
+
+### Acceptance gates
+
+- architecture boundary 위반이 CI에서 실패한다.
+- performance-sensitive PR은 benchmark를 실행했거나 실행하지 않은 이유를 PR에 남긴다.
+- live provider test는 명시적 opt-in으로만 실행된다.
+
+## 8. P2: Engineering Knowledge Management 유지
+
+ADR index와 release playbook은 도입되었다. 남은 작업은 새 decision/report가 생길 때
+`docs/agent-index.md`를 계속 갱신하는 것이다.
+
+### 작업
+
+- prompt/model/evaluation history는 실제 변경 빈도가 생길 때 `docs/ai/` 또는 `docs/models/`로 분리한다.
+  지금은 빈 체계를 만들지 않는다.
+
+### Acceptance gates
+
+- 장기 지식은 `CHANGELOG.md`가 아니라 ADR/wiki/report 중 맞는 위치에 저장된다.
+
+## 9. 보류: `intent-analysis` 자연어 요청 분석
 
 `intent-analysis`는 `IntentParser`를 통해 자연어 Message를 허용된 Intent, Clarification, Unsupported 중 하나로만 해석한다. 기본 경로는 결정적 URL·옵션 추출과 고신뢰 패턴이며, 이후 opt-in local adapter는 schema-validated intent 후보만 반환할 수 있다. 입력 해석기는 YouTube 접근, 브라우저·쿠키·Keychain 접근, 파일 삭제, 도구 실행, 또는 Frontier 요약·판단을 수행하지 않는다. 데이터 변경 명령은 자연어 해석 후에도 명시적 확인이 필요하다.
 
 이 항목은 현재 구현하지 않는다. 먼저 첫 user flow와 capability catalog를 확정해야 한다.
 
-## 2. 보류: `research-engine`와 Grounded Knowledge Tree Agent runtime
+## 10. 보류: `research-engine`와 Grounded Knowledge Tree Agent runtime
 
 기본 control-plane 계약은 구현되었다. `agents`의 immutable budget·tool grant·request/result과 승인 전
 tool 실행을 차단하는 policy, 그리고 `interfaces`의 protocol-neutral presenter는 `CHANGELOG.md`에 기록한다.

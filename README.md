@@ -507,8 +507,8 @@ python -m build
 ```
 
 Default tests and the benchmark catalog make no external calls. Live checks run only when these environment variables are explicitly set:
-- `YTSUM_LIVE_YOUTUBE_URL`: Exercise a real transcript-provider integration.
-- `YTSUM_LIVE_HARNESS`: Exercise one of `codex`, `gemini`, `claude`, or `ollama`.
+- `CHEW_LIVE_YOUTUBE_URL`: Exercise a real transcript-provider integration.
+- `CHEW_LIVE_HARNESS`: Exercise one of `codex`, `gemini`, `claude`, or `ollama`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development and testing instructions.
 

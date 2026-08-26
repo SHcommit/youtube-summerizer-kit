@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible defect in chew.
+title: "[Bug] "
+labels: ["kind:bug", "status:needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What broke, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the exact command, input type, and relevant configuration.
+      placeholder: |
+        1. Run `chew ...`
+        2. Observe ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - area:cli
+        - area:pipeline
+        - area:harness
+        - area:transcripts
+        - area:storage
+        - area:benchmark
+        - area:agents
+        - area:docs
+        - area:ci
+        - unsure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: "0.2.0 or commit SHA"
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, runtime, and optional extras installed.
+      placeholder: "macOS 15, Python 3.12, runtime=codex, extras=youtube/dev"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove credentials, full transcripts, account paths, and private data.
+      render: text
