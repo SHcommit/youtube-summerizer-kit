@@ -275,3 +275,4 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 | Release preparation | Align `pyproject.toml`, `release/vX.Y.Z`, `CHANGELOG.md`, tag, and GitHub Release; run `uv run python scripts/check_release_consistency.py --tag vX.Y.Z` before tagging |
 | Architecture boundary rule | Update `scripts/check_architecture.py` and `tests/test_architecture_boundaries.py`, then document the rule in this index and `AGENTS.md` if it changes agent behavior |
 | PR metadata label rule | Update `scripts/pr_metadata_labels.py`, `tests/test_pr_metadata_labels.py`, and `.github/workflows/labeler.yml` |
+| Project automation | Keep `.github/workflows/project-triage.yml` optional unless `PROJECTS_TOKEN` is configured for user Project writes |

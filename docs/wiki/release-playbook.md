@@ -54,3 +54,14 @@ GitHub Release creation, and optional PyPI publishing.
 2. Confirm the package version matches `pyproject.toml`.
 3. Merge or forward-port release metadata back to `develop` if needed.
 4. Leave `## [Unreleased]` ready for the next development cycle.
+
+## Repository Automation Notes
+
+`Project Triage` can add new issues and pull requests to the user-level
+`youtube-summarizer-kit Engineering` Project. GitHub's default repository token
+may not have enough permission to write a user Project, so the workflow is
+intentionally optional:
+
+- create a repository secret named `PROJECTS_TOKEN` with permission to update
+  the user Project to enable auto-add;
+- leave the secret unset to keep Project triage manual without failing CI.

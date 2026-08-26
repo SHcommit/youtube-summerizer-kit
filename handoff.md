@@ -19,7 +19,8 @@
 - P0 remaining after merge: connect the new CI, PR Governance, and Release Consistency workflows to
   the active repository ruleset as required status checks once their check run names exist.
 - P1 remaining: verify Auto Labeler succeeds on the first PR with the new file-based and metadata
-  label jobs; decide whether Project auto-add is worth the token/permission maintenance cost.
+  label jobs; configure `PROJECTS_TOKEN` only if automatic user Project writes are worth the token
+  maintenance cost.
 
 ## Current Architecture Decision
 

@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PR metadata labeling**: extends the Auto Labeler workflow so PR title and branch prefixes add
   lightweight `kind:*`, `area:*`, `knowledge:*`, and `status:needs-triage` labels in addition to
   file-based area labels.
+- **Optional Project triage**: adds a Project auto-add workflow that uses `PROJECTS_TOKEN` when
+  configured and otherwise leaves Project triage manual without failing CI.
 
 ## [0.2.0] - 2026-08-26
 

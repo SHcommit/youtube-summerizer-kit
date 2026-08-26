@@ -110,17 +110,18 @@ ruleset required status checks에 연결하는 것이다.
 ## 5. P1: Project 운영 자동화
 
 YAML Issue Forms는 도입되었고, 기존 open issue #1-#3는 라벨과 `youtube-summarizer-kit Engineering`
-Project에 편입되었다. 남은 작업은 새 issue/PR 자동 편입이다.
+Project에 편입되었다. 새 issue/PR 자동 편입 workflow도 도입되었지만, 사용자 Project 쓰기 권한을 가진
+`PROJECTS_TOKEN`이 설정되어야 실제로 동작한다.
 
 ### 작업
 
 - 기본 status는 `Inbox`, `Ready`, `Doing`, `Review`, `Benchmark`, `Release`, `Done`으로 둔다.
-- 새 issue/PR을 Project에 자동 추가할지 결정한다. 사용자 Project 자동 편입은 `GITHUB_TOKEN`만으로
-  부족할 수 있으므로 필요한 token 권한을 먼저 확인한다.
+- `PROJECTS_TOKEN`을 설정할지, 수동 Project triage를 유지할지 결정한다.
 
 ### Acceptance gates
 
-- 새 issue/PR이 Project에 자동 편입되거나, token 유지비용 때문에 수동 triage로 보류한다고 명시된다.
+- `PROJECTS_TOKEN`이 있으면 새 issue/PR이 Project에 자동 편입된다.
+- `PROJECTS_TOKEN`이 없으면 workflow가 실패하지 않고 수동 triage로 남는다.
 - Project가 roadmap 문서의 중복물이 아니라 현재 실행 상태만 보여준다.
 
 ## 6. P1: CHANGELOG 역할 축소와 Release Note 연결
