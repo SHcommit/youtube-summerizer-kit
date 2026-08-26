@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **GitHub Release note categories**: adds `.github/release.yml` so generated release notes group
+  merged PRs by user-facing changes, fixes, architecture/runtime, performance/benchmarks, release
+  governance, and documentation.
+
 ### Fixed
 - **PR metadata labeler permissions**: `metadata-label` in `.github/workflows/labeler.yml` declared
   `pull-requests: read`, which cannot add labels; GitHub returned `Resource not accessible by

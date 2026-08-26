@@ -286,3 +286,4 @@ repeating them.
 | Architecture boundary rule | Update `scripts/check_architecture.py` and `tests/test_architecture_boundaries.py`, then document the rule in this index and `AGENTS.md` if it changes agent behavior |
 | PR metadata label rule | Update `scripts/pr_metadata_labels.py`, `tests/test_pr_metadata_labels.py`, and `.github/workflows/labeler.yml` |
 | Project automation | Keep `.github/workflows/project-triage.yml` optional unless `PROJECTS_TOKEN` is configured for user Project writes |
+| GitHub Release note categories | Update `.github/release.yml` when adding label families that should affect generated release notes |

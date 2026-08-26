@@ -35,6 +35,24 @@ Open the release PR from `release/vX.Y.Z` to `master`. The PR must explain:
 - benchmark report path or why benchmark is not required;
 - verification results.
 
+## GitHub Release Notes
+
+GitHub generated release notes use `.github/release.yml` to group merged PRs by
+labels. Before tagging, keep the release PR labels accurate enough for the
+generated sections:
+
+- `impact:user-facing`, `kind:feature`, `kind:bug` for user-visible changes;
+- `impact:architecture`, `area:harness`, `area:agents`, `knowledge:adr` for
+  architecture and AI runtime changes;
+- `impact:performance`, `area:benchmark`, `knowledge:benchmark` for performance
+  evidence;
+- `area:release`, `area:ci`, `dependencies`, `github_actions` for release and
+  repository operations.
+
+The generated PR list is not the whole release note. Add a short curated
+summary to the GitHub Release body when the release includes migration,
+benchmark, architecture, or operational decisions.
+
 ## Tag and Publish
 
 After the release PR is merged to `master`, tag the exact merged commit:

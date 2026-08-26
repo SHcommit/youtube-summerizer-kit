@@ -158,10 +158,11 @@ PR release note, ADR, benchmark report와 책임을 나누어야 한다.
   문서화한다 (release-playbook.md 3, 4단계).
 - [x] `docs/agent-index.md`가 changelog, ADR, benchmark, wiki, project의 역할 차이를 설명한다 (§9
   "Role separation" 문단).
+- [x] `.github/release.yml`이 GitHub generated release notes를 user-facing, fixes, architecture/runtime,
+  performance/benchmark, release/CI/governance, docs 섹션으로 분류한다.
 - [ ] `CHANGELOG.md`의 `[Unreleased]`가 release마다 비워지거나 다음 개발 항목만 남는다 — 다음 release
   때 실제로 검증한다.
-- [ ] GitHub Release 본문이 단순 PR 목록만이 아니라 핵심 사용자 영향과 benchmark/report 링크를 포함한다 —
-  다음 release 때 실제로 검증한다.
+- [ ] GitHub Release 본문에 curated summary가 추가되는지 확인한다 — 다음 release 때 실제로 검증한다.
 
 ## 6. P2: Engineering Knowledge Management 유지
 
