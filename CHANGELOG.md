@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-27
+
 ### Added
 - **GitHub Release note categories**: adds `.github/release.yml` so generated release notes group
   merged PRs by user-facing changes, fixes, architecture/runtime, performance/benchmarks, release
