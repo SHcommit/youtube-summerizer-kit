@@ -75,7 +75,9 @@ workflow가 트리거되는 `develop`/`master`에만 연결했다.
 - [x] `gh api repos/SHcommit/youtube-summerizer-kit/rules/branches/develop`에 `required_status_checks`가
   1건(CI/PR Governance) 보인다.
 - [ ] `release/*` PR 시나리오가 생기면 위 "남은 작업"을 수행한다.
-- [ ] release PR은 `release/vX.Y.Z`에서 `master`를 target으로 한다 — 다음 release 때 실제로 검증한다.
+- [x] release PR은 `release/vX.Y.Z`에서 `master`를 target으로 한다 — v0.3.1 릴리스(`release/v0.3.1` → `master`,
+  PR #20)에서 `test (3.12)`, `test (3.13)`, `Check PR metadata and stale instructions`가 모두 실제로
+  실행되어 통과한 뒤 머지됐다.
 
 ## 2. P1: 저장소 명칭과 문서 drift 감시
 
@@ -119,7 +121,15 @@ GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metada
   드러났다 — **캐싱이 아니라 권한 버그**였다. job이 `pull-requests: read`만 선언해뒀는데
   `gh pr edit --add-label`은 `pull-requests: write`가 필요해서 `GraphQL: Resource not accessible
   by integration (addLabelsToLabelable)`로 실패했다. `.github/workflows/labeler.yml`에서
-  `issues: write`/`pull-requests: read`를 `pull-requests: write` 하나로 교체해 수정함(PR #18).
+  `issues: write`/`pull-requests: read`를 `pull-requests: write` 하나로 교체해 수정함(PR #18, `develop`).
+- [x] 위 수정이 실제로 `master`에 반영된 뒤에도 통과하는지 재검증: PR #18은 v0.3.0 릴리스 *이후*
+  `develop`에만 병합돼 있었고 `master`에는 없었다. `pull_request_target`은 워크플로우 정의를 PR의
+  **base 브랜치** 버전에서 읽으므로, 그 수정 사항을 처음으로 `master`에 실어나르는 v0.3.1 release
+  PR(#20, base=`master`)은 자기 자신이 고치는 대상인 구버전 workflow(`pull-requests: read`)로
+  평가되어 다시 실패했다(`GITHUB_TOKEN Permissions` 로그로 확인). base가 이미 수정된 `develop`인
+  후속 PR #21/#22는 정상적으로 `pull-requests: write`가 적용되어 통과했다. 이는 재발이 아니라
+  `pull_request_target`의 base-branch workflow 해석 방식에 따른 1회성 과도기 현상이며, `master`가
+  수정본을 갖게 된 v0.3.1 이후에는 재현되지 않는다.
 - 자동화되지 않은 priority/final impact는 maintainer triage로 남긴다.
 
 ## 4. P1: CHANGELOG 역할 축소와 Release Note 연결
@@ -143,9 +153,11 @@ PR release note, ADR, benchmark report와 책임을 나누어야 한다.
   "Role separation" 문단).
 - [x] `.github/release.yml`이 GitHub generated release notes를 user-facing, fixes, architecture/runtime,
   performance/benchmark, release/CI/governance, docs 섹션으로 분류한다.
-- [ ] `CHANGELOG.md`의 `[Unreleased]`가 release마다 비워지거나 다음 개발 항목만 남는다 — 다음 release
-  때 실제로 검증한다.
-- [ ] GitHub Release 본문에 curated summary가 추가되는지 확인한다 — 다음 release 때 실제로 검증한다.
+- [x] `CHANGELOG.md`의 `[Unreleased]`가 release마다 비워지거나 다음 개발 항목만 남는다 — v0.3.1 release PR
+  (#20)에서 `[Unreleased]` 항목을 `## [0.3.1] - 2026-08-27`로 옮기고 `[Unreleased]`를 비워 검증했다.
+- [x] GitHub Release 본문에 curated summary가 추가되는지 확인한다 — v0.3.1 GitHub Release
+  (https://github.com/SHcommit/youtube-summerizer-kit/releases/tag/v0.3.1) 본문 상단에 사용자 대상
+  curated summary를 자동 생성 PR 목록 위에 추가해 검증했다.
 
 ## 5. P2: Engineering Knowledge Management 유지
 
