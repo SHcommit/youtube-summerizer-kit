@@ -11,6 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
       - name: Check PR title prefix
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
@@ -24,3 +28,6 @@ jobs:
         run: |
           ! grep -R --exclude=pr-governance.yml -n -E "mypy src/ytsum|YTSUM_LIVE_" \
             .github README.md README.ko.md CONTRIBUTING.md AGENTS.md docs/agent-index.md tests src
+
+      - name: Check documentation and architecture asset sync
+        run: python scripts/check_docs_sync.py

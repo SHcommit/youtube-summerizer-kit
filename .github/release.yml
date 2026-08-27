@@ -1,0 +1,45 @@
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - question
+      - wontfix
+    authors:
+      - dependabot
+      - dependabot[bot]
+  categories:
+    - title: User-Facing Changes
+      labels:
+        - impact:user-facing
+        - enhancement
+        - kind:feature
+    - title: Fixes
+      labels:
+        - kind:bug
+        - bug
+    - title: Architecture and AI Runtime
+      labels:
+        - impact:architecture
+        - area:agents
+        - area:harness
+        - knowledge:adr
+    - title: Performance and Benchmarks
+      labels:
+        - impact:performance
+        - area:benchmark
+        - knowledge:benchmark
+    - title: Release, CI, and Repository Governance
+      labels:
+        - area:release
+        - area:ci
+        - dependencies
+        - github_actions
+    - title: Documentation
+      labels:
+        - kind:docs
+        - area:docs
+        - documentation
+    - title: Other Changes
+      labels:
+        - "*"

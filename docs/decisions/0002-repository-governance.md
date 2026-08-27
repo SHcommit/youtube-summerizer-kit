@@ -20,7 +20,8 @@ between GitHub operating objects and those documents:
 - Issue to PR to commit to release is not consistently connected.
 - PR labels mostly cover dependency and documentation changes, not product
   areas such as pipeline, harnesses, transcripts, agents, benchmarks, or release.
-- GitHub Projects exist but do not currently carry work items.
+- GitHub Projects are intentionally out of scope because active execution is
+  tracked outside GitHub.
 - Milestones are not used.
 - Branch protection has been enabled by the maintainer for `master` and
   `develop`, but required checks and release-specific consistency gates still
@@ -53,7 +54,7 @@ Use the following source-of-truth split:
 | Performance and benchmark evidence | `reports/` and `benchmarks/` |
 | Agent/codebase navigation | `docs/agent-index.md` |
 | Release history | `CHANGELOG.md` and GitHub Releases |
-| Work tracking | GitHub Issues, labels, milestones, and one Project board |
+| Work tracking | GitHub Issues, labels, milestones, PRs, and external execution tracking |
 
 Repository governance should be introduced in this order:
 
@@ -62,7 +63,8 @@ Repository governance should be introduced in this order:
 3. Remove stale names and obsolete verification commands.
 4. Add a small but useful label taxonomy.
 5. Upgrade PR and issue templates so traceability starts at intake.
-6. Use one GitHub Project for current execution state.
+6. Keep GitHub Projects out of repository automation while Linear is the active
+   execution tracker.
 7. Add conditional checks for architecture, benchmark, and AI runtime impact.
 
 ## Release Version Policy
@@ -169,7 +171,7 @@ Automatable checks should stay narrow:
 - Changelog/docs required checks when high-impact files change.
 - Release version consistency checks on release branches and tags.
 
-## Issue and Project Policy
+## Issue and Work Tracking Policy
 
 Use YAML Issue Forms for:
 
@@ -180,14 +182,14 @@ Use YAML Issue Forms for:
 - performance
 - documentation
 
-Use one Project board first. Recommended columns:
+Do not use GitHub Projects for this repository now. The repository should keep
+traceability through Issues, labels, milestones, PR links, commits, releases,
+and ADR/report links. Active execution can live in Linear, but repository
+automation must not require a GitHub Project token or Project field schema.
 
-```text
-Inbox -> Ready -> Doing -> Review -> Benchmark -> Release -> Done
-```
-
-Avoid multiple boards until there are enough contributors to justify ownership
-views.
+Reconsider GitHub Projects only if the team stops using Linear or if public
+GitHub-native contributor triage becomes more valuable than maintaining one
+external execution tracker.
 
 ## AI Project Policy
 
@@ -218,7 +220,7 @@ cutting releases. Today, the better ROI is:
 - version consistency checks;
 - better PR and issue templates;
 - labels;
-- one Project board;
+- no GitHub Project automation while Linear remains the active execution tracker;
 - architecture and benchmark checks.
 
 This keeps automation close to current failure modes instead of copying larger

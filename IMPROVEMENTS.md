@@ -32,8 +32,8 @@ Engineering OS로 발전시키기 위한 원본 평가와 운영 원칙을 보�
 
 - 버전·태그·릴리스 작업 전: `Release Version Policy`, `Tooling Decision`을 확인한다.
 - `CHANGELOG.md`나 GitHub Release 작업 전: `CHANGELOG Policy`를 확인한다.
-- 라벨·브랜치·PR·Issue·Project 작업 전: 각각 `Label Policy`, `Branch Policy`, `PR Policy`,
-  `Issue and Project Policy`를 확인한다.
+- 라벨·브랜치·PR·Issue 작업 전: 각각 `Label Policy`, `Branch Policy`, `PR Policy`,
+  `Issue and Work Tracking Policy`를 확인한다.
 - prompt, model, harness, benchmark, runtime 관련 작업 전: `AI Project Policy`를 확인한다.
 - 자동화 추가 전: `Context`, `Tooling Decision`, `Consequences`를 확인해 현재 규모에서 ROI가 맞는지
   다시 판단한다.
@@ -100,11 +100,10 @@ PR governance를 유지하고, GitHub repository URL의 `youtube-summerizer-kit`
   감시하는 `pr-governance.yml` 검사 스크립트, `reports/performance_analysis.md`의 과거 리네임 커밋
   기록만 남아 있고 활성 contributor instruction에는 없음).
 
-## 3. P1: GitHub Labels와 자동 분류 체계 유지
+## 3. P1: GitHub Labels와 자동 분류 체계 유지 — 완료
 
-GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metadata labeler는 도입되었다.
-남은 작업은 새 PR에서 Auto Labeler가 실패하지 않는지 확인하고, priority/impact/status 자동화가 실제로
-필요한지 판단하는 것이다.
+GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metadata labeler는 도입되고
+라이브로 검증되었다.
 
 ### 작업
 
@@ -115,43 +114,15 @@ GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metada
 
 - [x] file-based `area:*` labeler가 `pull_request_target`에서 성공한다 (PR #12: `label` check pass,
   `documentation`/`dependencies`/`github_actions` 라벨 적용 확인).
-- [ ] PR title/branch 기반 metadata labeler(`metadata-label` job)는 PR #12가 `develop`에 merge된 뒤
-  PR #13(`docs/post-merge-handoff-update`)으로 라이브 검증을 시도했으나 결론에 도달하지 못했다:
-  - PR #13이 처음 열렸을 때(`285ed99`) 실행된 `Auto Labeler` run은 `label` job만 실행하고
-    `metadata-label` job은 아예 job 목록에 없었다 — `develop`에는 이미 두 job이 다 있는데도 그렇다.
-  - 이후 두 번의 후속 push(빈 커밋, force-push)는 `gh api repos/.../pulls/13`의 `head.sha`/`updated_at`이
-    5분 넘게 갱신되지 않아 `synchronize` 이벤트 자체가 발생하지 않았다 — git ref 자체(`git ls-remote`,
-    push 트리거 CI run)는 정상적으로 갱신됐는데 PR 객체만 멈춰 있었다.
-  - 로직 자체는 `tests/test_pr_metadata_labels.py`로 단위 검증됨(pytest 통과)이고, 코드 결함이 아니라
-    이번 세션에서 관찰된 GitHub 쪽 동기화 이상으로 보인다.
-  - PR #14(새 브랜치, PR #13과 무관)에서 다시 시도했으나 raw REST API(`actions/runs/{id}/jobs`)로
-    확인해도 `metadata-label` job은 여전히 job 목록에 없었다. `develop`의 Contents API로는 파일에 두
-    job이 다 있는 게 확인되는데도 그렇다 — PR #12/#13/#14 세 번 모두 동일하게 재현되어, `synchronize`
-    지연이 아니라 `pull_request_target` 트리거의 job 목록을 GitHub이 merge 이전 버전으로 캐싱하고
-    있는 것으로 보인다.
-  - **지금은 추가로 조사하지 않기로 결정함(2026-08-26). 다음 실제 release PR에서 자연스럽게 재확인한다
-    — 안 붙어 있으면 그때 `.github/workflows/labeler.yml`에 트리비얼 커밋을 만들어 캐시 갱신을
-    시도한다.**
+- [x] PR title/branch 기반 metadata labeler(`metadata-label` job): PR #12/#13/#14에서는 job 자체가
+  실행 목록에 안 떠서 GitHub 쪽 캐싱 문제로 추정했으나, PR #18에서 마침내 실행되면서 진짜 원인이
+  드러났다 — **캐싱이 아니라 권한 버그**였다. job이 `pull-requests: read`만 선언해뒀는데
+  `gh pr edit --add-label`은 `pull-requests: write`가 필요해서 `GraphQL: Resource not accessible
+  by integration (addLabelsToLabelable)`로 실패했다. `.github/workflows/labeler.yml`에서
+  `issues: write`/`pull-requests: read`를 `pull-requests: write` 하나로 교체해 수정함(PR #18).
 - 자동화되지 않은 priority/final impact는 maintainer triage로 남긴다.
 
-## 4. P1: Project 운영 자동화
-
-YAML Issue Forms는 도입되었고, 기존 open issue #1-#3는 라벨과 `youtube-summarizer-kit Engineering`
-Project에 편입되었다. 새 issue/PR 자동 편입 workflow도 도입되었지만, 사용자 Project 쓰기 권한을 가진
-`PROJECTS_TOKEN`이 설정되어야 실제로 동작한다.
-
-### 작업
-
-- 기본 status는 `Inbox`, `Ready`, `Doing`, `Review`, `Benchmark`, `Release`, `Done`으로 둔다.
-- `PROJECTS_TOKEN`을 설정할지, 수동 Project triage를 유지할지 결정한다.
-
-### Acceptance gates
-
-- `PROJECTS_TOKEN`이 있으면 새 issue/PR이 Project에 자동 편입된다.
-- `PROJECTS_TOKEN`이 없으면 workflow가 실패하지 않고 수동 triage로 남는다.
-- Project가 roadmap 문서의 중복물이 아니라 현재 실행 상태만 보여준다.
-
-## 5. P1: CHANGELOG 역할 축소와 Release Note 연결
+## 4. P1: CHANGELOG 역할 축소와 Release Note 연결
 
 `CHANGELOG.md`는 유지하되 내부 작업 일지를 모두 담는 문서가 되면 안 된다. GitHub Release generated notes,
 PR release note, ADR, benchmark report와 책임을 나누어야 한다.
@@ -160,22 +131,23 @@ PR release note, ADR, benchmark report와 책임을 나누어야 한다.
 
 - `CHANGELOG.md`는 사용자·운영자가 알아야 할 완료 변경만 기록한다.
 - PR template의 `Release Note` 필드를 GitHub Release 초안의 근거로 사용한다.
-- 내부 결정은 `docs/decisions/`, 성능 근거는 `reports/BENCHMARK.md`, 현재 진행 상태는 Project와
-  `handoff.md`로 분리한다.
+- 내부 결정은 `docs/decisions/`, 성능 근거는 `reports/BENCHMARK.md`, 현재 repo 실행 상태는
+  `handoff.md`로 분리한다. GitHub Projects는 사용하지 않는다.
 - release PR에서 `[Unreleased]` 내용을 `## [X.Y.Z] - YYYY-MM-DD`로 이동하는 절차를 문서화한다.
 
 ### Acceptance gates
 
 - [x] `docs/wiki/release-playbook.md`가 `[Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` 이동 절차를
   문서화한다 (release-playbook.md 3, 4단계).
-- [x] `docs/agent-index.md`가 changelog, ADR, benchmark, wiki, project의 역할 차이를 설명한다 (§9
+- [x] `docs/agent-index.md`가 changelog, ADR, benchmark, wiki, repo metadata, Linear의 역할 차이를 설명한다 (§9
   "Role separation" 문단).
+- [x] `.github/release.yml`이 GitHub generated release notes를 user-facing, fixes, architecture/runtime,
+  performance/benchmark, release/CI/governance, docs 섹션으로 분류한다.
 - [ ] `CHANGELOG.md`의 `[Unreleased]`가 release마다 비워지거나 다음 개발 항목만 남는다 — 다음 release
   때 실제로 검증한다.
-- [ ] GitHub Release 본문이 단순 PR 목록만이 아니라 핵심 사용자 영향과 benchmark/report 링크를 포함한다 —
-  다음 release 때 실제로 검증한다.
+- [ ] GitHub Release 본문에 curated summary가 추가되는지 확인한다 — 다음 release 때 실제로 검증한다.
 
-## 6. P2: Engineering Knowledge Management 유지
+## 5. P2: Engineering Knowledge Management 유지
 
 ADR index와 release playbook은 도입되었다. 남은 작업은 새 decision/report가 생길 때
 `docs/agent-index.md`를 계속 갱신하는 것이다.
@@ -189,13 +161,13 @@ ADR index와 release playbook은 도입되었다. 남은 작업은 새 decision/
 
 - 장기 지식은 `CHANGELOG.md`가 아니라 ADR/wiki/report 중 맞는 위치에 저장된다.
 
-## 7. 보류: `intent-analysis` 자연어 요청 분석
+## 6. 보류: `intent-analysis` 자연어 요청 분석
 
 `intent-analysis`는 `IntentParser`를 통해 자연어 Message를 허용된 Intent, Clarification, Unsupported 중 하나로만 해석한다. 기본 경로는 결정적 URL·옵션 추출과 고신뢰 패턴이며, 이후 opt-in local adapter는 schema-validated intent 후보만 반환할 수 있다. 입력 해석기는 YouTube 접근, 브라우저·쿠키·Keychain 접근, 파일 삭제, 도구 실행, 또는 Frontier 요약·판단을 수행하지 않는다. 데이터 변경 명령은 자연어 해석 후에도 명시적 확인이 필요하다.
 
 이 항목은 현재 구현하지 않는다. 먼저 첫 user flow와 capability catalog를 확정해야 한다.
 
-## 8. 보류: `research-engine`와 Grounded Knowledge Tree Agent runtime
+## 7. 보류: `research-engine`와 Grounded Knowledge Tree Agent runtime
 
 기본 control-plane 계약은 구현되었다. `agents`의 immutable budget·tool grant·request/result과 승인 전
 tool 실행을 차단하는 policy, 그리고 `interfaces`의 protocol-neutral presenter는 `CHANGELOG.md`에 기록한다.
