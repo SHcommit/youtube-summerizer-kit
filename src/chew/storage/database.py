@@ -42,7 +42,7 @@ def _timestamp(value: datetime) -> str:
 
 
 class Database:
-    SCHEMA_VERSION = 8
+    SCHEMA_VERSION = 9
     _local: threading.local  # class-level annotation; one per Database instance via __init__
 
     def __init__(self, path: Path) -> None:
@@ -87,6 +87,7 @@ class Database:
                     execution_plan_json TEXT NOT NULL DEFAULT '',
                     status TEXT NOT NULL DEFAULT 'pending',
                     knowledge_pack_hash TEXT,
+                    manifest_hash TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     UNIQUE(source_id, analysis_key)
@@ -193,6 +194,8 @@ class Database:
                 "correlation_id TEXT NOT NULL, completed_at TEXT NOT NULL, "
                 "PRIMARY KEY(run_id, stage, attempt))"
             )
+        elif version == 9 and not self._has_column(connection, "runs", "manifest_hash"):
+            connection.execute("ALTER TABLE runs ADD COLUMN manifest_hash TEXT")
 
     def journal_mode(self) -> str:
         with self._connect() as connection:
@@ -656,11 +659,12 @@ class Database:
             ).fetchall()
         return [str(row[0]) for row in rows]
 
-    def set_run_pack(self, run_id: str, digest: str) -> None:
+    def set_run_pack(self, run_id: str, digest: str, manifest_hash: str | None = None) -> None:
         with self._connect() as connection:
             connection.execute(
-                "UPDATE runs SET status = 'completed', knowledge_pack_hash = ?, updated_at = ? WHERE run_id = ?",
-                (digest, _timestamp(datetime.now(UTC)), run_id),
+                "UPDATE runs SET status = 'completed', knowledge_pack_hash = ?, manifest_hash = ?, "
+                "updated_at = ? WHERE run_id = ?",
+                (digest, manifest_hash, _timestamp(datetime.now(UTC)), run_id),
             )
 
     def record_compiler_checkpoint(
@@ -747,6 +751,13 @@ class Database:
     def get_run_pack(self, run_id: str) -> str | None:
         with self._connect() as connection:
             row = connection.execute("SELECT knowledge_pack_hash FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+        if row is None or row[0] is None:
+            return None
+        return str(row[0])
+
+    def get_run_manifest(self, run_id: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute("SELECT manifest_hash FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         if row is None or row[0] is None:
             return None
         return str(row[0])

@@ -240,6 +240,56 @@ class KnowledgePack(FrozenModel):
     model: str | None = None
     analysis_fingerprint: str
     grounded_tree_fingerprint: str | None = None
+    manifest_hash: str | None = None
+
+
+class SoftwareProvenance(FrozenModel):
+    package_version: str
+    git_sha: str
+    python_version: str
+    lock_digest: str
+
+
+class CompilerProvenance(FrozenModel):
+    strategy: str
+    compiler_version: str
+
+
+class PromptProvenance(FrozenModel):
+    bundle_id: str
+    content_hash: str
+
+
+class KnowledgeTreeSchemaProvenance(FrozenModel):
+    knowledge_tree_schema_hash: str
+
+
+class ExecutionProvenance(FrozenModel):
+    policy_version: str
+    policy_fingerprint: str
+    runtime: str
+    model: str | None = None
+
+
+class InputProvenance(FrozenModel):
+    raw_transcript_fingerprint: str
+    prepared_transcript_fingerprint: str
+
+
+class RunManifest(FrozenModel):
+    """Read-only per-run provenance snapshot (RunManifest v1).
+
+    Never stores API keys, raw user input, or endpoint details — only
+    versions, strategy names, and content fingerprints.
+    """
+
+    run_id: str
+    software: SoftwareProvenance
+    compiler: CompilerProvenance
+    prompt: PromptProvenance
+    pack_schema: KnowledgeTreeSchemaProvenance
+    execution: ExecutionProvenance
+    inputs: InputProvenance
 
 
 class OccurrenceDraft(FrozenModel):

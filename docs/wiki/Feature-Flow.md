@@ -6,6 +6,11 @@ This page documents the internal technical flow for each major feature in `youtu
 
 ## Core Pipeline Flow
 
+The default and only runtime analysis path is the **Grounded Knowledge Compiler (GKT)**
+(`pipeline/engine.py: AnalysisPipeline.analyze()`). See
+[`Current-System.md`](Current-System.md) for the Default / Compatibility / Deferred status of
+every flow named on this page.
+
 ```
 YouTube URL / Local Media
         ↓
@@ -15,17 +20,32 @@ YouTube URL / Local Media
 [2] Transcript Acquisition
     yt-dlp → YouTube Transcript API → faster-whisper (STT fallback)
         ↓
-[3] Dynamic Segmentation
-    Chapter-aware split → topic segmentation (5–10 min windows)
+[3] Input Compile
+    Chapter-aware split → topic segmentation (5–10 min windows) → deterministic, reversible
+    transcript preparation (`pipeline/input_compiler.py`)
         ↓
-[4] DAG Parallel Synthesis  ← AI Harness (8 concurrent workers)
-    topic jobs → chapter jobs → Knowledge Pack job
+[4] Frontier Generate  ← AI Harness (8 concurrent workers)
+    Strict, bounded extraction of untrusted knowledge tree drafts, internally scheduled as
+    `topic_summary` → `chapter_summary` jobs (`pipeline/extraction.py`, `pipeline/scheduler.py`)
         ↓
-[5] Knowledge Pack (content-addressed, zstd-cached)
+[5] Evidence Ground
+    Deterministic validation of every model-proposed transcript citation against the raw
+    transcript — LLM citations are never trusted directly (`pipeline/evidence.py`)
         ↓
-[6] Output Assembly (1-sec reassembly from cache)
+[6] Tree Assemble
+    Grounding, assembly, and compatibility projection into the knowledge tree
+    (`pipeline/tree.py`)
+        ↓
+[7] Knowledge Pack (content-addressed, zstd-cached)
+        ↓
+[8] Output Assembly (1-sec reassembly from cache)
     Digest / Blog / Study Notes / Obsidian Vault
 ```
+
+The older `topic jobs → chapter jobs → Knowledge Pack job` description (no Input Compile or
+Evidence Ground stage) no longer matches `pipeline/engine.py`. It survives only as a comparison
+condition (`hierarchical()`) inside `benchmark/runner.py`, never as a live execution path — see
+`Current-System.md`.
 
 ---
 

@@ -38,6 +38,7 @@ from chew.pipeline.extraction import AnalysisSpec, KnowledgeExtractor
 from chew.pipeline.input_compiler import InputBudget, InputCompiler
 from chew.pipeline.knowledge import build_knowledge_pack
 from chew.pipeline.preprocessing import PreprocessingStats, TranscriptPreprocessor
+from chew.pipeline.provenance import build_run_manifest
 from chew.pipeline.scheduler import Scheduler
 from chew.pipeline.segmentation import SegmentationPolicy, SegmentManifest, segment_transcript
 from chew.pipeline.tree import KnowledgePackProjector, TreeAssembler
@@ -362,6 +363,16 @@ class AnalysisPipeline:
                 policy_fingerprint=checkpoint_policy,
                 correlation_id=run_id,
             )
+            run_manifest = build_run_manifest(
+                run_id=run_id,
+                compiler_strategy=config.compiler_strategy,
+                execution_plan=config.execution_plan,
+                runtime_id=extracted.runtime_id or self.harness.runtime_id,
+                model=extracted.model,
+                raw_transcript_fingerprint=raw_transcript_hash,
+                prepared_transcript_fingerprint=prepared.fingerprint,
+            )
+            manifest_ref = self.artifacts.put_json(run_manifest)
             with self.telemetry.span("tree.assemble", {"strategy": "gkt"}):
                 pack = KnowledgePackProjector().project(
                     tree=tree,
@@ -372,6 +383,7 @@ class AnalysisPipeline:
                     analysis_fingerprint=analysis_key,
                     runtime_id=extracted.runtime_id,
                     model=extracted.model,
+                    manifest_hash=manifest_ref.digest,
                 )
             pack_ref = self.artifacts.put_json(pack)
             self.database.record_compiler_checkpoint(
@@ -383,7 +395,7 @@ class AnalysisPipeline:
                 policy_fingerprint=checkpoint_policy,
                 correlation_id=run_id,
             )
-            self.database.set_run_pack(run_id, pack_ref.digest)
+            self.database.set_run_pack(run_id, pack_ref.digest, manifest_hash=manifest_ref.digest)
             return AnalysisResult(
                 run_id,
                 pack,

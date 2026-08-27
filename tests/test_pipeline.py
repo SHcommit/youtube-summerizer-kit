@@ -7,6 +7,7 @@ from chew.domain import (
     GenerationRequest,
     GenerationResult,
     Provenance,
+    RunManifest,
     SourceIdentity,
     SourceKind,
     Transcript,
@@ -276,6 +277,55 @@ async def test_gkt_pipeline_uses_one_extraction_without_hierarchical_jobs(tmp_pa
         "evidence.ground",
         "tree.assemble",
     }
+
+
+@pytest.mark.asyncio
+async def test_gkt_pipeline_persists_run_manifest_linked_to_pack(tmp_path: Path) -> None:
+    source = SourceIdentity(
+        source_id="youtube:abcDEF_1234",
+        video_id="abcDEF_1234",
+        canonical_url="https://www.youtube.com/watch?v=abcDEF_1234",
+    )
+    transcript = Transcript(
+        source=source,
+        language="en",
+        duration_ms=10_000,
+        provenance=Provenance.MANUAL_SUBTITLE,
+        segments=(TranscriptSegment(start_ms=0, end_ms=10_000, text="The transcript is grounded."),),
+    )
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    artifacts = ArtifactStore(tmp_path)
+    harness = GroundedTreeHarness()
+    pipeline = AnalysisPipeline(
+        database=database,
+        artifacts=artifacts,
+        transcripts=TranscriptService([StaticTranscriptProvider(transcript)]),
+        harness=harness,
+        telemetry=TelemetryManager(),
+    )
+
+    result = await pipeline.analyze(
+        source.canonical_url,
+        AnalysisConfig(
+            language="en",
+            depth="detailed",
+            instructions="",
+            whisper_fallback=False,
+            runtime="fake",
+            recipe_json="{}",
+            compiler_strategy="gkt",
+        ),
+    )
+
+    assert result.pack.manifest_hash is not None
+    assert database.get_run_manifest(result.run_id) == result.pack.manifest_hash
+    manifest = RunManifest.model_validate(
+        artifacts.get_json(artifacts.ref_for_digest(result.pack.manifest_hash))
+    )
+    assert manifest.run_id == result.run_id
+    assert manifest.compiler.strategy == "gkt"
+    assert manifest.inputs.raw_transcript_fingerprint == result.pack.transcript_fingerprint
 
 
 @pytest.mark.asyncio

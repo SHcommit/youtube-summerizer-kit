@@ -15,6 +15,42 @@
 - Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
 - Architecture decisions: [`interface and agent boundaries`](docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md), [`Grounded Knowledge Compiler modules`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md)
 
+## Engineering System Audit Track (active on `feat/engineering-knowledge`)
+
+An engineering-system audit (v2, superseding an earlier v1 draft) found the repository-governance
+work below already covered most of Phase 1/3, and narrowed the real remaining gaps to four items.
+Progress so far, uncommitted on this branch:
+
+1. **Done** — Documentation truth pass: `AGENTS.md`'s `pipeline/` layer listing, `README.md` /
+   `README.ko.md`, `docs/wiki/Feature-Flow.md`, and `reports/BENCHMARK.md` no longer describe the
+   legacy hierarchical topic/chapter flow as the default path. Added
+   `docs/wiki/Current-System.md` (Default/Compatibility/Deferred table, auto-synced to the GitHub
+   Wiki via `wiki-sync.yml`).
+2. **Done** — `RunManifest` v1 (`pipeline/provenance.py`, `core/models.py`): a per-run
+   code/prompt/schema/model provenance snapshot, linked from `KnowledgePack.manifest_hash` and
+   `runs.manifest_hash` (schema v9). See [`ADR-003`](docs/decisions/0003-run-manifest-provenance.md).
+3. **Done** — Prompt bundle logical ID: `chew.core.prompts.GKT_PROMPT_BUNDLE_ID` /
+   `GKT_PROMPT_FINGERPRINT`, derived from the actual live-path prompt content
+   (`harness/builtin.py: request_prompt()`'s instruction, moved to
+   `core.prompts.HARNESS_JSON_INSTRUCTION`) rather than the legacy `PROMPT_FINGERPRINT`. Found and
+   fixed in the same pass: `RunManifest.pack_schema` was fingerprinting `KnowledgePack` instead of
+   `KnowledgeTreeDraft` (the schema actually enforced on Frontier output). See ADR-003's updated
+   Decision section.
+4. **Done** — `pipeline/provenance.py: benchmark_metadata()` adds `compiler_strategy`,
+   `package_version`, `git_sha` (and `prompt_bundle` for `"gkt"`) to the `hierarchical` and
+   `gkt-deterministic` conditions in `benchmark/runner.py`. `direct()`/`single_pass()` conditions
+   call the harness directly (no `compiler_strategy` applies) and are intentionally left out.
+5. **Done** — PR template gained an `ADR / Decision:` field and a
+   behavior-preserving/behavior-changing/migration-required checklist for prompt bundle changes.
+   Considered adding `risk:schema` / `risk:release` / `risk:provider` labels but decided against it:
+   the existing label taxonomy (`impact:breaking`, `impact:security`, `area:release`,
+   `area:harness`) already signals the same risk categories, and
+   `docs/decisions/0002-repository-governance.md` itself warns against decorative labels. No
+   `.github/labeler.yml` change needed.
+6. **Deliberately skipped for now** — Re-measuring `reports/BENCHMARK.md`'s "미측정" rows
+   (v0.2.0+ actual timing): the pipeline hasn't changed since GKT shipped in v0.2.0, so there is
+   nothing new to measure yet. Revisit when `pipeline`/`scheduler` logic next changes.
+
 ## Immediate Repository Governance Priority
 
 - Done: `IMPROVEMENTS.md` §1 fully verified live during the v0.3.0 release — the release PR
@@ -58,10 +94,14 @@
 
 ## Next Decision
 
-No active release in flight. Before adding more product surface, resume the small remaining
-repository governance queue above (PyPI publish decision and optional CHANGELOG split) — none of it
-blocks other work. GitHub Projects are intentionally not used; execution tracking lives in Linear
-plus repo-native Issues/PRs/labels/milestones.
+Items 1-5 of the Engineering System Audit Track are done. Item 6 (diagnostics/incident tooling,
+`chew diagnostics export`) remains explicitly deferred per the audit's own judgment — no active
+user-reported incident motivates it yet. Recorded in `PRODUCT_ROADMAP.md` (not `README.md`, which
+only documents shipped behavior) so the idea and its precondition aren't lost. No active release
+is in flight. The small remaining repository
+governance queue below (PyPI publish decision and optional CHANGELOG split) does not block this
+work. GitHub Projects are intentionally not used; execution tracking lives in Linear plus
+repo-native Issues/PRs/labels/milestones.
 
 The documentation-only module boundaries are present. Activating either future module still
 requires one selected end-to-end user flow and a versioned, typed, read-only `KnowledgeGateway`
@@ -89,5 +129,9 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
   captured repository governance/CI tooling only (release consistency checks, PR/issue templates,
   architecture boundary guard, PR metadata labeling, required status checks) plus the master→develop
   drift fix above.
-- Latest full verification: `333 passed, 2 skipped` (2 new tests for the `__init__.py` version
-  check), Ruff clean, mypy clean. No live provider or Frontier benchmark ran.
+- Uncommitted on `feat/engineering-knowledge`: the Engineering System Audit Track work above
+  (RunManifest v1 + prompt bundle ID/fingerprint fix + documentation truth pass). Latest full
+  verification on this branch: `349 passed, 2 skipped`, Ruff clean, mypy clean
+  (`uv run --extra dev pytest` / `ruff check .` / `mypy src/chew`), plus
+  `scripts/check_architecture.py` and `scripts/check_docs_sync.py` both passing. No live provider
+  or Frontier benchmark ran.

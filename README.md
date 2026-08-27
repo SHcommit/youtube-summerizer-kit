@@ -401,7 +401,7 @@ The project follows a **Ports & Adapters (Hexagonal)** modular layout. See [`AGE
 ```
 src/chew/
 ├── core/         # Layer 1: Core Domain Entities, Value Objects, Identity (SHA-256) & Prompts
-├── pipeline/     # Layer 2: Analysis Engine, DAG Scheduler, & Output Compilation
+├── pipeline/     # Layer 2: Grounded Knowledge Compiler (GKT), DAG Scheduler, & Output Compilation
 ├── storage/      # Layer 3: SQLite WAL State Machine & zstd Artifact Storage
 ├── harness/      # Layer 4: AI Runtime Adapters (Codex, Gemini, Claude, Ollama, Antigravity)
 ├── transcripts/  # Layer 5: Data Input Adapters (YouTube API, yt-dlp, Whisper)
@@ -418,11 +418,11 @@ src/chew/
 | `segmentation.py` | Chapter-first and time-based topic segmentation |
 | `scheduler.py` | Dependency DAG, parallel execution, leases, heartbeats, and retries |
 | `harness/` | Discover external AI CLIs, diagnose authentication, and parse structured output |
-| `pipeline.py` | Hierarchical topic → chapter → Knowledge Pack synthesis |
+| `pipeline.py` | GKT compiler: Input Compile → Frontier Generate → Evidence Ground → Tree Assemble → Knowledge Pack |
 | `outputs.py` | Digest, blog, study, and Obsidian compilation and output caching |
 | `storage/` | SQLite state and content-addressed artifact storage |
 | `retention.py` | Preview-based retention and deletion policies |
-| `benchmark.py` | Compare direct Gemini analysis with the hierarchical pipeline |
+| `benchmark.py` | Compare direct Gemini analysis, the legacy hierarchical flow, and GKT |
 
 The core pipeline does not know vendor SDKs or account-file formats. Every AI request crosses the `GenerationRequest → Harness → GenerationResult` contract, so a new runtime requires an adapter, not a pipeline rewrite.
 

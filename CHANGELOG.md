@@ -8,6 +8,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **RunManifest v1**: `pipeline/provenance.py` builds a read-only per-run provenance snapshot
+  (package version, git SHA, prompt/schema fingerprints, execution policy, runtime/model) for every
+  GKT run, stored as a content-addressed artifact and linked from `KnowledgePack.manifest_hash` and
+  `runs.manifest_hash` (schema v9). Answers "which code/prompt/schema/model produced this pack?"
+  from one place instead of cross-referencing the DB, artifacts, and git history. See
+  [`ADR-003`](docs/decisions/0003-run-manifest-provenance.md).
+- **Readable prompt bundle ID + a prompt/schema fingerprint fix**: adds
+  `chew.core.prompts.GKT_PROMPT_BUNDLE_ID` (`"knowledge-extract/v1"`) and `GKT_PROMPT_FINGERPRINT`,
+  derived from `HARNESS_JSON_INSTRUCTION` — the actual instruction text the live GKT path sends
+  (`harness/builtin.py: request_prompt()`), moved there from an inline string. `RunManifest.prompt`
+  and `benchmark/runner.py`'s `gkt-deterministic` condition now use these instead of the legacy
+  `PROMPT_FINGERPRINT` (which only covers hierarchical-flow prompts unreachable from the live path)
+  or a hardcoded placeholder. Also fixes `RunManifest.pack_schema` to fingerprint
+  `KnowledgeTreeDraft.model_json_schema()` (the schema actually enforced on Frontier output)
+  instead of `KnowledgePack.model_json_schema()` (the final rendered pack).
+- **Benchmark provenance metadata**: `pipeline/provenance.py: benchmark_metadata()` adds
+  `compiler_strategy`, `package_version`, and `git_sha` (plus `prompt_bundle` for the `"gkt"`
+  strategy) to `benchmark/runner.py`'s `hierarchical` and `gkt-deterministic` condition
+  observations, so a benchmark result records which compiler strategy, code, and prompt bundle
+  produced it — matching the same fields `RunManifest` records for a live run.
+- **PR template traceability**: adds an `ADR / Decision:` link field under Architecture Impact and
+  a behavior-preserving / behavior-changing / migration-required checklist under AI / Runtime
+  Impact for prompt bundle version changes (see `docs/decisions/0003-run-manifest-provenance.md`).
+  Considered adding `risk:schema`/`risk:release`/`risk:provider` labels but decided the existing
+  `impact:breaking`/`impact:security`/`area:release`/`area:harness` labels already cover the same
+  risk signal without growing the label taxonomy.
+- **Documentation truth pass for GKT**: `AGENTS.md`'s `pipeline/` layer listing, `README.md` /
+  `README.ko.md`, `docs/wiki/Feature-Flow.md`, and `reports/BENCHMARK.md` no longer describe the
+  legacy hierarchical topic/chapter flow as the default path. Adds
+  `docs/wiki/Current-System.md` as the Default / Compatibility / Deferred status table
+  (auto-synced to the GitHub Wiki).
 - **GitHub Release note categories**: adds `.github/release.yml` so generated release notes group
   merged PRs by user-facing changes, fixes, architecture/runtime, performance/benchmarks, release
   governance, and documentation.

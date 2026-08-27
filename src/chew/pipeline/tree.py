@@ -201,6 +201,7 @@ class KnowledgePackProjector:
         analysis_fingerprint: str,
         runtime_id: str | None,
         model: str | None,
+        manifest_hash: str | None = None,
     ) -> KnowledgePack:
         claims = {claim.claim_id: claim for claim in tree.claims}
         occurrences = {occurrence.occurrence_id: occurrence for occurrence in tree.occurrences}
@@ -241,6 +242,7 @@ class KnowledgePackProjector:
             model=model,
             analysis_fingerprint=analysis_fingerprint,
             grounded_tree_fingerprint=tree.fingerprint,
+            manifest_hash=manifest_hash,
         )
 
     @staticmethod

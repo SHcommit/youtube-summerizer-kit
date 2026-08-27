@@ -105,3 +105,27 @@ def test_projector_creates_legacy_pack_with_validated_evidence() -> None:
     assert claim.evidence_refs[0].segment_indexes == (0,)
     assert claim.evidence_refs[0].start_ms == 0
     assert pack.grounded_tree_fingerprint == tree.fingerprint
+
+
+def test_projector_links_run_manifest_hash_onto_pack() -> None:
+    transcript = _transcript()
+    tree = TreeAssembler().assemble(
+        _draft(),
+        raw_transcript=transcript,
+        raw_transcript_fingerprint=fingerprint(transcript),
+        prepared_transcript_fingerprint="prepared-fingerprint",
+    )
+
+    pack = KnowledgePackProjector().project(
+        tree=tree,
+        transcript=transcript,
+        source=transcript.source,
+        title="Grounded fixture",
+        language="en",
+        analysis_fingerprint="analysis-fingerprint",
+        runtime_id="fake",
+        model="fake-model",
+        manifest_hash="a" * 64,
+    )
+
+    assert pack.manifest_hash == "a" * 64
