@@ -34,13 +34,11 @@
   Root cause: the job only declared `pull-requests: read`; label mutations need
   `pull-requests: write`. Fixed in `.github/workflows/labeler.yml`.
 - Still open, not release-gated:
-  - `IMPROVEMENTS.md` §4: decide whether to configure `PYPI_API_TOKEN` (for PyPI) and `PROJECTS_TOKEN`
-    (for Project auto-add), and whether to expand the Project `Status` field from GitHub's default
-    `Todo/In Progress/Done` to `Inbox/Ready/Doing/Review/Benchmark/Release/Done`.
+  - Decide whether to configure `PYPI_API_TOKEN` for PyPI publishing. GitHub Release download is the
+    current distribution channel until this is configured.
   - Whether to retroactively split the large `[0.2.0]` CHANGELOG section into ADR/report entries.
-  - A reproducible architecture-diagram renderer (wrapping the already-installed `mmdc`/`d2` CLIs so
-    `assets/architecture/**` PNGs regenerate from their `.mmd`/`.d2` sources) was requested and is
-    still unbuilt.
+  - Documentation drift is now checked by `scripts/check_docs_sync.py` in PR Governance. Architecture
+    diagram PNGs can be regenerated with `uv run python scripts/render_architecture_assets.py`.
 
 ## Current Architecture Decision
 
@@ -61,8 +59,9 @@
 ## Next Decision
 
 No active release in flight. Before adding more product surface, resume the small remaining
-repository governance queue above (§3 labeler live-check, §4 token/Status decisions, CHANGELOG
-split, diagram renderer) — none of it blocks other work.
+repository governance queue above (PyPI publish decision and optional CHANGELOG split) — none of it
+blocks other work. GitHub Projects are intentionally not used; execution tracking lives in Linear
+plus repo-native Issues/PRs/labels/milestones.
 
 The documentation-only module boundaries are present. Activating either future module still
 requires one selected end-to-end user flow and a versioned, typed, read-only `KnowledgeGateway`
@@ -88,7 +87,7 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 - v0.3.0 released: `src/chew` package code is unchanged from v0.2.0 in this cycle — the release
   captured repository governance/CI tooling only (release consistency checks, PR/issue templates,
-  architecture boundary guard, PR metadata labeling, optional Project triage, required status
-  checks) plus the master→develop drift fix above.
+  architecture boundary guard, PR metadata labeling, required status checks) plus the master→develop
+  drift fix above.
 - Latest full verification: `333 passed, 2 skipped` (2 new tests for the `__init__.py` version
   check), Ruff clean, mypy clean. No live provider or Frontier benchmark ran.

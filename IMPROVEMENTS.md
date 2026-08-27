@@ -32,8 +32,8 @@ Engineering OS로 발전시키기 위한 원본 평가와 운영 원칙을 보�
 
 - 버전·태그·릴리스 작업 전: `Release Version Policy`, `Tooling Decision`을 확인한다.
 - `CHANGELOG.md`나 GitHub Release 작업 전: `CHANGELOG Policy`를 확인한다.
-- 라벨·브랜치·PR·Issue·Project 작업 전: 각각 `Label Policy`, `Branch Policy`, `PR Policy`,
-  `Issue and Project Policy`를 확인한다.
+- 라벨·브랜치·PR·Issue 작업 전: 각각 `Label Policy`, `Branch Policy`, `PR Policy`,
+  `Issue and Work Tracking Policy`를 확인한다.
 - prompt, model, harness, benchmark, runtime 관련 작업 전: `AI Project Policy`를 확인한다.
 - 자동화 추가 전: `Context`, `Tooling Decision`, `Consequences`를 확인해 현재 규모에서 ROI가 맞는지
   다시 판단한다.
@@ -122,24 +122,7 @@ GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metada
   `issues: write`/`pull-requests: read`를 `pull-requests: write` 하나로 교체해 수정함(PR #18).
 - 자동화되지 않은 priority/final impact는 maintainer triage로 남긴다.
 
-## 4. P1: Project 운영 자동화
-
-YAML Issue Forms는 도입되었고, 기존 open issue #1-#3는 라벨과 `youtube-summarizer-kit Engineering`
-Project에 편입되었다. 새 issue/PR 자동 편입 workflow도 도입되었지만, 사용자 Project 쓰기 권한을 가진
-`PROJECTS_TOKEN`이 설정되어야 실제로 동작한다.
-
-### 작업
-
-- 기본 status는 `Inbox`, `Ready`, `Doing`, `Review`, `Benchmark`, `Release`, `Done`으로 둔다.
-- `PROJECTS_TOKEN`을 설정할지, 수동 Project triage를 유지할지 결정한다.
-
-### Acceptance gates
-
-- `PROJECTS_TOKEN`이 있으면 새 issue/PR이 Project에 자동 편입된다.
-- `PROJECTS_TOKEN`이 없으면 workflow가 실패하지 않고 수동 triage로 남는다.
-- Project가 roadmap 문서의 중복물이 아니라 현재 실행 상태만 보여준다.
-
-## 5. P1: CHANGELOG 역할 축소와 Release Note 연결
+## 4. P1: CHANGELOG 역할 축소와 Release Note 연결
 
 `CHANGELOG.md`는 유지하되 내부 작업 일지를 모두 담는 문서가 되면 안 된다. GitHub Release generated notes,
 PR release note, ADR, benchmark report와 책임을 나누어야 한다.
@@ -148,22 +131,23 @@ PR release note, ADR, benchmark report와 책임을 나누어야 한다.
 
 - `CHANGELOG.md`는 사용자·운영자가 알아야 할 완료 변경만 기록한다.
 - PR template의 `Release Note` 필드를 GitHub Release 초안의 근거로 사용한다.
-- 내부 결정은 `docs/decisions/`, 성능 근거는 `reports/BENCHMARK.md`, 현재 진행 상태는 Project와
-  `handoff.md`로 분리한다.
+- 내부 결정은 `docs/decisions/`, 성능 근거는 `reports/BENCHMARK.md`, 현재 repo 실행 상태는
+  `handoff.md`로 분리한다. GitHub Projects는 사용하지 않는다.
 - release PR에서 `[Unreleased]` 내용을 `## [X.Y.Z] - YYYY-MM-DD`로 이동하는 절차를 문서화한다.
 
 ### Acceptance gates
 
 - [x] `docs/wiki/release-playbook.md`가 `[Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` 이동 절차를
   문서화한다 (release-playbook.md 3, 4단계).
-- [x] `docs/agent-index.md`가 changelog, ADR, benchmark, wiki, project의 역할 차이를 설명한다 (§9
+- [x] `docs/agent-index.md`가 changelog, ADR, benchmark, wiki, repo metadata, Linear의 역할 차이를 설명한다 (§9
   "Role separation" 문단).
+- [x] `.github/release.yml`이 GitHub generated release notes를 user-facing, fixes, architecture/runtime,
+  performance/benchmark, release/CI/governance, docs 섹션으로 분류한다.
 - [ ] `CHANGELOG.md`의 `[Unreleased]`가 release마다 비워지거나 다음 개발 항목만 남는다 — 다음 release
   때 실제로 검증한다.
-- [ ] GitHub Release 본문이 단순 PR 목록만이 아니라 핵심 사용자 영향과 benchmark/report 링크를 포함한다 —
-  다음 release 때 실제로 검증한다.
+- [ ] GitHub Release 본문에 curated summary가 추가되는지 확인한다 — 다음 release 때 실제로 검증한다.
 
-## 6. P2: Engineering Knowledge Management 유지
+## 5. P2: Engineering Knowledge Management 유지
 
 ADR index와 release playbook은 도입되었다. 남은 작업은 새 decision/report가 생길 때
 `docs/agent-index.md`를 계속 갱신하는 것이다.
@@ -177,13 +161,13 @@ ADR index와 release playbook은 도입되었다. 남은 작업은 새 decision/
 
 - 장기 지식은 `CHANGELOG.md`가 아니라 ADR/wiki/report 중 맞는 위치에 저장된다.
 
-## 7. 보류: `intent-analysis` 자연어 요청 분석
+## 6. 보류: `intent-analysis` 자연어 요청 분석
 
 `intent-analysis`는 `IntentParser`를 통해 자연어 Message를 허용된 Intent, Clarification, Unsupported 중 하나로만 해석한다. 기본 경로는 결정적 URL·옵션 추출과 고신뢰 패턴이며, 이후 opt-in local adapter는 schema-validated intent 후보만 반환할 수 있다. 입력 해석기는 YouTube 접근, 브라우저·쿠키·Keychain 접근, 파일 삭제, 도구 실행, 또는 Frontier 요약·판단을 수행하지 않는다. 데이터 변경 명령은 자연어 해석 후에도 명시적 확인이 필요하다.
 
 이 항목은 현재 구현하지 않는다. 먼저 첫 user flow와 capability catalog를 확정해야 한다.
 
-## 8. 보류: `research-engine`와 Grounded Knowledge Tree Agent runtime
+## 7. 보류: `research-engine`와 Grounded Knowledge Tree Agent runtime
 
 기본 control-plane 계약은 구현되었다. `agents`의 immutable budget·tool grant·request/result과 승인 전
 tool 실행을 차단하는 policy, 그리고 `interfaces`의 protocol-neutral presenter는 `CHANGELOG.md`에 기록한다.

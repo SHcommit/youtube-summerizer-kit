@@ -7,10 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **GitHub Release note categories**: adds `.github/release.yml` so generated release notes group
+  merged PRs by user-facing changes, fixes, architecture/runtime, performance/benchmarks, release
+  governance, and documentation.
+- **Documentation sync guard**: adds `scripts/check_docs_sync.py` and wires it into PR Governance so
+  README architecture links, rendered architecture PNGs, and the `docs/agent-index.md` CLI table are
+  checked before merge. Adds `scripts/render_architecture_assets.py` for maintainer diagram
+  regeneration from Mermaid/D2 sources.
+
 ### Fixed
 - **PR metadata labeler permissions**: `metadata-label` in `.github/workflows/labeler.yml` declared
   `pull-requests: read`, which cannot add labels; GitHub returned `Resource not accessible by
   integration (addLabelsToLabelable)`. Changed to `pull-requests: write`.
+
+### Removed
+- **GitHub Project automation**: removes the optional Project triage workflow because active
+  execution tracking is handled in Linear.
 
 ## [0.3.0] - 2026-08-26
 
@@ -31,15 +44,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PR metadata labeling**: extends the Auto Labeler workflow so PR title and branch prefixes add
   lightweight `kind:*`, `area:*`, `knowledge:*`, and `status:needs-triage` labels in addition to
   file-based area labels.
-- **Optional Project triage**: adds a Project auto-add workflow that uses `PROJECTS_TOKEN` when
-  configured and otherwise leaves Project triage manual without failing CI.
 - **Required status checks**: connects CI and PR Governance as required checks on `develop` and
   `master`, and Release Consistency as a required check on `master`, via two new repository
   rulesets (`require-ci-status`, `require-release-consistency`). `release/*` is intentionally
   excluded until its workflows also trigger on PRs targeting release branches.
 - **Docs role separation**: `docs/agent-index.md` §9 now explains what belongs in `CHANGELOG.md`,
-  ADR (`docs/decisions/`), benchmark reports, `docs/wiki/`, and the GitHub Project board, so status
-  isn't duplicated across them.
+  ADR (`docs/decisions/`), benchmark reports, `docs/wiki/`, repo-native Issues/PR metadata, and
+  external Linear tracking, so status isn't duplicated across them.
 
 ## [0.2.0] - 2026-08-26
 
