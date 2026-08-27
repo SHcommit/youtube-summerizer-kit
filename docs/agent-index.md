@@ -301,7 +301,7 @@ first; it links to the above rather than repeating them.
 | New CLI command or option | `cli/main.py` + command table in this doc (§5) + `README.md` + `README.ko.md` + `CHANGELOG.md` |
 | New harness | `harness/<name>.py` + `registry.py` + `bootstrap.py` + harness table in this doc (§4) + `README.md` runtime table + `README.ko.md` + `CHANGELOG.md` + `assets/architecture/*.mmd` |
 | New layer or module | Update layer map in this doc (§2) + `AGENTS.md` architecture layout + `CHANGELOG.md` |
-| Activate a documentation-only future module | Select one user flow; define its typed dependency contract; update its module README, `IMPROVEMENTS.md`, `handoff.md`, `CHANGELOG.md`, and relevant user documentation before adding packages or dependencies |
+| Activate a documentation-only future module | Select one user flow; define its typed dependency contract; update its module README, its `PRODUCT_ROADMAP.md` row (move it out of "Deferred"), `IMPROVEMENTS.md` (add the new active work), `handoff.md`, `CHANGELOG.md`, and relevant user documentation before adding packages or dependencies |
 | New inbound interface | Keep it behind `interfaces/`; update the relevant presenter/contract, architecture diagrams, README, and `CHANGELOG.md` |
 | New extras group | `pyproject.toml` + optional extras table in this doc (§8) + `README.md` |
 | Schema / protocol change | Update interfaces section in this doc (§6) |

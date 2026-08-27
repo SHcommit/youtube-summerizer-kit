@@ -39,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   legacy hierarchical topic/chapter flow as the default path. Adds
   `docs/wiki/Current-System.md` as the Default / Compatibility / Deferred status table
   (auto-synced to the GitHub Wiki).
+
+## [0.3.1] - 2026-08-27
+
+### Added
 - **GitHub Release note categories**: adds `.github/release.yml` so generated release notes group
   merged PRs by user-facing changes, fixes, architecture/runtime, performance/benchmarks, release
   governance, and documentation.

@@ -5,21 +5,23 @@
 
 ## Branch and State
 
-- Released: `v0.3.0` is tagged on `master` (merge commit `95e3019`) and the GitHub Release is live
-  with built wheel/sdist: https://github.com/SHcommit/youtube-summerizer-kit/releases/tag/v0.3.0
-- PyPI publish was intentionally skipped — no `PYPI_API_TOKEN` secret is configured yet. `pip
-  install youtube-summarizer-kit` does not work until that secret is added and a release re-runs
-  (or a new tag is pushed). GitHub Release download is the current distribution channel.
-- Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
+- Released: `v0.3.1` is tagged on `master` and the GitHub Release is live with a curated summary:
+  https://github.com/SHcommit/youtube-summerizer-kit/releases/tag/v0.3.1
+- `master` and `develop` are in sync.
+- PyPI publish remains intentionally skipped — no `PYPI_API_TOKEN` secret is configured. GitHub
+  Release download is the current distribution channel.
+- Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md) — currently empty; the repository-governance
+  P0/P1/P2 queue is complete or steady-state as of v0.3.1.
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
-- Deferred product work: [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
+- Deferred product work (including `intent-analysis` and `research-engine`/agent-runtime
+  activation preconditions): [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
 - Architecture decisions: [`interface and agent boundaries`](docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md), [`Grounded Knowledge Compiler modules`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md)
 
 ## Engineering System Audit Track (active on `feat/engineering-knowledge`)
 
 An engineering-system audit (v2, superseding an earlier v1 draft) found the repository-governance
 work below already covered most of Phase 1/3, and narrowed the real remaining gaps to four items.
-Progress so far, uncommitted on this branch:
+Committed as `31918fd` on this branch:
 
 1. **Done** — Documentation truth pass: `AGENTS.md`'s `pipeline/` layer listing, `README.md` /
    `README.ko.md`, `docs/wiki/Feature-Flow.md`, and `reports/BENCHMARK.md` no longer describe the
@@ -51,31 +53,6 @@ Progress so far, uncommitted on this branch:
    (v0.2.0+ actual timing): the pipeline hasn't changed since GKT shipped in v0.2.0, so there is
    nothing new to measure yet. Revisit when `pipeline`/`scheduler` logic next changes.
 
-## Immediate Repository Governance Priority
-
-- Done: `IMPROVEMENTS.md` §1 fully verified live during the v0.3.0 release — the release PR
-  (`release/v0.3.0` → `master`) triggered `Check release version consistency` for real (head ref
-  started with `release/`) and it passed; required status checks worked on both `develop` and
-  `master`.
-- Found and fixed during this release: `master` carried drift never forward-ported to `develop`
-  after v0.2.0 (`actions/setup-python@v7`, `softprops/action-gh-release@v3` in `cd.yml`/`ci.yml`,
-  and `src/chew/__init__.py.__version__` stuck at a stale value). Merged `master` back into
-  `develop` (branch `chore/sync-master-into-develop`) to close the loop this time. **Going forward,
-  always merge `master` back into `develop` right after a release** — this was skipped for v0.2.0
-  and caused a real merge conflict when preparing v0.3.0.
-- Hardened `scripts/check_release_consistency.py` to also validate `src/chew/__init__.py.__version__`
-  against `pyproject.toml`, with new tests, so this exact drift can't recur silently.
-- Resolved: `IMPROVEMENTS.md` §3's `metadata-label` mystery was not GitHub caching — PR #18 finally
-  ran the job and it failed with `Resource not accessible by integration (addLabelsToLabelable)`.
-  Root cause: the job only declared `pull-requests: read`; label mutations need
-  `pull-requests: write`. Fixed in `.github/workflows/labeler.yml`.
-- Still open, not release-gated:
-  - Decide whether to configure `PYPI_API_TOKEN` for PyPI publishing. GitHub Release download is the
-    current distribution channel until this is configured.
-  - Whether to retroactively split the large `[0.2.0]` CHANGELOG section into ADR/report entries.
-  - Documentation drift is now checked by `scripts/check_docs_sync.py` in PR Governance. Architecture
-    diagram PNGs can be regenerated with `uv run python scripts/render_architecture_assets.py`.
-
 ## Current Architecture Decision
 
 - `core` is the domain; do not add a duplicate `domain` layer. `pipeline` remains the cohesive
@@ -87,9 +64,9 @@ Progress so far, uncommitted on this branch:
   synthesis, Knowledge Pack persistence, and deterministic output compilation.
 - `modules/intent-analysis/` and `modules/research-engine/` are documentation-only, separately
   extractable boundaries. They are not Python packages or runtime dependencies.
-- The initial `agents` package supplies dependency-free budget, grant, tool, and policy contracts
-  only. There is no LangGraph runtime, MCP server, public HTTP API, authentication scheme, or web
-  UI yet. A future web client consumes only a versioned HTTP contract and can live as a separately
+- The `agents` package supplies dependency-free budget, grant, tool, and policy contracts only.
+  There is no LangGraph runtime, MCP server, public HTTP API, authentication scheme, or web UI yet.
+  A future web client consumes only a versioned HTTP contract and can live as a separately
   deployable `apps/web` project when that API exists.
 
 ## Next Decision
@@ -97,16 +74,15 @@ Progress so far, uncommitted on this branch:
 Items 1-5 of the Engineering System Audit Track are done. Item 6 (diagnostics/incident tooling,
 `chew diagnostics export`) remains explicitly deferred per the audit's own judgment — no active
 user-reported incident motivates it yet. Recorded in `PRODUCT_ROADMAP.md` (not `README.md`, which
-only documents shipped behavior) so the idea and its precondition aren't lost. No active release
-is in flight. The small remaining repository
-governance queue below (PyPI publish decision and optional CHANGELOG split) does not block this
-work. GitHub Projects are intentionally not used; execution tracking lives in Linear plus
-repo-native Issues/PRs/labels/milestones.
+only documents shipped behavior) so the idea and its precondition aren't lost. No active release is
+in flight and `IMPROVEMENTS.md` has no open items. GitHub Projects are intentionally not used;
+execution tracking lives in Linear plus repo-native Issues/PRs/labels/milestones.
 
-The documentation-only module boundaries are present. Activating either future module still
-requires one selected end-to-end user flow and a versioned, typed, read-only `KnowledgeGateway`
-from `research-engine` to `chew`. Do not add ApplicationService agent tools, LangGraph, MCP, HTTP
-endpoints, web UI code, model dependencies, or a public package automatically.
+Before adding more product surface, activating `intent-analysis` or `research-engine` requires one
+selected end-to-end user flow and a versioned, typed, read-only `KnowledgeGateway` from
+`research-engine` to `chew` — see the preconditions in `PRODUCT_ROADMAP.md`. Do not add
+ApplicationService agent tools, LangGraph, MCP, HTTP endpoints, web UI code, model dependencies, or
+a public package automatically.
 
 Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only conclusion is in
 `reports/performance-comparisons/transcript-preprocessing/latest.md`.
@@ -125,13 +101,12 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
-- v0.3.0 released: `src/chew` package code is unchanged from v0.2.0 in this cycle — the release
-  captured repository governance/CI tooling only (release consistency checks, PR/issue templates,
-  architecture boundary guard, PR metadata labeling, required status checks) plus the master→develop
-  drift fix above.
-- Uncommitted on `feat/engineering-knowledge`: the Engineering System Audit Track work above
-  (RunManifest v1 + prompt bundle ID/fingerprint fix + documentation truth pass). Latest full
-  verification on this branch: `349 passed, 2 skipped`, Ruff clean, mypy clean
-  (`uv run --extra dev pytest` / `ruff check .` / `mypy src/chew`), plus
-  `scripts/check_architecture.py` and `scripts/check_docs_sync.py` both passing. No live provider
-  or Frontier benchmark ran.
+- v0.3.1 released: no `src/chew` package/CLI behavior change in that cycle — docs and CI tooling
+  only. Verification at release time (`release/v0.3.1`): `337 passed, 2 skipped`, Ruff clean, mypy
+  clean (86 source files).
+- `feat/engineering-knowledge` (commit `31918fd`, merged with `origin/develop` after v0.3.1): the
+  Engineering System Audit Track work above (RunManifest v1 + prompt bundle ID/fingerprint fix +
+  benchmark provenance metadata + documentation truth pass). Re-verified after the merge:
+  `351 passed, 2 skipped`, Ruff clean, mypy clean (87 source files), plus
+  `scripts/check_architecture.py`, `scripts/check_docs_sync.py`, and
+  `scripts/check_release_consistency.py` all passing. No live provider or Frontier benchmark ran.
