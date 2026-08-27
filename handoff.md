@@ -21,16 +21,18 @@
 
 - Done: v0.3.1 followed the full playbook (`docs/wiki/release-playbook.md`) cleanly —
   `release/v0.3.1` → `master` (PR #20), tag `v0.3.1` pushed, CD ran `Create GitHub Release`
-  successfully, then `master` → `develop` sync (PR #21). No merge conflicts.
-- Still unresolved despite the earlier "fix": `metadata-label` (`.github/workflows/labeler.yml`
-  `Label PR metadata` job) failed again on PR #20 with the same
-  `Resource not accessible by integration (addLabelsToLabelable)` error, even though the job
-  already declares `pull-requests: write` and `issues: write`. It is **not** a required status
-  check (only `test (3.12)`, `test (3.13)`, `Check PR metadata and stale instructions` are, per the
-  `require-ci-status` ruleset), so it did not block merging, but the underlying cause is still
-  open — likely an org/repo Actions default-permission or `pull_request_target` restriction not
-  visible from the workflow YAML alone. Worth a dedicated investigation before relying on this
-  label automation.
+  successfully, `master` → `develop` sync (PR #21), and a curated summary was added to the
+  GitHub Release body (https://github.com/SHcommit/youtube-summerizer-kit/releases/tag/v0.3.1).
+  No merge conflicts.
+- Root-caused (not a real regression): `metadata-label` failed once more on PR #20 with the same
+  `Resource not accessible by integration (addLabelsToLabelable)` error. Cause:
+  `pull_request_target` evaluates the workflow file from the PR's **base branch**. The
+  `pull-requests: write` fix (PR #18) had only reached `develop`, not `master` — and PR #20 was the
+  very release PR carrying that fix into `master` for the first time, so it was itself evaluated
+  against the pre-fix `master` copy (confirmed via the run's `GITHUB_TOKEN Permissions` log showing
+  `PullRequests: read`). PR #21/#22 (base `develop`, already fixed) passed normally. This was a
+  one-time transitional artifact, not a persistent bug — now that `master` carries the fix, it will
+  not recur. `IMPROVEMENTS.md` §3 records this.
 - Still open, not release-gated:
   - Decide whether to configure `PYPI_API_TOKEN` for PyPI publishing. GitHub Release download is the
     current distribution channel until this is configured.
@@ -56,10 +58,11 @@
 
 ## Next Decision
 
-No active release in flight. Before adding more product surface, resume the small remaining
-repository governance queue above (PyPI publish decision, optional CHANGELOG split, and the
-recurring `metadata-label` permission failure) — none of it blocks other work. GitHub Projects are
-intentionally not used; execution tracking lives in Linear plus repo-native Issues/PRs/labels/milestones.
+No active release in flight. `IMPROVEMENTS.md` §§1–5 are all complete or steady-state maintenance
+as of v0.3.1. Before adding more product surface, resume the small remaining repository governance
+queue above (PyPI publish decision, optional CHANGELOG split) — none of it blocks other work.
+GitHub Projects are intentionally not used; execution tracking lives in Linear plus repo-native
+Issues/PRs/labels/milestones.
 
 The documentation-only module boundaries are present. Activating either future module still
 requires one selected end-to-end user flow and a versioned, typed, read-only `KnowledgeGateway`
