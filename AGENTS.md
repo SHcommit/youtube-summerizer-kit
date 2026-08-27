@@ -102,6 +102,8 @@ benchmarks/            # Maintainer-only post-feature validation scripts
 
 4. **Changelog & Documentation Synchronization**:
    - Every meaningful feature addition, CLI command change, or architectural refactoring MUST update `CHANGELOG.md` under `## [Unreleased]` and synchronize related documentation (`README.md`, `README.ko.md`).
+   - Before opening or merging a PR, run `uv run python scripts/check_docs_sync.py` so README architecture links, rendered architecture PNGs, and the `docs/agent-index.md` CLI command table do not drift.
+   - When editing `assets/architecture/**/*.mmd` or `assets/architecture/**/*.d2`, run `uv run python scripts/render_architecture_assets.py` and commit the regenerated PNGs.
 
 5. **Gitflow Branching & Tag Release Strategy**:
    - Feature development MUST occur on topic branches (`feature/*`).

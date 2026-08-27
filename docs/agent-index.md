@@ -96,12 +96,15 @@ All commands are in `src/chew/cli/main.py`. Each command has both an English nam
 | `obsidian` | `옵시디언` | Index + topic notes with `[[wikilinks]]` |
 | `status` | `상태` | Show run and job progress |
 | `resume` | `이어하기` | Resume interrupted run |
+| `config` | `설정` | Show or initialize `CHEW.md` and profile templates |
 | `doctor` | `진단` | Diagnose runtime installation; prints `→ Install: <cmd>` hints |
 | `serve` | `서버` | Start FastAPI `/health` + `/readiness` server (needs `[server]` extras) |
 | `storage` | `저장소` | Internal file count and usage |
 | `cleanup` | `정리` | Preview or apply retention policy |
+| `delete` | `삭제` | Delete internal data for one run or video after explicit confirmation |
+| `purge` | `완전삭제` | Remove all internal data except exported documents after explicit confirmation |
 | `benchmark` | `벤치마크` | Reference-based quality benchmark; prints each condition/repeat before its live call, and `--short-video` resolves one raw snapshot before comparing Frontier paths |
-| `benchmark-dashboard` | — | Generate `reports/trace_report.md` from OTel spans |
+| `dashboard`, `ui`, `benchmark-dashboard`, `benchmark-ui` | `대시보드` | Generate `reports/trace_report.md` from OTel spans and show the Jaeger URL |
 
 ---
 
@@ -250,6 +253,8 @@ first; it links to the above rather than repeating them.
 | `scripts/report_job_measurements.py` | Read-only SQLite run profiler for provider usage, request shape, repairs, and retries |
 | `scripts/check_release_consistency.py` | Release guard that verifies `pyproject.toml`, release branch/tag, and `CHANGELOG.md` version headings agree before publishing |
 | `scripts/check_architecture.py` | CI guard for high-risk architecture boundaries: core isolation, interface adapter access, and dependency-free agent contracts/policy/ports |
+| `scripts/check_docs_sync.py` | PR Governance guard for README architecture links, rendered architecture PNG presence, and `docs/agent-index.md` CLI command drift |
+| `scripts/render_architecture_assets.py` | Maintainer command that regenerates PNGs from `assets/architecture/**/*.mmd` and `assets/architecture/**/*.d2` sources using `mmdc`/`d2` |
 | `scripts/pr_metadata_labels.py` | PR metadata label helper that maps title/branch prefixes to lightweight `kind:*`, `area:*`, `knowledge:*`, and `status:needs-triage` labels |
 | `docs/decisions/local-llm-runtime.md` | Product decision: local LLM/Ollama is optional, with adoption criteria |
 | `docs/decisions/README.md` | ADR index and criteria for adding architecture or operating decisions |
@@ -283,5 +288,6 @@ first; it links to the above rather than repeating them.
 | SQLite state change | Update state machine section in this doc (§7) |
 | Release preparation | Align `pyproject.toml`, `release/vX.Y.Z`, `CHANGELOG.md`, tag, and GitHub Release; run `uv run python scripts/check_release_consistency.py --tag vX.Y.Z` before tagging |
 | Architecture boundary rule | Update `scripts/check_architecture.py` and `tests/test_architecture_boundaries.py`, then document the rule in this index and `AGENTS.md` if it changes agent behavior |
+| README or architecture diagram change | Run `uv run python scripts/check_docs_sync.py`; when changing `.mmd`/`.d2` sources, also run `uv run python scripts/render_architecture_assets.py` and commit regenerated PNGs |
 | PR metadata label rule | Update `scripts/pr_metadata_labels.py`, `tests/test_pr_metadata_labels.py`, and `.github/workflows/labeler.yml` |
 | GitHub Release note categories | Update `.github/release.yml` when adding label families that should affect generated release notes |

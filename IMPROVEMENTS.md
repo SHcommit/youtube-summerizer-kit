@@ -32,8 +32,8 @@ Engineering OS로 발전시키기 위한 원본 평가와 운영 원칙을 보�
 
 - 버전·태그·릴리스 작업 전: `Release Version Policy`, `Tooling Decision`을 확인한다.
 - `CHANGELOG.md`나 GitHub Release 작업 전: `CHANGELOG Policy`를 확인한다.
-- 라벨·브랜치·PR·Issue·Project 작업 전: 각각 `Label Policy`, `Branch Policy`, `PR Policy`,
-  `Issue and Project Policy`를 확인한다.
+- 라벨·브랜치·PR·Issue 작업 전: 각각 `Label Policy`, `Branch Policy`, `PR Policy`,
+  `Issue and Work Tracking Policy`를 확인한다.
 - prompt, model, harness, benchmark, runtime 관련 작업 전: `AI Project Policy`를 확인한다.
 - 자동화 추가 전: `Context`, `Tooling Decision`, `Consequences`를 확인해 현재 규모에서 ROI가 맞는지
   다시 판단한다.
@@ -139,7 +139,7 @@ PR release note, ADR, benchmark report와 책임을 나누어야 한다.
 
 - [x] `docs/wiki/release-playbook.md`가 `[Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` 이동 절차를
   문서화한다 (release-playbook.md 3, 4단계).
-- [x] `docs/agent-index.md`가 changelog, ADR, benchmark, wiki, project의 역할 차이를 설명한다 (§9
+- [x] `docs/agent-index.md`가 changelog, ADR, benchmark, wiki, repo metadata, Linear의 역할 차이를 설명한다 (§9
   "Role separation" 문단).
 - [x] `.github/release.yml`이 GitHub generated release notes를 user-facing, fixes, architecture/runtime,
   performance/benchmark, release/CI/governance, docs 섹션으로 분류한다.
@@ -161,13 +161,13 @@ ADR index와 release playbook은 도입되었다. 남은 작업은 새 decision/
 
 - 장기 지식은 `CHANGELOG.md`가 아니라 ADR/wiki/report 중 맞는 위치에 저장된다.
 
-## 7. 보류: `intent-analysis` 자연어 요청 분석
+## 6. 보류: `intent-analysis` 자연어 요청 분석
 
 `intent-analysis`는 `IntentParser`를 통해 자연어 Message를 허용된 Intent, Clarification, Unsupported 중 하나로만 해석한다. 기본 경로는 결정적 URL·옵션 추출과 고신뢰 패턴이며, 이후 opt-in local adapter는 schema-validated intent 후보만 반환할 수 있다. 입력 해석기는 YouTube 접근, 브라우저·쿠키·Keychain 접근, 파일 삭제, 도구 실행, 또는 Frontier 요약·판단을 수행하지 않는다. 데이터 변경 명령은 자연어 해석 후에도 명시적 확인이 필요하다.
 
 이 항목은 현재 구현하지 않는다. 먼저 첫 user flow와 capability catalog를 확정해야 한다.
 
-## 8. 보류: `research-engine`와 Grounded Knowledge Tree Agent runtime
+## 7. 보류: `research-engine`와 Grounded Knowledge Tree Agent runtime
 
 기본 control-plane 계약은 구현되었다. `agents`의 immutable budget·tool grant·request/result과 승인 전
 tool 실행을 차단하는 policy, 그리고 `interfaces`의 protocol-neutral presenter는 `CHANGELOG.md`에 기록한다.
