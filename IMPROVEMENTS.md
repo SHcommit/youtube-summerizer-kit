@@ -122,24 +122,7 @@ GitHub prefix labels, file-based `area:*` labeler, PR title/branch 기반 metada
   `issues: write`/`pull-requests: read`를 `pull-requests: write` 하나로 교체해 수정함(PR #18).
 - 자동화되지 않은 priority/final impact는 maintainer triage로 남긴다.
 
-## 4. P1: Project 운영 자동화
-
-YAML Issue Forms는 도입되었고, 기존 open issue #1-#3는 라벨과 `youtube-summarizer-kit Engineering`
-Project에 편입되었다. 새 issue/PR 자동 편입 workflow도 도입되었지만, 사용자 Project 쓰기 권한을 가진
-`PROJECTS_TOKEN`이 설정되어야 실제로 동작한다.
-
-### 작업
-
-- 기본 status는 `Inbox`, `Ready`, `Doing`, `Review`, `Benchmark`, `Release`, `Done`으로 둔다.
-- `PROJECTS_TOKEN`을 설정할지, 수동 Project triage를 유지할지 결정한다.
-
-### Acceptance gates
-
-- `PROJECTS_TOKEN`이 있으면 새 issue/PR이 Project에 자동 편입된다.
-- `PROJECTS_TOKEN`이 없으면 workflow가 실패하지 않고 수동 triage로 남는다.
-- Project가 roadmap 문서의 중복물이 아니라 현재 실행 상태만 보여준다.
-
-## 5. P1: CHANGELOG 역할 축소와 Release Note 연결
+## 4. P1: CHANGELOG 역할 축소와 Release Note 연결
 
 `CHANGELOG.md`는 유지하되 내부 작업 일지를 모두 담는 문서가 되면 안 된다. GitHub Release generated notes,
 PR release note, ADR, benchmark report와 책임을 나누어야 한다.
@@ -148,8 +131,8 @@ PR release note, ADR, benchmark report와 책임을 나누어야 한다.
 
 - `CHANGELOG.md`는 사용자·운영자가 알아야 할 완료 변경만 기록한다.
 - PR template의 `Release Note` 필드를 GitHub Release 초안의 근거로 사용한다.
-- 내부 결정은 `docs/decisions/`, 성능 근거는 `reports/BENCHMARK.md`, 현재 진행 상태는 Project와
-  `handoff.md`로 분리한다.
+- 내부 결정은 `docs/decisions/`, 성능 근거는 `reports/BENCHMARK.md`, 현재 repo 실행 상태는
+  `handoff.md`로 분리한다. GitHub Projects는 사용하지 않는다.
 - release PR에서 `[Unreleased]` 내용을 `## [X.Y.Z] - YYYY-MM-DD`로 이동하는 절차를 문서화한다.
 
 ### Acceptance gates
@@ -164,7 +147,7 @@ PR release note, ADR, benchmark report와 책임을 나누어야 한다.
   때 실제로 검증한다.
 - [ ] GitHub Release 본문에 curated summary가 추가되는지 확인한다 — 다음 release 때 실제로 검증한다.
 
-## 6. P2: Engineering Knowledge Management 유지
+## 5. P2: Engineering Knowledge Management 유지
 
 ADR index와 release playbook은 도입되었다. 남은 작업은 새 decision/report가 생길 때
 `docs/agent-index.md`를 계속 갱신하는 것이다.

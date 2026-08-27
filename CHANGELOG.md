@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pull-requests: read`, which cannot add labels; GitHub returned `Resource not accessible by
   integration (addLabelsToLabelable)`. Changed to `pull-requests: write`.
 
+### Removed
+- **GitHub Project automation**: removes the optional Project triage workflow because active
+  execution tracking is handled in Linear.
+
 ## [0.3.0] - 2026-08-26
 
 ### Added
@@ -36,15 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PR metadata labeling**: extends the Auto Labeler workflow so PR title and branch prefixes add
   lightweight `kind:*`, `area:*`, `knowledge:*`, and `status:needs-triage` labels in addition to
   file-based area labels.
-- **Optional Project triage**: adds a Project auto-add workflow that uses `PROJECTS_TOKEN` when
-  configured and otherwise leaves Project triage manual without failing CI.
 - **Required status checks**: connects CI and PR Governance as required checks on `develop` and
   `master`, and Release Consistency as a required check on `master`, via two new repository
   rulesets (`require-ci-status`, `require-release-consistency`). `release/*` is intentionally
   excluded until its workflows also trigger on PRs targeting release branches.
 - **Docs role separation**: `docs/agent-index.md` §9 now explains what belongs in `CHANGELOG.md`,
-  ADR (`docs/decisions/`), benchmark reports, `docs/wiki/`, and the GitHub Project board, so status
-  isn't duplicated across them.
+  ADR (`docs/decisions/`), benchmark reports, `docs/wiki/`, repo-native Issues/PR metadata, and
+  external Linear tracking, so status isn't duplicated across them.
 
 ## [0.2.0] - 2026-08-26
 

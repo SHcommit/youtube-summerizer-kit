@@ -232,11 +232,10 @@ Rate limiting: `note_rate_limit()` halves `current_limit`; 10 consecutive succes
 user-facing behavior by version. `docs/decisions/` (ADR) records *why* an architecture or operating
 choice was made, for decisions that outlive a single release. `reports/BENCHMARK.md` and
 `reports/performance-comparisons/` hold performance evidence, not narrative history. `docs/wiki/`
-holds durable operational decisions and reproducible external-service failures. The GitHub Project
-(`youtube-summarizer-kit Engineering`) shows only current execution state (open issues/PRs and their
-status column) — it is not a roadmap and must not duplicate `PRODUCT_ROADMAP.md` or `IMPROVEMENTS.md`
-content. `handoff.md` is the short pointer a new agent reads first; it links to the above rather than
-repeating them.
+holds durable operational decisions and reproducible external-service failures. GitHub Issues,
+labels, milestones, PR links, and external Linear tracking carry execution state. GitHub Projects are
+not part of this repository governance model. `handoff.md` is the short pointer a new agent reads
+first; it links to the above rather than repeating them.
 
 | File | What it contains |
 |---|---|
@@ -285,5 +284,4 @@ repeating them.
 | Release preparation | Align `pyproject.toml`, `release/vX.Y.Z`, `CHANGELOG.md`, tag, and GitHub Release; run `uv run python scripts/check_release_consistency.py --tag vX.Y.Z` before tagging |
 | Architecture boundary rule | Update `scripts/check_architecture.py` and `tests/test_architecture_boundaries.py`, then document the rule in this index and `AGENTS.md` if it changes agent behavior |
 | PR metadata label rule | Update `scripts/pr_metadata_labels.py`, `tests/test_pr_metadata_labels.py`, and `.github/workflows/labeler.yml` |
-| Project automation | Keep `.github/workflows/project-triage.yml` optional unless `PROJECTS_TOKEN` is configured for user Project writes |
 | GitHub Release note categories | Update `.github/release.yml` when adding label families that should affect generated release notes |
