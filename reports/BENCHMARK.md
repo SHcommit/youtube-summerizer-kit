@@ -8,11 +8,16 @@
 
 새로운 릴리스 태그(`v*.*.*`)를 배포하거나 주요 성능 개선을 반영할 때마다, 기준 영상(`https://www.youtube.com/watch?v=NAumQObJEwM`, 약 25분)으로 측정한 최신 최고 성능 수치를 본 표에 기록합니다.
 
-| 릴리스 태그 | 커밋 해시 | 측정 기준 비디오 | 총 소요 시간 | 생성 태스크 수 | 동시성 제한 | 비고 / 주요 변경 사항 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`v0.1.0-alpha`** | [`2740d68`](https://github.com/SHcommit/youtube-summerizer-kit/commit/2740d68) | `NAumQObJEwM` (25분) | **30분 00초+** | 61개 | `concurrency=2` | Baseline (비최적화 초기 버전) |
-| **`v0.1.0-beta`** | [`b250492`](https://github.com/SHcommit/youtube-summerizer-kit/commit/b250492) | `NAumQObJEwM` (25분) | **1분 50초** | 11개 | `concurrency=8` | 동적 챕터 병합 + 동시성 8 향상 |
-| **`v0.1.0` (최신)** | [`bad0e62`](https://github.com/SHcommit/youtube-summerizer-kit/commit/bad0e62) | `NAumQObJEwM` (25분) | **1분 50초** | 11개 | `concurrency=8` | `chew` 패키지 리팩터링 및 요약 강도(`--depth`) 지원 |
+| 릴리스 태그 | 커밋 해시 | 컴파일러 전략 | 측정 기준 비디오 | 총 소요 시간 | 생성 태스크 수 | 동시성 제한 | 비고 / 주요 변경 사항 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`v0.1.0-alpha`** | [`2740d68`](https://github.com/SHcommit/youtube-summerizer-kit/commit/2740d68) | hierarchical | `NAumQObJEwM` (25분) | **30분 00초+** | 61개 | `concurrency=2` | Baseline (비최적화 초기 버전) |
+| **`v0.1.0-beta`** | [`b250492`](https://github.com/SHcommit/youtube-summerizer-kit/commit/b250492) | hierarchical | `NAumQObJEwM` (25분) | **1분 50초** | 11개 | `concurrency=8` | 동적 챕터 병합 + 동시성 8 향상 |
+| **`v0.1.0`** | [`bad0e62`](https://github.com/SHcommit/youtube-summerizer-kit/commit/bad0e62) | hierarchical | `NAumQObJEwM` (25분) | **1분 50초** | 11개 | `concurrency=8` | `chew` 패키지 리팩터링 및 요약 강도(`--depth`) 지원 |
+| **`v0.2.0`** | [`1c12e57`](https://github.com/SHcommit/youtube-summerizer-kit/commit/1c12e57) | **gkt** | — | *미측정* | — | — | 기본 실행 경로가 hierarchical에서 GKT(`Input Compile → Frontier Generate → Evidence Ground → Tree Assemble → Knowledge Pack`)로 전환됨. `handoff.md`의 Active Constraints에 따라 end-to-end Frontier live benchmark를 실행·보존하지 않는 정책이라 이 시점 이후 갱신 수치가 없음. |
+| **`v0.3.0`** | [`95e3019`](https://github.com/SHcommit/youtube-summerizer-kit/commit/95e3019) | gkt | — | *미측정* | — | — | 저장소 거버넌스/CI 도구만 포함, `src/chew` 파이프라인 코드는 v0.2.0과 동일 |
+| **`v0.3.1`** (최신) | [`4d505d1`](https://github.com/SHcommit/youtube-summerizer-kit/commit/4d505d1) | gkt | — | *미측정* | — | — | 저장소 거버넌스 후속 정리, 파이프라인 코드 변경 없음 |
+
+> **알려진 공백:** v0.1.0 이후 실제 소요시간 측정이 갱신되지 않았습니다. GKT 도입(v0.2.0)이 성능에 어떤 영향을 줬는지 이 표만으로는 알 수 없습니다. 정책상 end-to-end Frontier live benchmark를 CI/기본 검증에 포함하지 않기 때문에(비용·provider 변동성·재현성 문제), 이 수치는 유지보수자가 수동으로 `time uv run --extra youtube chew '<기준 영상 URL>'`을 실행해 채워야 합니다.
 
 ### 1.1 자막 전처리 비교 리포트
 

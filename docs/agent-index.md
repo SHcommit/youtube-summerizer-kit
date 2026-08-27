@@ -44,7 +44,8 @@ The codebase follows Ports & Adapters (Hexagonal) architecture. Layers may only 
 | Question | File |
 |---|---|
 | How does URL normalization / source identity work? | `src/chew/core/identity.py` |
-| What fields does a Knowledge Pack have? | `src/chew/core/models.py` — `KnowledgePack` (`completion_status`, missing ranges, runtime/model provenance, grounded-tree fingerprint) |
+| What fields does a Knowledge Pack have? | `src/chew/core/models.py` — `KnowledgePack` (`completion_status`, missing ranges, runtime/model provenance, grounded-tree fingerprint, `manifest_hash`) |
+| How do I trace a run's code/prompt/schema/model provenance? | `src/chew/pipeline/provenance.py` — `build_run_manifest()` builds a `RunManifest` (`core/models.py`), stored via `ArtifactStore` and linked from `KnowledgePack.manifest_hash` / `runs.manifest_hash` |
 | How are sensitive operational fields redacted? | `src/chew/core/redaction.py` |
 | How are jobs scheduled and retried? | `src/chew/pipeline/scheduler.py` |
 | How are run traces isolated? | `src/chew/telemetry.py`, `src/chew/app/bootstrap.py` — injected manager with `ContextVar` collectors |
@@ -149,6 +150,25 @@ class GenerationResult:
 model request. Legacy strict schemas for `output_outline`, `output_compose`, and `output_verify`
 remain only for compatibility and are not part of the default output path.
 
+### `RunManifest` (`core/models.py` via `domain.py`, built by `pipeline/provenance.py`)
+
+A read-only per-run provenance snapshot, built once per GKT run in `pipeline/engine.py` right
+before `KnowledgePackProjector().project(...)` and stored via `ArtifactStore.put_json()`:
+
+```python
+class RunManifest(FrozenModel):
+    run_id: str
+    software: SoftwareProvenance    # package_version, git_sha, python_version, lock_digest (best-effort, "unknown" fallback)
+    compiler: CompilerProvenance    # strategy ("gkt"), compiler_version ("gkt-v1")
+    prompt: PromptProvenance        # bundle_id ("knowledge-extract/v1"), content_hash (GKT_PROMPT_FINGERPRINT)
+    pack_schema: KnowledgeTreeSchemaProvenance  # fingerprint of KnowledgeTreeDraft.model_json_schema()
+    execution: ExecutionProvenance  # policy_version, policy_fingerprint, runtime, model
+    inputs: InputProvenance         # raw_transcript_fingerprint, prepared_transcript_fingerprint
+```
+
+Contains only versions, strategy names, and content fingerprints — never API keys, raw user
+input, or endpoint details. See [`ADR-003`](decisions/0003-run-manifest-provenance.md).
+
 The maintainer preprocessing catalog (`benchmarks/videos.lock.json`) is parsed as `BenchmarkVideo`.
 Every entry requires a stable key, YouTube ID, title, caption `language`, and verified duration;
 measurement runners request the entry-specific language rather than applying a catalog-wide default.
@@ -207,7 +227,7 @@ pending → claimed → completed
 blocked_auth      (authentication failure — resumable after login)
 ```
 
-Key tables: `runs`, `jobs`, `job_measurements`, `artifacts`, `runtime_limits`. `runs.execution_plan_json` stores the policy snapshot; `job_measurements.details_json` includes the policy fingerprint when a plan is present.
+Key tables: `runs`, `jobs`, `job_measurements`, `artifacts`, `runtime_limits`. `runs.execution_plan_json` stores the policy snapshot; `job_measurements.details_json` includes the policy fingerprint when a plan is present. `runs.manifest_hash` (schema v9+) points to the run's `RunManifest` artifact — see §6.
 
 `job_measurements` stores every generation attempt for a durable job, including repairs. For Ollama it records provider-reported input/output counts and available duration fields, plus request input/schema sizes and repair/retry flags. It does not infer provider billing.
 
@@ -291,3 +311,4 @@ first; it links to the above rather than repeating them.
 | README or architecture diagram change | Run `uv run python scripts/check_docs_sync.py`; when changing `.mmd`/`.d2` sources, also run `uv run python scripts/render_architecture_assets.py` and commit regenerated PNGs |
 | PR metadata label rule | Update `scripts/pr_metadata_labels.py`, `tests/test_pr_metadata_labels.py`, and `.github/workflows/labeler.yml` |
 | GitHub Release note categories | Update `.github/release.yml` when adding label families that should affect generated release notes |
+| Documentation lifecycle rule change | Update `scripts/check_handoff_sync.py` (and `tests/test_handoff_sync.py`) if what counts as a "handoff.md must be touched" trigger changes; it currently fires only when `CHANGELOG.md`'s `[Unreleased]` section changes |

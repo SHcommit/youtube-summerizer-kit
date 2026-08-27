@@ -72,6 +72,18 @@ def test_initialize_migrates_pre_versioned_database(tmp_path: Path) -> None:
     assert database.schema_version() == Database.SCHEMA_VERSION
     assert database.find_reusable_run("youtube:new", "request") is None
     assert database.get_run_source_locator("new") is None
+    assert database.get_run_manifest("new") is None
+
+
+def test_set_run_pack_records_manifest_hash(tmp_path: Path) -> None:
+    database = Database(tmp_path / "state.db")
+    database.initialize()
+    database.create_run("run-1", "youtube:abcDEF_1234", "analysis-v1")
+
+    database.set_run_pack("run-1", "pack-hash", manifest_hash="manifest-hash")
+
+    assert database.get_run_pack("run-1") == "pack-hash"
+    assert database.get_run_manifest("run-1") == "manifest-hash"
 
 
 def test_run_preserves_source_locator_for_local_media_resume(tmp_path: Path) -> None:

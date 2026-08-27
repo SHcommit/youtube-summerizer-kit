@@ -11,6 +11,7 @@ engineering practice.
 |---|---|
 | [`local-llm-runtime.md`](local-llm-runtime.md) | Local LLM/Ollama remains optional and bounded to input cleanup. |
 | [`0002-repository-governance.md`](0002-repository-governance.md) | Repository governance, release consistency, CHANGELOG scope, labels, PR/issue flow, and right-sized automation. |
+| [`0003-run-manifest-provenance.md`](0003-run-manifest-provenance.md) | `RunManifest` v1 as the per-run code/prompt/schema/model provenance snapshot. |
 
 ## When to Add an ADR
 

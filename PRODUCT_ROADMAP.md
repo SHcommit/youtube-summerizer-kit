@@ -25,6 +25,7 @@ spec으로 다시 검토한다.
 | MCP server | Agent가 분석과 재조립 결과를 tool로 사용 | public API, 권한, 실행 격리 설계 확정 | Deferred |
 | REST API and automation | n8n, Zapier, Make 등 자동화 연결 | API 인증, rate limit, 장기 job 운영 모델 확정 | Deferred |
 | Scoped DI container | MCP/server/session의 app·run·action 수명과 resource cleanup을 일관되게 관리 | 수동 `ApplicationContainer`로 telemetry injection을 정리하고, 실제 다중 request/session lifecycle이 활성화될 것 | Deferred |
+| `chew diagnostics export --run <run_id>` | 사용자가 이슈를 리포트할 때 재현에 필요한 정보(`RunManifest`, redacted config, execution plan, checkpoint 요약, runtime/model, 에러 종류, artifact hash 목록)를 민감정보 제거된 zip/JSON 하나로 제공 | 실제 사용자 이슈 리포트 사례 발생(재료는 이미 있음 — `RunManifest`(ADR-003), `compiler_checkpoints` 테이블) | Deferred |
 
 ## Reconsideration Rules
 

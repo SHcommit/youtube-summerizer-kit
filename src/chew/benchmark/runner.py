@@ -354,6 +354,7 @@ def live_benchmark_spec(
     from chew.harness.gemini import GeminiHarness
     from chew.harness.registry import default_registry
     from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
+    from chew.pipeline.provenance import benchmark_metadata
     from chew.storage.artifacts import ArtifactStore
     from chew.storage.database import Database
     from chew.transcripts import TranscriptService, default_providers
@@ -446,6 +447,7 @@ def live_benchmark_spec(
                     "runtime": selected.runtime_id,
                     "model": ",".join(result.models) or "default",
                     "prompt_fingerprint": PROMPT_FINGERPRINT,
+                    **benchmark_metadata("legacy_hierarchical"),
                 },
             )
 
@@ -492,11 +494,12 @@ async def short_video_benchmark_spec(
 
     from chew.core.identity import normalize_youtube_url
     from chew.core.models import GenerationRequest
-    from chew.core.prompts import PROMPT_FINGERPRINT
+    from chew.core.prompts import GKT_PROMPT_FINGERPRINT, PROMPT_FINGERPRINT
     from chew.harness.base import Harness
     from chew.harness.builtin import request_prompt
     from chew.harness.registry import default_registry
     from chew.pipeline.engine import AnalysisConfig, AnalysisPipeline
+    from chew.pipeline.provenance import benchmark_metadata
     from chew.storage.artifacts import ArtifactStore
     from chew.storage.database import Database
     from chew.transcripts import TranscriptService, default_providers
@@ -609,6 +612,7 @@ async def short_video_benchmark_spec(
                     "model": ",".join(result.models) or "default",
                     "prompt_fingerprint": PROMPT_FINGERPRINT,
                     "comparison": "same_frontier_transcript",
+                    **benchmark_metadata("legacy_hierarchical"),
                 },
             )
 
@@ -685,9 +689,10 @@ async def short_video_benchmark_spec(
                 {
                     "runtime": selected.runtime_id,
                     "model": ",".join(result.models) or "default",
-                    "prompt_fingerprint": "gkt-v1",
+                    "prompt_fingerprint": GKT_PROMPT_FINGERPRINT,
                     "comparison": "same_frontier_transcript",
                     "strategy": "gkt_deterministic",
+                    **benchmark_metadata("gkt"),
                 },
             )
 

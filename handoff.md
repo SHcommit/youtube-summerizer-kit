@@ -7,15 +7,19 @@
 
 - Released: `v0.3.1` is tagged on `master` and the GitHub Release is live with a curated summary:
   https://github.com/SHcommit/youtube-summerizer-kit/releases/tag/v0.3.1
-- `master` and `develop` are in sync.
+- Open PR: [#25](https://github.com/SHcommit/youtube-summerizer-kit/pull/25)
+  `feat/engineering-knowledge` → `develop` (RunManifest v1, GKT docs truth pass, prompt bundle ID,
+  benchmark provenance metadata, handoff.md sync guard — see `CHANGELOG.md` `[Unreleased]` for the
+  full list). Not yet merged; re-push required checks after the latest commit.
 - PyPI publish remains intentionally skipped — no `PYPI_API_TOKEN` secret is configured. GitHub
   Release download is the current distribution channel.
-- Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md) — currently empty; the repository-governance
-  P0/P1/P2 queue is complete or steady-state as of v0.3.1.
+- Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md) — currently empty.
 - Completed history: [`CHANGELOG.md`](CHANGELOG.md)
-- Deferred product work (including `intent-analysis` and `research-engine`/agent-runtime
-  activation preconditions): [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
-- Architecture decisions: [`interface and agent boundaries`](docs/superpowers/specs/2026-08-26-interface-and-agent-boundaries-design.md), [`Grounded Knowledge Compiler modules`](docs/superpowers/specs/2026-08-26-grounded-knowledge-compiler-modules-design.md)
+- Deferred product work (including `intent-analysis`/`research-engine` activation preconditions
+  and `chew diagnostics export`): [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
+- Architecture decisions: [`local LLM runtime`](docs/decisions/local-llm-runtime.md),
+  [`repository governance`](docs/decisions/0002-repository-governance.md),
+  [`RunManifest provenance`](docs/decisions/0003-run-manifest-provenance.md)
 
 ## Current Architecture Decision
 
@@ -35,11 +39,18 @@
 
 ## Next Decision
 
-No active release in flight and no open `IMPROVEMENTS.md` items. Before adding more product
-surface, activating `intent-analysis` or `research-engine` requires one selected end-to-end user
-flow and a versioned, typed, read-only `KnowledgeGateway` first — see the preconditions in
-`PRODUCT_ROADMAP.md`. GitHub Projects are intentionally not used; execution tracking lives in
-Linear plus repo-native Issues/PRs/labels/milestones.
+Merge PR #25 (or request changes) — all required checks pass. After that, no active release is in
+flight and `IMPROVEMENTS.md` has no open items. GitHub Projects are intentionally not used;
+execution tracking lives in Linear plus repo-native Issues/PRs/labels/milestones.
+
+Before adding more product surface, activating `intent-analysis` or `research-engine` requires one
+selected end-to-end user flow and a versioned, typed, read-only `KnowledgeGateway` from
+`research-engine` to `chew` — see the preconditions in `PRODUCT_ROADMAP.md`. Do not add
+ApplicationService agent tools, LangGraph, MCP, HTTP endpoints, web UI code, model dependencies, or
+a public package automatically.
+
+Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only conclusion is in
+`reports/performance-comparisons/transcript-preprocessing/latest.md`.
 
 ## Active Constraints
 
@@ -55,9 +66,7 @@ Linear plus repo-native Issues/PRs/labels/milestones.
 
 ## Verification and Working Tree
 
-- v0.3.1 released: no `src/chew` package/CLI behavior change this cycle — docs and CI tooling only.
-- Latest full verification (v0.3.1, `release/v0.3.1`): `337 passed, 2 skipped`, Ruff clean, mypy
-  clean (86 source files). No live provider or Frontier benchmark ran.
-- This session's changes since v0.3.1 are documentation-only (`IMPROVEMENTS.md`,
-  `PRODUCT_ROADMAP.md`, `handoff.md`, `docs/agent-index.md`); re-verify with
-  `uv run python scripts/check_docs_sync.py` before merging.
+- `feat/engineering-knowledge` (PR #25): `356 passed, 2 skipped`, Ruff clean, mypy clean (87
+  source files), plus `scripts/check_architecture.py`, `scripts/check_docs_sync.py`,
+  `scripts/check_release_consistency.py`, and the new `scripts/check_handoff_sync.py` all passing.
+  No live provider or Frontier benchmark ran.

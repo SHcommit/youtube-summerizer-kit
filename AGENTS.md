@@ -15,12 +15,23 @@ src/chew/
 │   ├── identity.py    (YouTube URL & local media normalization, SHA-256 fingerprinting)
 │   └── prompts.py     (Core system prompt templates)
 │
-├── pipeline/          # Layer 2: Analysis Engine & Output Compiler
-│   ├── segmentation.py (Adaptive topic & chapter transcript segmentation)
-│   ├── scheduler.py    (Async DAG task scheduler & lease execution)
-│   ├── engine.py       (Hierarchical topic → chapter → Knowledge Pack synthesis)
-│   ├── knowledge.py    (Knowledge Pack formatting)
-│   └── outputs.py      (Digest, blog, study notes, & obsidian vault compilation)
+├── pipeline/          # Layer 2: Grounded Knowledge Compiler (GKT) & Output Compiler
+│   ├── input_compiler.py (Deterministic, reversible transcript preparation for Frontier extraction)
+│   ├── preprocessing.py  (Optional, local, non-LLM transcript preprocessing strategies)
+│   ├── segmentation.py   (Chapter-first deterministic transcript segmentation)
+│   ├── annotation.py     (Bounded local cleanup annotations; fail-closed validation)
+│   ├── extraction.py     (Strict, bounded Frontier extraction of untrusted knowledge tree drafts)
+│   ├── evidence.py       (Deterministic validation of model-proposed transcript citations)
+│   ├── tree.py           (Grounding, assembly, & compatibility projection of knowledge trees)
+│   ├── knowledge.py      (Canonical reusable Knowledge Pack construction)
+│   ├── outputs.py        (Digest, blog, study notes, & obsidian vault compilation)
+│   ├── scheduler.py      (Dependency-aware bounded async job scheduler)
+│   ├── policy.py         (Pure Frontier-first runtime policy compilation)
+│   └── engine.py         (GKT orchestration: Input Compile → Frontier Generate → Evidence
+│                          Ground → Tree Assemble → Knowledge Pack. This is the only runtime
+│                          analysis path; the legacy hierarchical topic/chapter flow survives
+│                          only as a comparison condition in `benchmark/runner.py`, not as a
+│                          live execution path. See `docs/wiki/Current-System.md`.)
 │
 ├── storage/           # Layer 3: Persistence Adapters
 │   ├── database.py    (SQLite WAL state machine & worker claims)

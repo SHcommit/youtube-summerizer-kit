@@ -8,11 +8,16 @@
 - [ ] No architecture boundary change
 - [ ] Updates core/pipeline/app/harness/transcripts/interfaces boundaries
 - [ ] ADR or `docs/agent-index.md` update included
+- ADR / Decision: <!-- link docs/decisions/000X-....md, or "None" -->
 
 ## AI / Runtime Impact
 - [ ] No prompt/schema/model/harness behavior change
 - [ ] Prompt/schema/model/runtime behavior changed
 - [ ] Evaluation or benchmark result linked below
+- If a prompt bundle version changed (see `docs/decisions/0003-run-manifest-provenance.md`):
+  - [ ] behavior-preserving (wording/format only)
+  - [ ] behavior-changing (quality or output shape)
+  - [ ] migration-required (existing Knowledge Packs need reprocessing)
 
 ## Verification
 - [ ] `uv run --extra dev pytest`

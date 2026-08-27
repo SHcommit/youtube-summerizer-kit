@@ -407,7 +407,7 @@ compiler는 configured Frontier runtime으로 추론하고, evidence span과 tim
 ```
 src/chew/
 ├── core/         # Layer 1: 도메인 엔티티, SHA-256 식별자, 프롬프트
-├── pipeline/     # Layer 2: 계층적 분석 파이프라인, DAG 스케줄러, 출력 생성기
+├── pipeline/     # Layer 2: 근거 기반 지식 컴파일러(GKT), DAG 스케줄러, 출력 생성기
 ├── storage/      # Layer 3: SQLite WAL 상태 머신 및 zstd 아티팩트 저장소
 ├── harness/      # Layer 4: AI 런타임 연결 어댑터 (Codex, Gemini, Claude, Ollama, Antigravity)
 ├── transcripts/  # Layer 5: 자막 수집 및 음성 인식 어댑터 (YouTube API, yt-dlp, Whisper)
@@ -424,11 +424,11 @@ src/chew/
 | `segmentation.py` | 챕터 우선·시간 기반 소주제 분할 |
 | `scheduler.py` | 의존성 DAG, 병렬 실행, lease, heartbeat, 재시도 |
 | `harness/` | 외부 AI CLI 탐색, 인증 진단, 구조화 출력 변환 |
-| `pipeline.py` | 소주제 → 챕터 → Knowledge Pack 계층형 합성 |
+| `pipeline.py` | GKT 컴파일러: Input Compile → Frontier Generate → Evidence Ground → Tree Assemble → Knowledge Pack |
 | `outputs.py` | digest·blog·study·Obsidian 재조립과 출력 캐시 |
 | `storage/` | SQLite 상태 저장과 content-addressed artifact 저장 |
 | `retention.py` | 미리보기 기반 보존·삭제 정책 |
-| `benchmark.py` | Gemini 직접 분석과 계층형 파이프라인 비교 |
+| `benchmark.py` | Gemini 직접 분석·구 계층형 흐름·GKT 비교 |
 
 핵심 파이프라인은 특정 업체 SDK나 계정 파일을 알지 못합니다. 모든 AI 요청은 `GenerationRequest → Harness → GenerationResult` 계약을 통과하므로 새 실행기를 추가할 때 파이프라인을 수정하지 않고 어댑터만 구현할 수 있습니다.
 

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+import chew
 from chew.benchmark import (
     BenchmarkCondition,
     BenchmarkObservation,
@@ -28,6 +29,7 @@ from chew.core.models import (
     Transcript,
     TranscriptSegment,
 )
+from chew.core.prompts import GKT_PROMPT_BUNDLE_ID, GKT_PROMPT_FINGERPRINT
 from chew.harness.base import HarnessCapabilities, HarnessProbe
 from chew.transcripts.service import TranscriptResolution
 
@@ -351,6 +353,14 @@ async def test_short_video_benchmark_resolves_one_snapshot_for_all_conditions_an
     assert gkt.median_metrics["frontier_call_count"] == 1
     assert gkt.median_metrics["grounding_coverage"] == 1
     assert gkt.median_metrics["ambiguous_anchor_count"] == 0
+    assert gkt.metadata["prompt_fingerprint"] == GKT_PROMPT_FINGERPRINT
+    assert gkt.metadata["compiler_strategy"] == "gkt"
+    assert gkt.metadata["prompt_bundle"] == GKT_PROMPT_BUNDLE_ID
+    assert gkt.metadata["package_version"] == chew.__version__
+
+    hierarchical = next(result for result in report.results if result.condition_id == "frontier-hierarchical")
+    assert hierarchical.metadata["compiler_strategy"] == "legacy_hierarchical"
+    assert "prompt_bundle" not in hierarchical.metadata
 
 
 def test_reference_scoring_penalizes_hallucinations_and_wrong_timestamps() -> None:
