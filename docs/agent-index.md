@@ -311,3 +311,4 @@ first; it links to the above rather than repeating them.
 | README or architecture diagram change | Run `uv run python scripts/check_docs_sync.py`; when changing `.mmd`/`.d2` sources, also run `uv run python scripts/render_architecture_assets.py` and commit regenerated PNGs |
 | PR metadata label rule | Update `scripts/pr_metadata_labels.py`, `tests/test_pr_metadata_labels.py`, and `.github/workflows/labeler.yml` |
 | GitHub Release note categories | Update `.github/release.yml` when adding label families that should affect generated release notes |
+| Documentation lifecycle rule change | Update `scripts/check_handoff_sync.py` (and `tests/test_handoff_sync.py`) if what counts as a "handoff.md must be touched" trigger changes; it currently fires only when `CHANGELOG.md`'s `[Unreleased]` section changes |

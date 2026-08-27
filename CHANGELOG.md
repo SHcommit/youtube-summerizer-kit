@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **handoff.md sync guard**: adds `scripts/check_handoff_sync.py` and wires it into PR Governance
+  so a PR that changes `CHANGELOG.md`'s `[Unreleased]` section must also touch `handoff.md`.
+  `AGENTS.md`'s documentation lifecycle rule already required refreshing `handoff.md` (and trimming
+  completed-history prose) whenever work lands in `CHANGELOG.md`, but nothing enforced it — a
+  multi-item change on this branch left `handoff.md` accumulating a "Done" list across several
+  commits until a manual review caught it. The check cannot judge whether `handoff.md` was trimmed
+  correctly, only that it was touched in the same PR; it is a mechanical proxy for the existing
+  rule, not a replacement for following it.
 - **RunManifest v1**: `pipeline/provenance.py` builds a read-only per-run provenance snapshot
   (package version, git SHA, prompt/schema fingerprints, execution policy, runtime/model) for every
   GKT run, stored as a content-addressed artifact and linked from `KnowledgePack.manifest_hash` and

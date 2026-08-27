@@ -9,8 +9,8 @@
   https://github.com/SHcommit/youtube-summerizer-kit/releases/tag/v0.3.1
 - Open PR: [#25](https://github.com/SHcommit/youtube-summerizer-kit/pull/25)
   `feat/engineering-knowledge` → `develop` (RunManifest v1, GKT docs truth pass, prompt bundle ID,
-  benchmark provenance metadata — see `CHANGELOG.md` `[Unreleased]` for the full list). All
-  required checks pass; not yet merged.
+  benchmark provenance metadata, handoff.md sync guard — see `CHANGELOG.md` `[Unreleased]` for the
+  full list). Not yet merged; re-push required checks after the latest commit.
 - PyPI publish remains intentionally skipped — no `PYPI_API_TOKEN` secret is configured. GitHub
   Release download is the current distribution channel.
 - Active work: [`IMPROVEMENTS.md`](IMPROVEMENTS.md) — currently empty.
@@ -66,7 +66,7 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
-- `feat/engineering-knowledge` (PR #25, commit `d4f60dd`): `351 passed, 2 skipped`, Ruff clean,
-  mypy clean (87 source files), plus `scripts/check_architecture.py`,
-  `scripts/check_docs_sync.py`, and `scripts/check_release_consistency.py` all passing. No live
-  provider or Frontier benchmark ran.
+- `feat/engineering-knowledge` (PR #25): `356 passed, 2 skipped`, Ruff clean, mypy clean (87
+  source files), plus `scripts/check_architecture.py`, `scripts/check_docs_sync.py`,
+  `scripts/check_release_consistency.py`, and the new `scripts/check_handoff_sync.py` all passing.
+  No live provider or Frontier benchmark ran.
