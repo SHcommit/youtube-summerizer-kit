@@ -5,8 +5,10 @@
 
 ## Branch and State
 
-- Released: `v0.3.0` is tagged on `master` (merge commit `95e3019`) and the GitHub Release is live
-  with built wheel/sdist: https://github.com/SHcommit/youtube-summerizer-kit/releases/tag/v0.3.0
+- Released: `v0.3.1` is tagged on `master` (merge commit `4d505d1`) and the GitHub Release is live
+  with built wheel/sdist: https://github.com/SHcommit/youtube-summerizer-kit/releases/tag/v0.3.1
+- `master` was merged back into `develop` right after tagging (PR #21,
+  `chore/sync-master-into-develop-v0.3.1`) so both branches carry the same version/CHANGELOG state.
 - PyPI publish was intentionally skipped — no `PYPI_API_TOKEN` secret is configured yet. `pip
   install youtube-summarizer-kit` does not work until that secret is added and a release re-runs
   (or a new tag is pushed). GitHub Release download is the current distribution channel.
@@ -17,22 +19,18 @@
 
 ## Immediate Repository Governance Priority
 
-- Done: `IMPROVEMENTS.md` §1 fully verified live during the v0.3.0 release — the release PR
-  (`release/v0.3.0` → `master`) triggered `Check release version consistency` for real (head ref
-  started with `release/`) and it passed; required status checks worked on both `develop` and
-  `master`.
-- Found and fixed during this release: `master` carried drift never forward-ported to `develop`
-  after v0.2.0 (`actions/setup-python@v7`, `softprops/action-gh-release@v3` in `cd.yml`/`ci.yml`,
-  and `src/chew/__init__.py.__version__` stuck at a stale value). Merged `master` back into
-  `develop` (branch `chore/sync-master-into-develop`) to close the loop this time. **Going forward,
-  always merge `master` back into `develop` right after a release** — this was skipped for v0.2.0
-  and caused a real merge conflict when preparing v0.3.0.
-- Hardened `scripts/check_release_consistency.py` to also validate `src/chew/__init__.py.__version__`
-  against `pyproject.toml`, with new tests, so this exact drift can't recur silently.
-- Resolved: `IMPROVEMENTS.md` §3's `metadata-label` mystery was not GitHub caching — PR #18 finally
-  ran the job and it failed with `Resource not accessible by integration (addLabelsToLabelable)`.
-  Root cause: the job only declared `pull-requests: read`; label mutations need
-  `pull-requests: write`. Fixed in `.github/workflows/labeler.yml`.
+- Done: v0.3.1 followed the full playbook (`docs/wiki/release-playbook.md`) cleanly —
+  `release/v0.3.1` → `master` (PR #20), tag `v0.3.1` pushed, CD ran `Create GitHub Release`
+  successfully, then `master` → `develop` sync (PR #21). No merge conflicts.
+- Still unresolved despite the earlier "fix": `metadata-label` (`.github/workflows/labeler.yml`
+  `Label PR metadata` job) failed again on PR #20 with the same
+  `Resource not accessible by integration (addLabelsToLabelable)` error, even though the job
+  already declares `pull-requests: write` and `issues: write`. It is **not** a required status
+  check (only `test (3.12)`, `test (3.13)`, `Check PR metadata and stale instructions` are, per the
+  `require-ci-status` ruleset), so it did not block merging, but the underlying cause is still
+  open — likely an org/repo Actions default-permission or `pull_request_target` restriction not
+  visible from the workflow YAML alone. Worth a dedicated investigation before relying on this
+  label automation.
 - Still open, not release-gated:
   - Decide whether to configure `PYPI_API_TOKEN` for PyPI publishing. GitHub Release download is the
     current distribution channel until this is configured.
@@ -59,9 +57,9 @@
 ## Next Decision
 
 No active release in flight. Before adding more product surface, resume the small remaining
-repository governance queue above (PyPI publish decision and optional CHANGELOG split) — none of it
-blocks other work. GitHub Projects are intentionally not used; execution tracking lives in Linear
-plus repo-native Issues/PRs/labels/milestones.
+repository governance queue above (PyPI publish decision, optional CHANGELOG split, and the
+recurring `metadata-label` permission failure) — none of it blocks other work. GitHub Projects are
+intentionally not used; execution tracking lives in Linear plus repo-native Issues/PRs/labels/milestones.
 
 The documentation-only module boundaries are present. Activating either future module still
 requires one selected end-to-end user flow and a versioned, typed, read-only `KnowledgeGateway`
@@ -85,9 +83,10 @@ Transcript preprocessing remains opt-in; its reviewed seven-fixture metrics-only
 
 ## Verification and Working Tree
 
-- v0.3.0 released: `src/chew` package code is unchanged from v0.2.0 in this cycle — the release
-  captured repository governance/CI tooling only (release consistency checks, PR/issue templates,
-  architecture boundary guard, PR metadata labeling, required status checks) plus the master→develop
-  drift fix above.
-- Latest full verification: `333 passed, 2 skipped` (2 new tests for the `__init__.py` version
-  check), Ruff clean, mypy clean. No live provider or Frontier benchmark ran.
+- v0.3.1 released: `src/chew` package code is unchanged from v0.3.0 in this cycle — the release
+  captured docs/CI tooling only (`.github/release.yml` release-note categories,
+  `scripts/check_docs_sync.py` doc-sync guard, the metadata-labeler permission fix in
+  `.github/workflows/labeler.yml`, and removal of the optional GitHub Project workflow). No
+  benchmark-sensitive pipeline/harness/scheduler changes, so `reports/BENCHMARK.md` was not touched.
+- Latest full verification (on `release/v0.3.1` before merge): `337 passed, 2 skipped`, Ruff clean,
+  mypy clean (`86 source files`). No live provider or Frontier benchmark ran.
